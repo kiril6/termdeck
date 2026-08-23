@@ -1,0 +1,11 @@
+node_modules/
+.DS_Store
+*.log
+npm-debug.log*
+
+# Local editor / tooling config
+.claude/
+.vscode/
+
+# Internal working docs — not for the public repo
+docs/internal/
