@@ -26,6 +26,18 @@ npm start          # start the server
 
 There's no linter or test suite yet — verify changes by hand in the browser. If you add tests or CI, keep them lightweight.
 
+## Submitting changes
+
+This repo uses the standard **fork & pull-request** flow — you don't get (and don't need) write access:
+
+1. **Fork** this repo to your own account and clone your fork.
+2. Create a branch: `git checkout -b my-change`.
+3. Make your change, test it in the browser (see the dev loop above), and update `FEATURES.md` if behavior changed.
+4. Push to your fork and **open a pull request** against `kiril6/termdeck`.
+5. The maintainer reviews and merges. Direct pushes to `master` are disabled — all changes land through a reviewed PR.
+
+Keep PRs focused and small where you can; it makes review faster.
+
 ## Reporting bugs
 
 [Open an issue](https://github.com/kiril6/termdeck/issues/new) with your **OS**, **Node version**, and the output of the `/debug` page if shells fail to start.
