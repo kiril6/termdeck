@@ -1,0 +1,45 @@
+name: Bug report
+description: Something isn't working
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What went wrong, and what you expected instead.
+      placeholder: Shells fail to start / a window won't tile / ...
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. npm start
+        2. Open a terminal in project X
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: macOS 15.5 / Windows 11 / Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      description: Output of `node -v`
+      placeholder: v20.11.0
+    validations:
+      required: true
+  - type: textarea
+    id: debug
+    attributes:
+      label: /debug output (if shells fail to start)
+      description: Paste the output from http://localhost:3000/debug
+      render: text
+    validations:
+      required: false
