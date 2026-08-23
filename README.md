@@ -7,6 +7,8 @@
 
 **Juggling a dozen terminal tabs across projects?** This is one screen where every shell is a window you can see, move, tile, and group — and refreshing the browser never kills your session.
 
+**[▶ See it in action](https://kiril6.github.io/termdeck/)** — showcase page with a live demo GIF.
+
 A browser cockpit of floating, draggable terminal windows — each backed by a **real shell (PTY)** on your machine. Open many terminals, tile them, group them into projects, theme them, and reconnect without losing a session. No Electron, no build step: it's an Express server, a WebSocket PTY bridge, and one HTML file.
 
 > Runs entirely on `localhost`. Your shells never leave your machine.
@@ -93,7 +95,7 @@ PORT=4000 npm start
 
 This is a **local-first tool**, not a static site. Its core is a Node process (`server.js`) that opens a WebSocket and spawns real PTYs on the host — so:
 
-- **GitHub Pages / Netlify / any static host won't work.** They serve files, not a Node server. Opened static, the app falls back to *demo* mode (UI only, **zero shells**).
+- **GitHub Pages / Netlify / any static host won't work.** They serve files, not a Node server. Opened static, the app falls back to *demo* mode (UI only, **zero shells**). *(The [showcase page](https://kiril6.github.io/termdeck/) on GitHub Pages is just a landing page — the real app runs locally.)*
 - To run it anywhere but your own machine you need a host that runs **Node + a persistent process + WebSockets** (a VPS, Fly.io, Render, Railway…). Before you do, read **[Security](#security)** — exposing it puts an unauthenticated shell on the network.
 
 The intended deployment is: clone, `npm start`, use it on `localhost`.
