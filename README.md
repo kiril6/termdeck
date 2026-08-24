@@ -30,7 +30,7 @@ Three things set it apart:
 **Windows & layout**
 - **Floating windows** — drag, resize, minimize, maximize, tile into a grid.
 - **Tabs per window** — multiple shells in one pane, scrollable tab strip.
-- **Projects** — group windows into project tabs; switch context instantly. The 📁 Dir popover can **Spawn here** or open a path as a **New project** (tab named after the folder, tree rooted there).
+- **Projects** — group windows into project tabs; switch context instantly. Each project remembers its own last path, so a fresh project's tree starts at home instead of inheriting another's. The 📁 Dir popover can **Spawn here** (naming the tab after the folder if it's the project's first terminal) or open a path as a **New project** (tab named after the folder, tree rooted there).
 - **Directory tree** (`⌘B`) — a real filesystem sidebar rooted at the active project, dirs lazy-expanding on click. **＋** on a folder opens a shell there; **⤢** on a file reveals it in Finder/Explorer.
 - **Dock** — bottom session bar with activity/attention indicators; overflow scrolls with edge hints.
 

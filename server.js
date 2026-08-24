@@ -164,6 +164,25 @@ app.get('/api/reveal', apiGuard, (req, res) => {     // open the OS file manager
   try { spawn(cmd, args, { stdio:'ignore', detached:true }).on('error', () => {}).unref(); } catch {}
   res.json({ ok:true });
 });
+app.get('/api/read', apiGuard, (req, res) => {       // read a text file for the in-app viewer
+  // No path jail: the app already hands out real shells (cat reads anything), so a viewer over
+  // the same loopback+Origin/Host guard grants no new capability. Same trust model as /api/ls.
+  const target = expandDir(req.query.path);
+  let st;
+  try { st = fs.statSync(target); } catch { return res.status(404).json({ error:'not found' }); }
+  if (st.isDirectory()) return res.status(400).json({ error:'is a directory' });
+  const MAX = 2 * 1024 * 1024;                        // 2MB cap — this is a peek, not an editor
+  let fd;
+  try {
+    fd = fs.openSync(target, 'r');
+    const len = Math.min(st.size, MAX);
+    const buf = Buffer.alloc(len);
+    fs.readSync(fd, buf, 0, len, 0);
+    if (buf.includes(0)) return res.json({ path:target, name:baseName(target), binary:true });
+    res.json({ path:target, name:baseName(target), text:buf.toString('utf8'), truncated:st.size > MAX });
+  } catch (e) { res.status(403).json({ error:e.code || 'read failed' }); }
+  finally { if (fd !== undefined) fs.closeSync(fd); }
+});
 
 // ── WebSocket / pty server ───────────────────────────────────────────────────
 // SECURITY: this WS spawns real shells. Unauthenticated + open would be RCE for any
@@ -189,7 +208,7 @@ const wss    = new WebSocketServer({ server, verifyClient: ({ req }) => {
 const isWindows = os.platform() === 'win32';
 const HOME      = process.env.HOME || process.env.USERPROFILE || os.homedir();
 const GRACE_MS  = 60_000;
-const BUFFER    = 200_000;
+const BUFFER    = 1_000_000;   // per-session replay ring: last ~1MB of output redelivered on reattach
 
 // ── Durable sessions via tmux ────────────────────────────────────────────────
 // A raw PTY dies with this node process (server restart / crash → every shell
