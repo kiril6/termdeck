@@ -9,7 +9,8 @@
   "license": "MIT",
   "scripts": {
     "start": "node server.js",
-    "setup": "node install.js"
+    "setup": "node install.js",
+    "build:demo": "node scripts/build-demo.js"
   },
   "dependencies": {
     "express": "^4.19.2",

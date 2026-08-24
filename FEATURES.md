@@ -183,4 +183,5 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🔌 `/debug` page — dumps env and tries each shell candidate when shells won't start.
 
 ## Modes
-- 🖥️ **Live** over `http(s)://` (real shells). **Demo** over `file://` (no backend, UI preview).
+- 🖥️ **Live** over `http(s)://` (real shells). **Demo** over `file://`, with `?demo` in the URL, or on a `github.io` host (no backend, UI preview with a fake shell).
+- 🌐 **Hosted demo** — `npm run build:demo` produces a static, backend-free copy under `docs/app/` (vendored xterm, relative paths) for GitHub Pages. Served at [kiril6.github.io/termdeck/app](https://kiril6.github.io/termdeck/app/?demo).
