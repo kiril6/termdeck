@@ -78,6 +78,14 @@ Cross-platform: **macOS, Windows, Linux** — uses prebuilt `node-pty` binaries,
 
 Requires **Node.js 18+**.
 
+**No-install run** — one command, nothing to clone:
+
+```bash
+npx github:kiril6/termdeck   # fetch + run → http://localhost:3000
+```
+
+**Or clone it:**
+
 ```bash
 node install.js   # first-time setup — picks the right node-pty prebuilt for your OS
 npm start         # runs the server → http://localhost:3000
