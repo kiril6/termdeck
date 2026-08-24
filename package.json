@@ -12,7 +12,8 @@
   "scripts": {
     "start": "node server.js",
     "setup": "node install.js",
-    "build:demo": "node scripts/build-demo.js"
+    "build:demo": "node scripts/build-demo.js",
+    "release": "node scripts/release.js"
   },
   "dependencies": {
     "express": "^4.19.2",

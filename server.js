@@ -141,6 +141,8 @@ function expandDir(d) {                              // "" / "~" / "~/x" → abs
   if (p === '~' || p.startsWith('~/')) p = path.join(HOME, p.slice(1));
   return path.resolve(p);
 }
+const APP_VERSION = require('./package.json').version;  // single source of truth
+app.get('/api/version', (_req, res) => res.json({ version: APP_VERSION }));
 app.get('/api/ls', apiGuard, (req, res) => {
   const dir = expandDir(req.query.dir);
   if (!safeDir(dir)) return res.status(404).json({ error:'not a directory', dir });
