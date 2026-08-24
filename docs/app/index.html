@@ -763,7 +763,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
     <div class="sc-about">
       <b>Terminal Dashboard</b> — floating terminal windows in your browser, each backed by a real
       shell on this machine. Refresh or drop the connection without losing a session, group shells
-      into <b>projects</b>, and drive it all from <b class="kbd-inline">⌘K</b>. <span style="opacity:.85"><a href="https://github.com/kiril6/termdeck" target="_blank" rel="noopener" class="sc-credit">GitHub</a> · © 2026 <a href="https://github.com/kiril6" target="_blank" rel="noopener" class="sc-credit">kiril6</a> · MIT</span>
+      into <b>projects</b>, and drive it all from <b class="kbd-inline">⌘K</b>. <span style="opacity:.85"><span id="app-ver"></span><a href="https://github.com/kiril6/termdeck" target="_blank" rel="noopener" class="sc-credit">GitHub</a> · © 2026 <a href="https://github.com/kiril6" target="_blank" rel="noopener" class="sc-credit">kiril6</a> · MIT</span>
     </div>
     <div class="sc-section">
       <div class="sc-section-label">Global</div>
@@ -2699,6 +2699,8 @@ document.getElementById("pal-btn").title="Command palette ("+kbd("⌘","K")+")";
 document.getElementById("new").title="New terminal ("+kbd("⌘","⌥","T")+")";
 document.getElementById("hint-newkbd").textContent=kbd("⌘","⌥","T");
 document.getElementById("sc-btn").title="Help & keyboard shortcuts (?)";
+// Show app version in help modal (from backend package.json). Silent in demo/no-backend.
+fetch("/api/version").then(r=>r.ok?r.json():null).then(d=>{if(d&&d.version)document.getElementById("app-ver").innerHTML="v"+d.version+" · ";}).catch(()=>{});
 themeBtn.addEventListener("click",(e)=>{e.stopPropagation();openThemePop(null,themeBtn);});
 function themeFilter(){const q=themeSearch.value.trim();themeClear.style.display=q?"":"none";renderThemeGrid(q);}
 themeSearch.addEventListener("input",themeFilter);

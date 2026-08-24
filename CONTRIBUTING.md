@@ -41,6 +41,19 @@ This repo uses the standard **fork & pull-request** flow — you don't get (and 
 
 Keep PRs focused and small where you can; it makes review faster.
 
+## Releasing (maintainers)
+
+The git tag, the `package.json` version, and the version shown in the app's Help panel must always match. One command keeps them in sync:
+
+```bash
+npm run release            # patch: 1.0.0 → 1.0.1
+npm run release -- minor   # 1.0.0 → 1.1.0
+npm run release -- major   # 1.0.0 → 2.0.0
+npm run release -- --first # tag + release the CURRENT version, no bump (first release only)
+```
+
+It bumps `package.json`, commits, tags `v<version>`, pushes, and creates the GitHub Release with auto-generated notes. Needs a clean tree and `gh auth login`. Pick the bump type by semver: patch = fix, minor = feature, major = breaking. Nothing auto-increments — the version is a deliberate choice.
+
 ## Reporting bugs
 
 [Open an issue](https://github.com/kiril6/termdeck/issues/new) with your **OS**, **Node version**, and the output of the `/debug` page if shells fail to start.

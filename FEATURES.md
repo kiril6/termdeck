@@ -166,7 +166,9 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   under `prefers-reduced-motion`.
 - 🖥️ **Help / About** — the **? Help** button (and `?`) opens an overlay: a one-paragraph "what is
   this" intro at the top, then the full keyboard-shortcut reference. The empty desktop also shows a
-  *What is this?* link that opens the same overlay, so a first-timer has an entry point.
+  *What is this?* link that opens the same overlay, so a first-timer has an entry point. The intro
+  line shows the running **app version** (`v1.0.0 · …`), fetched from `GET /api/version` which the
+  backend reads from `package.json` — one source of truth, no hardcoded string. Silent in demo/no-backend.
 - 🖥️ **Shortcut labels are OS-aware everywhere** — `navigator.platform` picks mac (`⌘`/`⌥`) vs
   Windows/Linux (`Ctrl`/`Alt`). Dynamic labels use the `kbd()` helper; command-palette key hints
   use `osKeys()` (glyph combo → per-OS `<kbd>` tokens); static help-panel/top-bar/hint labels **and

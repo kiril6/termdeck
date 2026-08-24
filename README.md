@@ -1,5 +1,6 @@
 # Terminal Dashboard
 
+[![Latest release](https://img.shields.io/github/v/release/kiril6/termdeck?label=release)](https://github.com/kiril6/termdeck/releases/latest)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Node ≥18](https://img.shields.io/badge/node-%E2%89%A518-brightgreen)
 ![Platforms: macOS · Windows · Linux](https://img.shields.io/badge/platform-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-blue)
@@ -102,6 +103,19 @@ Override the port:
 ```bash
 PORT=4000 npm start
 ```
+
+### Updating
+
+The current version shows in the app's **? Help** panel. Check [Releases](https://github.com/kiril6/termdeck/releases) for what's new, then:
+
+- **Ran with `npx`?** Re-run, forcing a fresh fetch (npx caches):
+  ```bash
+  npx -y github:kiril6/termdeck@latest
+  ```
+- **Cloned it?** Pull and reinstall:
+  ```bash
+  git pull && node install.js && npm start
+  ```
 
 ### Hosting (and why not GitHub Pages)
 
