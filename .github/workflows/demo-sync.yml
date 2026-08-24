@@ -1,0 +1,31 @@
+name: demo-sync
+# Fails a PR/push when public/index.html changed but the generated GitHub Pages
+# demo (docs/app/) wasn't rebuilt. Keeps the hosted demo from silently drifting.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    paths:
+      - 'public/index.html'
+      - 'scripts/build-demo.js'
+      - 'docs/app/**'
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      # --ignore-scripts skips node-pty's native build; build:demo only needs the
+      # pure-JS xterm packages, so no compiler/tmux required in CI.
+      - run: npm ci --ignore-scripts
+      - run: npm run build:demo
+      - name: Verify docs/app is in sync
+        run: |
+          if ! git diff --quiet -- docs/app; then
+            echo "::error::docs/app is stale. Run 'npm run build:demo' and commit the result."
+            git diff --stat -- docs/app
+            exit 1
+          fi
+          echo "docs/app is in sync."
