@@ -236,6 +236,16 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
 .sc-keys kbd{font-family:var(--mono);font-size:11px;color:var(--text);
   border:1px solid var(--line);border-radius:4px;padding:2px 7px;background:var(--panel-2);}
 
+/* ── file viewer overlay ── */
+.file-box{width:820px;display:flex;flex-direction:column;}
+.file-box h2 .fv-name{font-family:var(--mono);text-transform:none;letter-spacing:0;font-size:13px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:88%;}
+.fv-path{padding:8px 20px;font-size:10.5px;color:var(--muted);font-family:var(--mono);
+  border-bottom:1px solid var(--line);word-break:break-all;}
+.fv-body{margin:0;padding:16px 20px;font-family:var(--mono);font-size:12px;line-height:1.5;
+  color:var(--text);white-space:pre;overflow:auto;max-height:70vh;tab-size:4;}
+.fv-body.msg{white-space:pre-wrap;color:var(--muted);}
+
 /* ── toast notifications ── */
 .toasts{position:fixed;bottom:70px;right:14px;z-index:9980;
   display:flex;flex-direction:column-reverse;gap:7px;pointer-events:none;max-width:320px;}
@@ -713,6 +723,15 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
   <div class="pal-list" id="pal-list"></div>
 </div>
 
+<!-- ═══ FILE VIEWER ═══ -->
+<div class="sc-overlay" id="file-overlay" tabindex="-1">
+  <div class="sc-box file-box">
+    <h2><span class="fv-name" id="fv-name"></span><span class="sc-x" id="fv-close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></span></h2>
+    <div class="fv-path" id="fv-path"></div>
+    <pre class="fv-body msg" id="fv-body"></pre>
+  </div>
+</div>
+
 <!-- ═══ KEYBOARD SHORTCUTS ═══ -->
 <div class="sc-overlay" id="sc-overlay">
   <div class="sc-box">
@@ -902,7 +921,10 @@ let order         = [];
 const projects    = new Map();
 let projectOrder  = [];
 let activeProject = null;
-let nameSeq=0, tabSeq=0, zTop=10, focusedId=null, lastCwd="";
+let nameSeq=0, tabSeq=0, zTop=10, focusedId=null;
+// last-used cwd is per-project: a new project starts fresh (~), never inherits another project's path
+function curCwd(){return projects.get(activeProject)?.lastCwd||"";}
+function setCwd(v){const p=projects.get(activeProject);if(p)p.lastCwd=v;}
 let saveTimer=null, moveTargetSession=null, themeTargetSession=null;
 let sidebarOpen=false, sessSearchOpen=false;
 
@@ -1062,7 +1084,7 @@ async function editSshHost(h){
   h.label=v.label||v.target; h.target=v.target; saveSshHosts();
 }
 function deleteSshHost(id){sshHosts=sshHosts.filter((x)=>x.id!==id);saveSshHosts();}
-function connectSsh(h){createSession({cwd:lastCwd||"~",cmd:"ssh "+h.target,name:h.label});}
+function connectSsh(h){createSession({cwd:curCwd()||"~",cmd:"ssh "+h.target,name:h.label});}
 
 // ── Scrollback: lines of history each terminal keeps. Global default, applied to new terminals at
 // creation and live to open ones. Big = long logs survive; small = less RAM across many terminals. ──
@@ -1337,7 +1359,7 @@ function createSession(desc, isLog){
   },1000);
 
   const s={
-    id,project,name,isLog:!!isLog,cwd:desc.cwd||lastCwd||"",
+    id,project,name,isLog:!!isLog,cwd:desc.cwd||curCwd()||"",
     win,head,led,winTabs,wtabsTrack,wtabAdd,panes,foot,badgeShell,badgeCwd,uptimeEl,resize,chip,cled,cname,cmove,
     themeId:desc.themeId&&THEMES[desc.themeId]?desc.themeId:null,
     tabs:[],activeTabId:null,
@@ -1992,8 +2014,8 @@ function openThemePop(scoped,anchor){
    COMMAND PALETTE
    ════════════════════════════════════════════════ */
 const PAL_CMDS=[
-  {icon:ICON.terminal,label:"New terminal",sub:"Open a shell window",kbd:"\u2318T",run:()=>createSession({cwd:lastCwd})},
-  {icon:ICON.log,label:"New log panel",sub:"Read-only output monitor",kbd:"\u2318L",run:()=>createSession({cwd:lastCwd},true)},
+  {icon:ICON.terminal,label:"New terminal",sub:"Open a shell window",kbd:"\u2318T",run:()=>createSession({cwd:curCwd()})},
+  {icon:ICON.log,label:"New log panel",sub:"Read-only output monitor",kbd:"\u2318L",run:()=>createSession({cwd:curCwd()},true)},
   {icon:ICON.grid,label:"Tile windows",sub:"Arrange into a grid",kbd:"\u2318\u21e7T",run:tileAll},
   {icon:ICON.sidebar,label:"Toggle directory tree",sub:"Show/hide sidebar",kbd:"\u2318B",run:toggleSidebar},
   {icon:ICON.search,label:"Search sessions",sub:"Filter by name or path",kbd:"\u2318F",run:()=>{closePalette();openSessSearch();}},
@@ -2098,6 +2120,7 @@ function closeModals(except){
   if(except!=="game"&&gameOv.classList.contains("open")) closeGame();
   if(except!=="sess"&&sessSearchOpen) closeSessSearch();
   if(except!=="sc") scOverlay.classList.remove("open");
+  if(except!=="file"&&fileOverlay.classList.contains("open")) closeFileViewer();
   if(except!=="theme") themePop.classList.remove("open");
   if(except!=="move") movePop.classList.remove("open");
   if(except!=="cwd") cwdPop.classList.remove("open");
@@ -2125,6 +2148,30 @@ palOverlay.addEventListener("click",closePalette);
 document.getElementById("sc-close").addEventListener("click",()=>scOverlay.classList.remove("open"));
 document.getElementById("about-link").addEventListener("click",openShortcuts);
 scOverlay.addEventListener("click",(e)=>{if(e.target===scOverlay)scOverlay.classList.remove("open");});
+
+/* ════════════════════════════════════════════════
+   FILE VIEWER  (click a file in the tree → peek its text)
+   ════════════════════════════════════════════════ */
+const fileOverlay=document.getElementById("file-overlay");
+const fvName=document.getElementById("fv-name"),fvPath=document.getElementById("fv-path"),fvBody=document.getElementById("fv-body");
+function closeFileViewer(){fileOverlay.classList.remove("open");}
+async function openFileViewer(full,name){
+  closeModals("file");
+  fvName.textContent=name; fvPath.textContent=full;
+  fvBody.className="fv-body msg"; fvBody.textContent="Loading…";
+  fileOverlay.classList.add("open");
+  fileOverlay.focus();   // pull focus off any terminal textarea so Esc closes the viewer
+  try{
+    const r=await fetch("/api/read?path="+encodeURIComponent(full));
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){fvBody.textContent="⚠ "+(j.error||("HTTP "+r.status));return;}
+    if(j.binary){fvBody.textContent="Binary file — can’t preview.\nUse the reveal button in the tree to open it in your OS.";return;}
+    fvBody.className="fv-body";
+    fvBody.textContent=(j.text||"")+(j.truncated?"\n\n… truncated (file larger than 2 MB) …":"");
+  }catch(e){fvBody.textContent="⚠ "+e.message;}
+}
+document.getElementById("fv-close").addEventListener("click",closeFileViewer);
+fileOverlay.addEventListener("click",(e)=>{if(e.target===fileOverlay)closeFileViewer();});
 
 /* ════════════════════════════════════════════════
    SESSION SEARCH
@@ -2173,8 +2220,10 @@ let treeRoot=null; // breadcrumb override; null = follow project/focus
 function treeRootPath(){
   if(treeRoot) return treeRoot;
   const proj=projects.get(activeProject);
+  if(proj&&proj.root) return proj.root;
   const focused=focusedId&&sessions.has(focusedId)?sessions.get(focusedId):null;
-  return (proj&&proj.root)||focused?.cwd||"~";
+  if(focused&&focused.project===activeProject&&focused.cwd) return focused.cwd; // never borrow another project's cwd
+  return "~";
 }
 function renderCrumbs(root){
   sbTitleEl.innerHTML="";
@@ -2250,7 +2299,7 @@ function treeNode(en,full,depth){
     const rev=el("button","tn-act");rev.innerHTML=ICON.reveal;rev.title="Reveal in file manager";
     row.append(ic,nm,rev);
     const reveal=(e)=>{e&&e.stopPropagation(); fetch("/api/reveal?path="+encodeURIComponent(full)).catch(()=>{});};
-    row.addEventListener("click",reveal); rev.addEventListener("click",reveal);
+    row.addEventListener("click",()=>openFileViewer(full,en.name)); rev.addEventListener("click",reveal);
     wrap.append(row);
   }
   return wrap;
@@ -2308,8 +2357,8 @@ document.addEventListener("keydown",(e)=>{
   if(mod&&e.key==="k"){e.preventDefault(); palette.classList.contains("open")?closePalette():openPalette(); return;}
   // ⌘⌥/Ctrl+Alt combos below use e.code (not e.key): mac Alt rewrites e.key (⌥T→"†").
   // These moved off plain ⌘/Ctrl because the browser/OS hard-owns those (new-tab, omnibox, etc.).
-  if(mod&&e.altKey&&!e.shiftKey&&e.code==="KeyT"){e.preventDefault(); createSession({cwd:lastCwd}); return;}       // new terminal (⌘T = browser new-tab)
-  if(mod&&e.altKey&&e.code==="KeyL"){e.preventDefault(); createSession({cwd:lastCwd},true); return;}                // new log  (⌘L = browser omnibox)
+  if(mod&&e.altKey&&!e.shiftKey&&e.code==="KeyT"){e.preventDefault(); createSession({cwd:curCwd()}); return;}       // new terminal (⌘T = browser new-tab)
+  if(mod&&e.altKey&&e.code==="KeyL"){e.preventDefault(); createSession({cwd:curCwd()},true); return;}                // new log  (⌘L = browser omnibox)
   if(mod&&e.key==="f"){e.preventDefault(); openSessSearch(); return;}
   if(mod&&e.altKey&&e.code==="KeyB"){e.preventDefault(); setBroadcast(!broadcastOn); return;}                       // broadcast (⌘⇧B = bookmarks bar)
   if(mod&&!e.altKey&&e.key==="b"){e.preventDefault(); toggleSidebar(); return;}
@@ -2344,6 +2393,7 @@ document.addEventListener("keydown",(e)=>{
     return;
   }
   if(e.key==="Escape"){
+    if(fileOverlay.classList.contains("open")){closeFileViewer();return;}
     if(findBar&&findBar.classList.contains("open")){closeFind();return;}
     if(themePop.classList.contains("open")){themePop.classList.remove("open");return;}
     if(cwdPop.classList.contains("open")){cwdPop.classList.remove("open");return;}
@@ -2379,21 +2429,19 @@ function saveState(){
   if(!instanceActive) return;   // passive tab: never write — would clobber the active tab's layout
   try{
     const data={activeProject,
-      projects:projectOrder.map((pid)=>({id:pid,name:projects.get(pid).name,root:projects.get(pid).root||null})),
+      projects:projectOrder.map((pid)=>({id:pid,name:projects.get(pid).name,root:projects.get(pid).root||null,lastCwd:projects.get(pid).lastCwd||null})),
       sessions:order.map((id)=>{const s=sessions.get(id);if(!s)return null;const st=s.win.style;
         return{id:s.id,project:s.project,name:s.name,cwd:s.cwd,themeId:s.themeId||null,isLog:s.isLog||false,
                left:st.left,top:st.top,width:st.width,height:st.height,
                minimized:s.minimized,maximized:s.maximized,prevRect:s.prevRect,
-               tabs:s.tabs.map((t)=>({name:t.name,cwd:t.cwd||""}))};}).filter(Boolean),
-      lastCwd};
+               tabs:s.tabs.map((t)=>({name:t.name,cwd:t.cwd||""}))};}).filter(Boolean)};
     localStorage.setItem(STORE,JSON.stringify(data));
   }catch{}
 }
 function restoreState(){
   let data=null;try{data=JSON.parse(localStorage.getItem(STORE)||"null");}catch{}
   if(!data)return false;
-  lastCwd=data.lastCwd||"";
-  if(data.projects?.length) data.projects.forEach((p)=>{addProject(p.name,p.id,true); const pr=projects.get(p.id); if(pr&&p.root) pr.root=p.root;});
+  if(data.projects?.length) data.projects.forEach((p)=>{addProject(p.name,p.id,true); const pr=projects.get(p.id); if(pr){if(p.root)pr.root=p.root; if(p.lastCwd)pr.lastCwd=p.lastCwd;}});
   else addProject("default",null,true);
   activeProject=projects.has(data.activeProject)?data.activeProject:projectOrder[0];
   projects.forEach((p)=>p.tab.classList.toggle("active",p.id===activeProject));
@@ -2433,13 +2481,15 @@ function demoShell(tab, term, isLog){
 /* ════════════════════════════════════════════════
    BOOT
    ════════════════════════════════════════════════ */
-document.getElementById("new").addEventListener("click",()=>createSession({cwd:lastCwd}));
+document.getElementById("new").addEventListener("click",()=>createSession({cwd:curCwd()}));
 tileBtn.addEventListener("click",tileAll);
 document.getElementById("pal-btn").addEventListener("click",openPalette);
 searchBtn.addEventListener("click",()=>sessSearchOpen?closeSessSearch():openSessSearch());
 document.getElementById("sc-btn").addEventListener("click",()=>scOverlay.classList.toggle("open"));
 const fsBtn=document.getElementById("fs-btn");
 const fsKey=MAC?"⌃⌘F":"F11";
+const FS_ENTER='<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>';
+const FS_EXIT='<path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/>';
 fsBtn.title="Fullscreen ("+fsKey+")";
 fsBtn.addEventListener("click",()=>{
   if(document.fullscreenElement)document.exitFullscreen();
@@ -2449,6 +2499,7 @@ document.addEventListener("fullscreenchange",()=>{
   const on=!!document.fullscreenElement;
   fsBtn.classList.toggle("primary",on);
   fsBtn.title=(on?"Exit fullscreen (":"Fullscreen (")+fsKey+")";
+  fsBtn.querySelector("svg").innerHTML=on?FS_EXIT:FS_ENTER;
 });
 paddBtn.addEventListener("click",()=>addProject());
 paddBtn.addEventListener("keydown",(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();addProject();}});
@@ -2475,7 +2526,7 @@ folderBtn.addEventListener("click",(e)=>{
     closeModals("cwd");
     const r=folderBtn.getBoundingClientRect();
     cwdPop.style.top=(r.bottom+6)+"px"; cwdPop.style.left=Math.max(12,r.right-320)+"px";
-    cwdInput.value=lastCwd; syncCwdClear(); cwdInput.focus(); cwdInput.select(); // select-on-open: keeps memory, one keystroke overwrites
+    cwdInput.value=curCwd(); syncCwdClear(); cwdInput.focus(); cwdInput.select(); // select-on-open: keeps memory, one keystroke overwrites
   }
 });
 const cwdClear=document.getElementById("cwd-clear");
@@ -2483,13 +2534,20 @@ function syncCwdClear(){cwdInput.parentElement.classList.toggle("has-val",!!cwdI
 cwdInput.addEventListener("input",syncCwdClear);
 cwdClear.addEventListener("click",()=>{cwdInput.value="";syncCwdClear();cwdInput.focus();});
 const cwdCmd=document.getElementById("cwd-cmd");
-function spawnFromPopover(){const p=cwdInput.value.trim();const c=cwdCmd.value.trim();lastCwd=p;cwdPop.classList.remove("open");createSession({cwd:p,cmd:c||undefined});cwdCmd.value="";scheduleSave();}
+function spawnFromPopover(){const p=cwdInput.value.trim();const c=cwdCmd.value.trim();setCwd(p);cwdPop.classList.remove("open");
+  const proj=projects.get(activeProject);
+  const firstTerm=proj && ![...sessions.values()].some((x)=>x.project===activeProject);
+  if(p&&firstTerm&&/^project \d+$/.test(proj.name||"")){ // first shell into a fresh project → name it after the folder, like "New project"
+    proj.name=p.replace(/[\\/]+$/,"").split(/[\\/]/).pop()||proj.name; proj.nameEl.textContent=proj.name;
+  }
+  createSession({cwd:p,cmd:c||undefined});cwdCmd.value="";scheduleSave();}
 function spawnAsProject(){
   const p=cwdInput.value.trim();const c=cwdCmd.value.trim();
   if(!p){toast(ICON.warn,"Need a path","“New project” needs a directory"); return;}
-  lastCwd=p; cwdPop.classList.remove("open");
+  cwdPop.classList.remove("open");
   const base=p.replace(/[\\/]+$/,"").split(/[\\/]/).pop()||p;
   const proj=addProject(base); if(!proj) return;   // addProject switches to it; null if at limit
+  setCwd(p);   // remember path on the NEW project (now active), not the one we came from
   createSession({cwd:p,project:proj.id,cmd:c||undefined}); cwdCmd.value="";  // tree follows focused cwd, no extra work
   scheduleSave();
 }

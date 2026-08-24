@@ -36,8 +36,10 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🖥️ **Limits:** 12 terminals per project, 10 project tabs (keeps one browser tab responsive).
 - 🖥️ Directory sidebar / tree (`⌘B`) — **real filesystem** listing via `/api/ls` (dirs first, dotfiles
   hidden), rooted at the **active project's** root and lazy-expanding dirs on click. Per-row actions:
-  a dir's **＋** opens a new terminal there (`createSession` at that path); a file's **⤢** reveals it in
-  the OS file manager (`/api/reveal`). Falls back to a static demo tree in `file://` demo mode.
+  a dir's **＋** opens a new terminal there (`createSession` at that path); clicking a file's name opens
+  the **in-app file viewer** (`/api/read` → overlay showing the text; binary files and >2 MB files are
+  handled gracefully), and its **⤢** reveals it in the OS file manager (`/api/reveal`). Falls back to a
+  static demo tree in `file://` demo mode.
 - 🖥️ **Breadcrumb navigation** — the sidebar header is a clickable path breadcrumb; click any ancestor
   segment to re-root the tree there (step back / up), and **⌂** resets to the project root. Deep paths
   scroll to keep the current folder in view. Switching projects clears the override.
@@ -45,8 +47,12 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   (📂 *Empty folder* / ⚠️ *Can't read folder*) instead of a bare word, so an empty sidebar reads as
   intentional, not broken. (Nested empty dirs still show a compact inline note.)
 - 🖥️ **Project root** — each project anchors to the path of its first shell (the Dir/"New project" path),
-  persisted in `localStorage`; the tree follows the project tab, not the focused terminal.
-- 🖥️ **Dir popover** (📁) — type a path, then **Spawn here** (shell in the active project) or
+  persisted in `localStorage`; the tree follows the project tab, not the focused terminal. The
+  last-used cwd is remembered **per project**, so a fresh project starts at `$HOME` (tree reset) and
+  never inherits another project's path — unless you type one in the Dir popover.
+- 🖥️ **Dir popover** (📁) — type a path, then **Spawn here** (shell in the active project; if it's the
+  project's first terminal and the tab still has its default `project N` name, the tab is renamed to the
+  folder's basename) or
   **New project** (new project tab named after the folder's basename + a shell there; the tree
   follows the focused `cwd`, so it lands rooted at that path). Inline ✕ clears the input.
 
@@ -63,7 +69,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   repaints the current screen; history stays reachable via tmux copy-mode). Startup banner reports
   whether durable sessions are on.
 - 🔌 **Reattach model:** on WS disconnect the PTY is NOT killed — a 60s grace timer holds it;
-  reconnecting with the same `id` replays the last 200 KB of output. Survives browser refresh.
+  reconnecting with the same `id` replays the last 1 MB of output. Survives browser refresh.
 - 🖥️ **Wake reconnect** — on tab refocus (`visibilitychange`), reconnecting shells retry
   immediately instead of waiting out the backoff (localhost drops on sleep aren't network events).
 - 🖥️ WS auto-reconnect with exponential backoff (caps at 5s).
@@ -175,7 +181,8 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🔌 **Loopback bind** by default (`127.0.0.1`); `HOST=0.0.0.0` (or an IP) to expose, with a warning.
 - 🔌 **WS Origin + Host validation** — rejects the upgrade unless both resolve to a known localhost
   name (blocks cross-site / DNS-rebind attacks on the shell socket). No token by design.
-- 🔌 **`/api/ls` + `/api/reveal`** — sidebar-tree filesystem read + OS-file-manager reveal, behind the
+- 🔌 **`/api/ls` + `/api/reveal` + `/api/read`** — sidebar-tree filesystem read, OS-file-manager reveal,
+  and file-text read for the in-app viewer (2 MB cap, NUL-byte binary detection), all behind the
   **same** Origin+Host guard as the WS (`apiGuard`) so a cross-site page can't read the disk.
 - 🔌 **Auto-open browser** on `npm start` — launches the dashboard in the default browser
   (OS opener: `open`/`start`/`xdg-open`). `NO_OPEN=1` skips it; `BROWSER=<name|path>` picks a
