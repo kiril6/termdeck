@@ -43,6 +43,8 @@ Keep PRs focused and small where you can; it makes review faster.
 
 ## Releasing (maintainers)
 
+**Contributors don't do this.** You fork and open a PR (see above) — that's the whole job. Cutting a release requires push access to `kiril6/termdeck`, so only the maintainer runs it, and only after your PR is merged.
+
 The git tag, the `package.json` version, and the version shown in the app's Help panel must always match. One command keeps them in sync:
 
 ```bash
