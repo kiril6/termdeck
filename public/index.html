@@ -113,7 +113,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);overflow:hid
 #bcast.active{background:var(--dead);border-color:var(--dead);color:#fff;animation:bcastpulse 1.4s ease-in-out infinite;}
 @keyframes bcastpulse{0%,100%{box-shadow:0 0 0 0 rgba(224,101,95,.5);}50%{box-shadow:0 0 0 4px rgba(224,101,95,0);}}
 .btn.primary{border-color:var(--accent-dim);color:var(--accent);}
-.btn .plus{color:var(--accent);font-weight:700;}
+.btn .plus{color:var(--accent);font-weight:700;font-size:15px;line-height:15px;}
+.btn .plus,.bar .btn svg{pointer-events:none;}   /* keep the button a single hover target so its title tooltip doesn't reset on child boundaries */
 .hint-kbd{color:var(--accent);font-weight:600;}
 .hint-kbd:empty{display:none;}
 html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph labels; Windows shows "Ctrl+Alt+T" unspaced */
@@ -429,9 +430,12 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
   padding:0 6px 0 10px;
   background:linear-gradient(180deg,var(--head-a),var(--head-b));
   border-bottom:1px solid var(--line-soft);min-width:0;}
-.win-grip{flex:0 0 auto;display:flex;align-items:center;padding-right:2px;color:var(--muted);opacity:.5;cursor:grab;transition:opacity .12s;}
-.win-grip:hover{opacity:1;}
+.win-grip{flex:0 0 auto;display:flex;align-items:center;padding:2px;border-radius:5px;color:var(--muted);opacity:.5;cursor:grab;transition:opacity .12s,color .12s,background .12s;}
+.win-grip:hover{opacity:1;color:var(--accent);background:var(--chip-active);}
 .win-head:active .win-grip{cursor:grabbing;}
+.win-head.wh-drag,.win-head.wh-drag .win-grip{cursor:grabbing;}
+.win-head.wh-drag .win-grip{opacity:1;color:var(--accent);background:var(--chip-active);}
+body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 .win-led{width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:var(--muted);}
 .win-led.live{background:var(--live);box-shadow:0 0 6px var(--live);}
 .win-led.demo{background:var(--demo);box-shadow:0 0 6px var(--demo);}
@@ -442,7 +446,7 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
 
 /* tab strip inside window head */
 .win-tabs{display:flex;align-items:center;flex:1;min-width:0;position:relative;overflow:hidden;}
-.wtabs-track{display:flex;align-items:center;gap:2px;flex:1;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;}
+.wtabs-track{display:flex;align-items:center;gap:2px;flex:1;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;cursor:grab;}
 .wtabs-track::-webkit-scrollbar{display:none;}
 .wtabs-edge{position:absolute;top:0;bottom:0;width:22px;display:flex;align-items:center;justify-content:center;
   font-size:14px;color:var(--muted);cursor:pointer;opacity:0;pointer-events:none;transition:opacity .12s;z-index:2;}
@@ -738,7 +742,7 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
     </div>
     <div class="sc-section">
       <div class="sc-section-label">Tabs (in focused window)</div>
-      <div class="sc-row"><span>New tab</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>N</kbd></div></div>
+      <div class="sc-row"><span>New tab</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>A</kbd></div></div>
       <div class="sc-row"><span>New project</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>M</kbd></div></div>
       <div class="sc-row"><span>Next / previous project</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>]</kbd><kbd>⌘</kbd><kbd>⇧</kbd><kbd>[</kbd></div></div>
       <div class="sc-row"><span>Next tab</span><div class="sc-keys"><kbd>⌘</kbd><kbd>]</kbd></div></div>
@@ -773,6 +777,8 @@ const ICON={
   caret:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>',
   home:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 12 9-9 9 9M5 10v10h14V10"/></svg>',
   plus:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  cast:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>',
+  castOff:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M2 2l20 20"/></svg>',
   reveal:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>',
   hourglass:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 22h14M5 2h14M17 22v-4.17a2 2 0 0 0-.59-1.41L12 12l-4.41 4.42A2 2 0 0 0 7 17.83V22M7 2v4.17a2 2 0 0 0 .59 1.41L12 12l4.41-4.42A2 2 0 0 0 17 6.17V2"/></svg>',
   moveTo:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H2M2 13h10M9 16l3-3-3-3"/></svg>',
@@ -811,8 +817,17 @@ const THEMES={
   highContrast:mkT("High Contrast",{"--bg":"#000000","--grid":"#111111","--panel":"#111111","--panel-2":"#000000","--line":"#ffffff","--line-soft":"#cccccc","--text":"#ffffff","--muted":"#aaaaaa","--accent":"#ffff00","--accent-dim":"#aaaa00","--head-a":"#222222","--head-b":"#111111","--chip-bg":"#111111","--chip-active":"#333333","--btn-bg":"#222222","--win-body":"#000000","--ptab-hover":"#111111"},{background:"#000000",foreground:"#ffffff",cursor:"#ffff00",cursorAccent:"#000000",selectionBackground:"#444444",black:"#000000",brightBlack:"#666666",red:"#ff0000",brightRed:"#ff3333",green:"#00ff00",brightGreen:"#33ff33",yellow:"#ffff00",brightYellow:"#ffff33",blue:"#3399ff",brightBlue:"#66b3ff",magenta:"#ff00ff",brightMagenta:"#ff33ff",cyan:"#00ffff",brightCyan:"#33ffff",white:"#ffffff",brightWhite:"#ffffff"},["#000000","#ffff00","#00ff00","#00ffff"]),
   matrix:mkT("Matrix",{"--bg":"#000000","--grid":"#030a03","--panel":"#061006","--panel-2":"#030803","--line":"#0a2a0a","--line-soft":"#071807","--text":"#00ff41","--muted":"#0a5a0a","--accent":"#00ff41","--accent-dim":"#006618","--head-a":"#061a06","--head-b":"#041204","--chip-bg":"#061006","--chip-active":"#0a2a0a","--btn-bg":"#061006","--win-body":"#000000","--ptab-hover":"#030a03"},{background:"#000000",foreground:"#00ff41",cursor:"#00ff41",cursorAccent:"#000000",selectionBackground:"#003b00",black:"#000000",brightBlack:"#004d00",red:"#00c934",brightRed:"#00ff41",green:"#00ff41",brightGreen:"#5cff8c",yellow:"#00ff41",brightYellow:"#5cff8c",blue:"#00ff41",brightBlue:"#5cff8c",magenta:"#00ff41",brightMagenta:"#5cff8c",cyan:"#00ff41",brightCyan:"#5cff8c",white:"#00ff41",brightWhite:"#c9ffd9"},["#000000","#00ff41","#5cff8c","#007700"]),
   amber:mkT("Amber CRT",{"--bg":"#0b0704","--grid":"#100c06","--panel":"#120e07","--panel-2":"#0b0704","--line":"#3a2a0a","--line-soft":"#2a1d06","--text":"#ffb000","--muted":"#7a5520","--accent":"#ffb000","--accent-dim":"#7a5a00","--head-a":"#1e1508","--head-b":"#150e04","--chip-bg":"#120e07","--chip-active":"#3a2a0a","--btn-bg":"#120e07","--win-body":"#040200","--ptab-hover":"#100c06"},{background:"#040200",foreground:"#ffb000",cursor:"#ffb000",cursorAccent:"#040200",selectionBackground:"#3a2a00",black:"#100a00",brightBlack:"#5c4a1c",red:"#ff8f00",brightRed:"#ffb000",green:"#ffb000",brightGreen:"#ffcf5c",yellow:"#ffb000",brightYellow:"#ffd76a",blue:"#ffb000",brightBlue:"#ffcf5c",magenta:"#ffb000",brightMagenta:"#ffcf5c",cyan:"#ffb000",brightCyan:"#ffcf5c",white:"#ffb000",brightWhite:"#ffe9b3"},["#040200","#ffb000","#ffcf5c","#ff8f00"]),
+
+  // ── Light themes ──
+  githubLight:mkT("GitHub Light",{"--bg":"#f6f8fa","--grid":"#eaeef2","--panel":"#ffffff","--panel-2":"#f6f8fa","--line":"#d0d7de","--line-soft":"#e1e4e8","--text":"#1f2328","--muted":"#656d76","--accent":"#0969da","--accent-dim":"#a6c8f0","--head-a":"#f6f8fa","--head-b":"#eaeef2","--chip-bg":"#f6f8fa","--chip-active":"#eaeef2","--btn-bg":"#f6f8fa","--win-body":"#ffffff","--ptab-hover":"#eaeef2"},{background:"#ffffff",foreground:"#1f2328",cursor:"#0969da",cursorAccent:"#ffffff",selectionBackground:"#0969da33",black:"#24292f",brightBlack:"#57606a",red:"#cf222e",brightRed:"#a40e26",green:"#1a7f37",brightGreen:"#116329",yellow:"#9a6700",brightYellow:"#7d4e00",blue:"#0969da",brightBlue:"#0550ae",magenta:"#8250df",brightMagenta:"#6639ba",cyan:"#1b7c83",brightCyan:"#3192aa",white:"#6e7781",brightWhite:"#24292f"},["#ffffff","#0969da","#1a7f37","#8250df"]),
+  solarizedLight:mkT("Solarized Light",{"--bg":"#eee8d5","--grid":"#e4dcc3","--panel":"#fdf6e3","--panel-2":"#eee8d5","--line":"#d6cfb8","--line-soft":"#e0d9c0","--text":"#586e75","--muted":"#93a1a1","--accent":"#268bd2","--accent-dim":"#93c4e8","--head-a":"#eee8d5","--head-b":"#e4dcc3","--chip-bg":"#eee8d5","--chip-active":"#e0d9c0","--btn-bg":"#eee8d5","--win-body":"#fdf6e3","--ptab-hover":"#e4dcc3"},{background:"#fdf6e3",foreground:"#657b83",cursor:"#586e75",cursorAccent:"#fdf6e3",selectionBackground:"#eee8d5",black:"#073642",brightBlack:"#002b36",red:"#dc322f",brightRed:"#cb4b16",green:"#859900",brightGreen:"#586e75",yellow:"#b58900",brightYellow:"#657b83",blue:"#268bd2",brightBlue:"#839496",magenta:"#d33682",brightMagenta:"#6c71c4",cyan:"#2aa198",brightCyan:"#93a1a1",white:"#eee8d5",brightWhite:"#fdf6e3"},["#fdf6e3","#268bd2","#859900","#d33682"]),
+  oneLight:mkT("One Light",{"--bg":"#f0f0f1","--grid":"#e8e8ea","--panel":"#fafafa","--panel-2":"#f0f0f1","--line":"#d4d4d6","--line-soft":"#e1e1e3","--text":"#383a42","--muted":"#a0a1a7","--accent":"#4078f2","--accent-dim":"#a9c2f8","--head-a":"#f0f0f1","--head-b":"#e8e8ea","--chip-bg":"#f0f0f1","--chip-active":"#e1e1e3","--btn-bg":"#f0f0f1","--win-body":"#fafafa","--ptab-hover":"#e8e8ea"},{background:"#fafafa",foreground:"#383a42",cursor:"#4078f2",cursorAccent:"#fafafa",selectionBackground:"#d0d0d0",black:"#383a42",brightBlack:"#a0a1a7",red:"#e45649",brightRed:"#e45649",green:"#50a14f",brightGreen:"#50a14f",yellow:"#c18401",brightYellow:"#c18401",blue:"#4078f2",brightBlue:"#4078f2",magenta:"#a626a4",brightMagenta:"#a626a4",cyan:"#0184bc",brightCyan:"#0184bc",white:"#a0a1a7",brightWhite:"#383a42"},["#fafafa","#4078f2","#50a14f","#a626a4"]),
+  catppuccinLatte:mkT("Catppuccin Latte",{"--bg":"#e6e9ef","--grid":"#dce0e8","--panel":"#eff1f5","--panel-2":"#e6e9ef","--line":"#ccd0da","--line-soft":"#dce0e8","--text":"#4c4f69","--muted":"#8c8fa1","--accent":"#1e66f5","--accent-dim":"#a6c0fb","--head-a":"#e6e9ef","--head-b":"#dce0e8","--chip-bg":"#e6e9ef","--chip-active":"#ccd0da","--btn-bg":"#e6e9ef","--win-body":"#eff1f5","--ptab-hover":"#dce0e8"},{background:"#eff1f5",foreground:"#4c4f69",cursor:"#dc8a78",cursorAccent:"#eff1f5",selectionBackground:"#ccd0da",black:"#5c5f77",brightBlack:"#6c6f85",red:"#d20f39",brightRed:"#d20f39",green:"#40a02b",brightGreen:"#40a02b",yellow:"#df8e1d",brightYellow:"#df8e1d",blue:"#1e66f5",brightBlue:"#1e66f5",magenta:"#8839ef",brightMagenta:"#8839ef",cyan:"#179299",brightCyan:"#179299",white:"#acb0be",brightWhite:"#bcc0cc"},["#eff1f5","#1e66f5","#8839ef","#40a02b"]),
+  rosePineDawn:mkT("Rose Pine Dawn",{"--bg":"#f2e9e1","--grid":"#ece0d6","--panel":"#fffaf3","--panel-2":"#faf4ed","--line":"#dfd8d0","--line-soft":"#ece0d6","--text":"#575279","--muted":"#9893a5","--accent":"#907aa9","--accent-dim":"#c9bcd8","--head-a":"#f2e9e1","--head-b":"#ece0d6","--chip-bg":"#f2e9e1","--chip-active":"#e4d8ce","--btn-bg":"#f2e9e1","--win-body":"#faf4ed","--ptab-hover":"#ece0d6"},{background:"#faf4ed",foreground:"#575279",cursor:"#907aa9",cursorAccent:"#faf4ed",selectionBackground:"#dfdad9",black:"#f2e9e1",brightBlack:"#9893a5",red:"#b4637a",brightRed:"#b4637a",green:"#56949f",brightGreen:"#56949f",yellow:"#ea9d34",brightYellow:"#ea9d34",blue:"#286983",brightBlue:"#286983",magenta:"#907aa9",brightMagenta:"#907aa9",cyan:"#d7827e",brightCyan:"#d7827e",white:"#575279",brightWhite:"#575279"},["#faf4ed","#907aa9","#b4637a","#56949f"]),
+  gruvboxLight:mkT("Gruvbox Light",{"--bg":"#ebdbb2","--grid":"#e6d5a8","--panel":"#fbf1c7","--panel-2":"#f2e5bc","--line":"#d5c4a1","--line-soft":"#e0cfa0","--text":"#3c3836","--muted":"#7c6f64","--accent":"#b57614","--accent-dim":"#dcc48a","--head-a":"#ebdbb2","--head-b":"#e6d5a8","--chip-bg":"#ebdbb2","--chip-active":"#d5c4a1","--btn-bg":"#ebdbb2","--win-body":"#fbf1c7","--ptab-hover":"#e6d5a8"},{background:"#fbf1c7",foreground:"#3c3836",cursor:"#b57614",cursorAccent:"#fbf1c7",selectionBackground:"#d5c4a1",black:"#fbf1c7",brightBlack:"#928374",red:"#cc241d",brightRed:"#9d0006",green:"#98971a",brightGreen:"#79740e",yellow:"#d79921",brightYellow:"#b57614",blue:"#458588",brightBlue:"#076678",magenta:"#b16286",brightMagenta:"#8f3f71",cyan:"#689d6a",brightCyan:"#427b58",white:"#7c6f64",brightWhite:"#3c3836"},["#fbf1c7","#b57614","#98971a","#cc241d"]),
+  paper:mkT("Paper",{"--bg":"#e7e0d0","--grid":"#ddd5c3","--panel":"#faf6ec","--panel-2":"#f1ebdc","--line":"#d8cfbb","--line-soft":"#e4dcc9","--text":"#33302b","--muted":"#8a8273","--accent":"#35638a","--accent-dim":"#a9bfd2","--head-a":"#f1ebdc","--head-b":"#e9e1d0","--chip-bg":"#efe8d8","--chip-active":"#e2d9c5","--btn-bg":"#efe8d8","--win-body":"#faf6ec","--ptab-hover":"#e9e1d0"},{background:"#faf6ec",foreground:"#33302b",cursor:"#35638a",cursorAccent:"#faf6ec",selectionBackground:"#d8c7a8",black:"#33302b",brightBlack:"#8a8273",red:"#a03232",brightRed:"#c14a4a",green:"#4f7a30",brightGreen:"#6b9640",yellow:"#a9781a",brightYellow:"#c8941f",blue:"#35638a",brightBlue:"#4f81a8",magenta:"#8a4d7a",brightMagenta:"#a86699",cyan:"#2f7d78",brightCyan:"#409a94",white:"#8a8273",brightWhite:"#33302b"},["#faf6ec","#35638a","#4f7a30","#8a4d7a"]),
 };
-const THEME_ORDER=["console","tokyoNight","dracula","catppuccin","rosePine","nord","oneDark","gruvbox","monokai","kanagawa","synthwave","everforest","github","amoled","highContrast","matrix","amber"];
+const THEME_ORDER=["console","tokyoNight","dracula","catppuccin","rosePine","nord","oneDark","gruvbox","monokai","kanagawa","synthwave","everforest","github","amoled","highContrast","matrix","amber","githubLight","paper","solarizedLight","oneLight","catppuccinLatte","rosePineDawn","gruvboxLight"];
 const THEME_STORE="td.theme.v2", STORE="td.state.v5";
 let defaultThemeId="console";
 try{const sv=localStorage.getItem(THEME_STORE);if(sv&&THEMES[sv])defaultThemeId=sv;}catch{}
@@ -1262,7 +1277,7 @@ function createSession(desc, isLog){
   wtabsTrack.addEventListener("dblclick",(e)=>{if(e.target===wtabsTrack)addTab(s);});  // dbl-click empty strip → new tab
   wtEdgeL.addEventListener("click",()=>wtabsTrack.scrollBy({left:-120,behavior:"smooth"}));
   wtEdgeR.addEventListener("click",()=>wtabsTrack.scrollBy({left:120,behavior:"smooth"}));
-  const wtabAdd=el("button","wtab-add"); wtabAdd.textContent="+"; wtabAdd.title="New tab ("+kbd("⌘","⌥","N")+")";
+  const wtabAdd=el("button","wtab-add"); wtabAdd.textContent="+"; wtabAdd.title="New tab ("+kbd("⌘","⌥","A")+")";
   const ctrls=el("div","win-ctrls");
   const bRestart=wbtn("Restart shell"); bRestart.classList.add("restart");
   const bTheme=wbtn("Terminal theme\u2026");
@@ -1414,6 +1429,7 @@ function addTab(s, opts){
   s.panes.append(pane);
 
   const themeId=s.themeId||defaultThemeId;
+  pane.style.background=THEMES[themeId].xterm.background;   // match terminal bg so inset padding never shows a mismatched stripe
   const term=new window.Terminal({
     fontFamily:'"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace',
     fontSize:13,lineHeight:1.15,cursorBlink:!s.isLog,
@@ -1711,8 +1727,11 @@ function wireWindow(s){
   const{win,head,resize}=s;
   win.addEventListener("mousedown",()=>focus(s));
   head.addEventListener("mousedown",(e)=>{
-    if(e.target.closest(".win-ctrls,.win-tabs,.wtab-add"))return;
+    // drag from grip, empty header, or empty tab-track — but not tabs/controls themselves
+    if(e.target.closest(".win-ctrls,.wtab,.wtab-add,.wtabs-edge"))return;
     focus(s);
+    head.classList.add("wh-drag");
+    document.body.classList.add("win-dragging");   // force grabbing cursor everywhere during the drag
     const r=win.getBoundingClientRect(),dr=desktop.getBoundingClientRect();
     let offX=e.clientX-r.left,offY=e.clientY-r.top,snapZone=null;
     const mv=(ev)=>{
@@ -1726,6 +1745,8 @@ function wireWindow(s){
     };
     const up=()=>{
       document.removeEventListener("mousemove",mv); document.removeEventListener("mouseup",up);
+      head.classList.remove("wh-drag");
+      document.body.classList.remove("win-dragging");
       hideSnap(); hideGuides();
       if(snapZone) applyRect(s,snapZone.full?null:snapZone,snapZone.full);
       scheduleSave();
@@ -1802,7 +1823,7 @@ function setBroadcast(on){
   broadcastOn=on;
   bcastBtn.classList.toggle("active",on);
   document.getElementById("cast-label").textContent=on?"Cast ON":"Cast";
-  toast(on?"📢":"🔇",on?"Broadcast ON":"Broadcast off",
+  toast(on?ICON.cast:ICON.castOff,on?"Broadcast ON":"Broadcast off",
     on?"Keystrokes now go to ALL live shells":"Input goes to the focused terminal only",2600);
 }
 bcastBtn.addEventListener("click",()=>setBroadcast(!broadcastOn));
@@ -1931,12 +1952,12 @@ function setGlobalTheme(id){
   defaultThemeId=id;
   try{localStorage.setItem(THEME_STORE,id);}catch{}
   applyUITheme(id);
-  sessions.forEach((s)=>{if(!s.themeId) s.tabs.forEach((t)=>{try{t.term.options.theme=THEMES[id].xterm;}catch{}});});
+  sessions.forEach((s)=>{if(!s.themeId) s.tabs.forEach((t)=>{try{t.term.options.theme=THEMES[id].xterm;t.pane.style.background=THEMES[id].xterm.background;}catch{}});});
   renderThemeGrid(themeSearch.value.trim());
 }
 function setSessionTheme(s,id){
   s.themeId=id;
-  s.tabs.forEach((t)=>{try{t.term.options.theme=THEMES[id||defaultThemeId].xterm;}catch{}});
+  s.tabs.forEach((t)=>{const th=THEMES[id||defaultThemeId].xterm;try{t.term.options.theme=th;t.pane.style.background=th.background;}catch{}});
   scheduleSave(); renderThemeGrid(themeSearch.value.trim());
 }
 function renderThemeGrid(filter){
@@ -2278,8 +2299,8 @@ document.getElementById("sb-close-btn").addEventListener("click",closeSidebar);
    ════════════════════════════════════════════════ */
 document.addEventListener("keydown",(e)=>{
   const mod=e.metaKey||e.ctrlKey;
-  // don't steal from xterm
-  if(e.target.closest(".xterm-helper-textarea, .xterm textarea"))return;
+  // don't steal from xterm — except our ⌘⌥/Ctrl+Alt app combos, which must work while a terminal is focused
+  if(e.target.closest(".xterm-helper-textarea, .xterm textarea")&&!(mod&&e.altKey))return;
 
   if(e.key==="?"&&!mod&&!e.shiftKey&&document.activeElement===document.body){
     scOverlay.classList.contains("open")?scOverlay.classList.remove("open"):openShortcuts(); return;
@@ -2302,7 +2323,7 @@ document.addEventListener("keydown",(e)=>{
   if(mod&&e.altKey&&e.code==="KeyW"&&focusedId&&sessions.has(focusedId)){e.preventDefault(); requestCloseSession(sessions.get(focusedId)); return;}          // close window (⌘W = browser close-tab)
   if(mod&&e.altKey&&!e.shiftKey&&e.code==="KeyM"&&focusedId&&sessions.has(focusedId)){e.preventDefault(); minimize(sessions.get(focusedId)); return;}         // minimize (⌘M = macOS minimize)
   if(mod&&e.shiftKey&&e.key==="M"&&focusedId&&sessions.has(focusedId)){e.preventDefault(); toggleMax(sessions.get(focusedId)); return;}
-  if(mod&&e.altKey&&!e.shiftKey&&e.code==="KeyN"&&focusedId&&sessions.has(focusedId)){e.preventDefault(); addTab(sessions.get(focusedId)); return;}           // new tab (⌘⇧N = browser incognito)
+  if(mod&&e.altKey&&!e.shiftKey&&e.code==="KeyA"&&focusedId&&sessions.has(focusedId)){e.preventDefault(); addTab(sessions.get(focusedId)); return;}           // new tab / Add (⌘⌥N is macOS Notification Center; ⌘T/⌘⇧N owned by browser)
   if(mod&&e.shiftKey&&(e.key==="}"||e.key==="{"||e.key==="]"||e.key==="[")){  // cycle projects (⇧ = shift of tab-cycle)
     e.preventDefault();
     if(projectOrder.length>1){
