@@ -5,13 +5,17 @@
 ![Platforms: macOS · Windows · Linux](https://img.shields.io/badge/platform-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-blue)
 ![No build step](https://img.shields.io/badge/build-none-lightgrey)
 
-**Juggling a dozen terminal tabs across projects?** This is one screen where every shell is a window you can see, move, tile, and group — and refreshing the browser never kills your session.
+**Your terminals as floating windows — private, and running in 30 seconds.** Drag, resize, tile, and group real shells like app windows, right in your browser. No cloud, no accounts, no API keys, no build step.
 
 **[▶ See it in action](https://kiril6.github.io/termdeck/)** — showcase page with a live demo GIF.
 
-A browser cockpit of floating, draggable terminal windows — each backed by a **real shell (PTY)** on your machine. Open many terminals, tile them, group them into projects, theme them, and reconnect without losing a session. No Electron, no build step: it's an Express server, a WebSocket PTY bridge, and one HTML file.
+Every window is backed by a **real shell (PTY)** on your machine — open a dozen, tile them into a grid, group them into projects, theme each one, and reconnect after a refresh without losing a session. It's an Express server, a WebSocket PTY bridge, and one HTML file. That's it.
 
-> Runs entirely on `localhost`. Your shells never leave your machine.
+Three things set it apart:
+
+- 🔒 **Private by default** — runs entirely on `127.0.0.1`. Your shells and their output **never leave your machine**: no telemetry, no cloud service, no third-party embeddings of your command history.
+- ⚡ **Zero setup** — `node install.js && npm start`. No database, no accounts, no keys. Works fully offline (xterm is vendored, no CDN).
+- 🪟 **Actually a GUI** — free-floating draggable/resizable windows, not just fixed grid panes. A real cockpit you arrange the way you think.
 
 ![Terminal Dashboard in action](docs/demo.gif)
 
