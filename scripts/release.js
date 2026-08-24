@@ -31,7 +31,7 @@ const bump = first ? null : (['patch', 'minor', 'major'].includes(arg) ? arg : (
 let version;
 if (first) {
   version = require(path.join('..', 'package.json')).version;   // release current version as-is
-  run(`git tag v${version}`);
+  run(`git tag -a v${version} -m "Release v${version}"`);   // annotated → git push --follow-tags sends it
 } else {
   run(`npm version ${bump} -m "Release v%s"`);                  // bumps package.json, commits, tags
   version = require(path.join('..', 'package.json')).version;   // read AFTER bump (env var is stale)
