@@ -31,11 +31,11 @@ Three things set it apart:
 - **Floating windows** — drag, resize, minimize, maximize, tile into a grid.
 - **Tabs per window** — multiple shells in one pane, scrollable tab strip.
 - **Projects** — group windows into project tabs; switch context instantly. Each project remembers its own last path, so a fresh project's tree starts at home instead of inheriting another's. The 📁 Dir popover can **Spawn here** (naming the tab after the folder if it's the project's first terminal) or open a path as a **New project** (tab named after the folder, tree rooted there).
-- **Directory tree** (`⌘B`) — a real filesystem sidebar rooted at the active project, dirs lazy-expanding on click. **＋** on a folder opens a shell there; **⤢** on a file reveals it in Finder/Explorer.
+- **Directory tree** (`⌘B`) — a real filesystem sidebar rooted at the active project, dirs lazy-expanding on click. **＋** on a folder opens a shell there; **⤢** on a file reveals it in Finder/Explorer. Right-click any row for the full menu (new terminal, open as project, set as root, copy path, reveal); header buttons refresh the tree (keeping folders open) and toggle hidden files. The Dir popover (📁) has path autocomplete and rejects non-existent paths.
 - **Dock** — bottom session bar with activity/attention indicators; overflow scrolls with edge hints.
 
 **Sessions & persistence**
-- **Session reattach** — refresh the browser or drop your connection and the shell keeps running. A 60s grace timer holds the PTY; reconnecting replays the last 200 KB of output. Waking from sleep reconnects instantly instead of waiting on backoff.
+- **Session reattach** — refresh the browser or drop your connection and the shell keeps running. A 60s grace timer holds the PTY; reconnecting replays the last 1 MB of output. Waking from sleep reconnects instantly instead of waiting on backoff.
 - **Durable sessions (tmux)** — with `tmux` installed, shells run *inside* tmux, so they **survive a server restart or crash** (not just a browser refresh): restart `npm start` and reconnecting reattaches the still-living session. Auto-off where tmux is missing (incl. Windows). *(Nothing survives a full reboot — process memory is gone.)*
 - **Run command on start / SSH** — spawn a shell that immediately runs a command (Dir popover → *Run command on start*, e.g. `npm run dev`). Save `ssh` targets (palette → *Add SSH host…*) and reconnect to a host in one click.
 - **Live working directory** — each window's cwd badge follows the shell as it `cd`s. The backend polls each shell's real working dir from the OS (~1.5s), so it needs no shell config or `OSC 7`.
