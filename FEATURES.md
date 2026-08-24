@@ -35,14 +35,21 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🖥️ Group windows into project tabs; switch context instantly. Cycle projects with `⌘⇧]` / `⌘⇧[`.
 - 🖥️ **Limits:** 12 terminals per project, 10 project tabs (keeps one browser tab responsive).
 - 🖥️ Directory sidebar / tree (`⌘B`) — **real filesystem** listing via `/api/ls` (dirs first, dotfiles
-  hidden), rooted at the **active project's** root and lazy-expanding dirs on click. Per-row actions:
+  hidden by default), rooted at the **active project's** root and lazy-expanding dirs on click. Per-row actions:
   a dir's **＋** opens a new terminal there (`createSession` at that path); clicking a file's name opens
   the **in-app file viewer** (`/api/read` → overlay showing the text; binary files and >2 MB files are
   handled gracefully), and its **⤢** reveals it in the OS file manager (`/api/reveal`). Falls back to a
   static demo tree in `file://` demo mode.
+- 🖥️ **Right-click context menu** — right-click a tree row for the full action set: on a folder —
+  *New terminal here · Open as new project · Set as project root · Copy path · Reveal in file manager*;
+  on a file — *Open file · Copy path · Reveal*. The tree is the primary picker, no path-typing needed.
+- 🖥️ **Header tools** — **↻ Refresh** re-reads the tree (new files/dirs appear) while **keeping expanded
+  folders open** (open state tracked by path, restored after any refresh/project-switch), and **👁 Show
+  hidden** toggles dotfiles (`/api/ls?all=1`, persisted in `localStorage`).
 - 🖥️ **Breadcrumb navigation** — the sidebar header is a clickable path breadcrumb; click any ancestor
-  segment to re-root the tree there (step back / up), and **⌂** resets to the project root. Deep paths
-  scroll to keep the current folder in view. Switching projects clears the override.
+  segment to re-root the tree there (step back / up), **⌂** resets to the project root, and **📌** pins the
+  current location as the project's persistent root. Deep paths scroll to keep the current folder in view.
+  Switching projects clears the override.
 - 🖥️ **Empty / error state** — a genuinely empty or unreadable root shows a centered placeholder
   (📂 *Empty folder* / ⚠️ *Can't read folder*) instead of a bare word, so an empty sidebar reads as
   intentional, not broken. (Nested empty dirs still show a compact inline note.)
@@ -50,11 +57,13 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   persisted in `localStorage`; the tree follows the project tab, not the focused terminal. The
   last-used cwd is remembered **per project**, so a fresh project starts at `$HOME` (tree reset) and
   never inherits another project's path — unless you type one in the Dir popover.
-- 🖥️ **Dir popover** (📁) — type a path, then **Spawn here** (shell in the active project; if it's the
-  project's first terminal and the tab still has its default `project N` name, the tab is renamed to the
-  folder's basename) or
-  **New project** (new project tab named after the folder's basename + a shell there; the tree
-  follows the focused `cwd`, so it lands rooted at that path). Inline ✕ clears the input.
+- 🖥️ **Dir popover** (📁) — type a path with **live autocomplete** (subdirectories of the deepest existing
+  ancestor, filtered by what you've typed; ↑/↓ to move, Tab/Enter to accept) and a **validity indicator**
+  (green border when the typed path is a real dir, red when its parent doesn't exist), all from `/api/ls`.
+  Then **Spawn here** (shell in the active project; if it's the project's first terminal and the tab still
+  has its default `project N` name, the tab is renamed to the folder's basename) or **New project** (new
+  project tab named after the folder's basename + a shell there). A non-existent path is **rejected with an
+  inline "No such folder"** instead of silently spawning in `$HOME`. Inline ✕ clears the input.
 
 ## Sessions & reattach
 - 🔌 **Durable sessions (tmux)** — when `tmux` is on the host, each shell is spawned inside
@@ -73,6 +82,10 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🖥️ **Wake reconnect** — on tab refocus (`visibilitychange`), reconnecting shells retry
   immediately instead of waiting out the backoff (localhost drops on sleep aren't network events).
 - 🖥️ WS auto-reconnect with exponential backoff (caps at 5s).
+- 🖥️ **Coalesced exit toasts** — a shell exiting shows a *"Shell exited"* toast with a red status dot
+  (matching the *Restored* toast's dot), but a **burst** of exits within ~700ms (e.g. many dead PTYs on
+  mass reattach after a long absence) collapses into a single *"N shells exited while you were away"*
+  toast instead of one per terminal.
 - 🔌 Shell picked from `$SHELL` → PowerShell (Windows) → zsh/bash/sh; `cwd` validated before spawn.
 - 🔌 **`cmd` query param** — a fresh shell can be handed a startup command (typed in after ~300ms).
   Runs once, only on a genuinely new shell (raw: always fresh here; tmux: gated by `has-session`).

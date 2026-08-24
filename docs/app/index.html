@@ -42,6 +42,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);overflow:hid
 .status #conn-text{white-space:nowrap;}
 .led{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;flex:0 0 auto;}
 .led.live{background:var(--live);box-shadow:0 0 8px var(--live);}
+.led.dead{background:var(--dead);box-shadow:0 0 8px var(--dead);}
 .status.live .led{background:var(--live);box-shadow:0 0 8px var(--live);}
 .status.demo .led{background:var(--demo);box-shadow:0 0 8px var(--demo);}
 .bar-actions{display:flex;align-items:center;gap:8px;}
@@ -139,6 +140,17 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
   display:none;place-items:center;font-size:10px;padding:0;line-height:1;}
 .in-clear:hover{background:var(--btn-bg);color:var(--text);}
 .in-wrap.has-val .in-clear{display:grid;}
+.in-wrap.ok #cwd-input{border-color:var(--accent-dim);}
+.in-wrap.bad #cwd-input{border-color:#e5675f;}
+.cwd-ac{position:absolute;top:calc(100% + 3px);left:0;right:0;z-index:9100;max-height:180px;overflow-y:auto;
+  background:var(--panel);border:1px solid var(--line);border-radius:6px;box-shadow:var(--shadow);
+  display:none;scrollbar-width:thin;scrollbar-color:var(--line) transparent;}
+.cwd-ac.open{display:block;}
+.cwd-ac .ac-item{display:flex;align-items:center;gap:7px;padding:6px 9px;font-family:var(--mono);
+  font-size:11.5px;color:var(--text);cursor:pointer;white-space:nowrap;overflow:hidden;}
+.cwd-ac .ac-item .ac-ic{flex:0 0 auto;font-size:12px;}
+.cwd-ac .ac-item .ac-nm{overflow:hidden;text-overflow:ellipsis;}
+.cwd-ac .ac-item:hover,.cwd-ac .ac-item.sel{background:var(--btn-bg);}
 .popover .hintline{margin:8px 0 0;font-size:10px;color:var(--muted);}
 .popover .plist{display:flex;flex-direction:column;gap:4px;max-height:200px;overflow:auto;}
 .popover .pitem{display:flex;align-items:center;justify-content:space-between;gap:8px;
@@ -316,8 +328,17 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
 .sb-head .crumb:last-child:hover{background:transparent;color:var(--text);}
 .sb-head .crumb-sep{color:var(--line);flex:0 0 auto;}
 .sb-head .sb-close{border:0;background:transparent;color:var(--muted);
-  cursor:pointer;font-size:17px;line-height:1;display:grid;place-items:center;}
-.sb-head .sb-close:hover{color:var(--text);}
+  cursor:pointer;line-height:1;display:grid;place-items:center;padding:3px;border-radius:5px;}
+.sb-head .sb-close:hover{color:var(--text);background:var(--btn-bg);}
+.sb-head .sb-close svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.sb-head .sb-tool{border:0;background:transparent;color:var(--muted);cursor:pointer;
+  flex:0 0 auto;display:grid;place-items:center;padding:3px;border-radius:5px;font-size:13px;}
+.sb-head .sb-tool:hover{color:var(--text);background:var(--btn-bg);}
+.sb-head .sb-tool.on{color:var(--accent);}
+.sb-head .sb-tool svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.sb-head .sb-pin{border:0;background:transparent;color:var(--muted);cursor:pointer;flex:0 0 auto;padding:0 3px;}
+.sb-head .sb-pin:hover{color:var(--accent);}
+.sb-head .sb-pin svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
 .tree{flex:1;overflow-y:auto;padding:4px 0;scrollbar-width:thin;scrollbar-color:var(--line) transparent;}
 .tn{display:flex;align-items:center;gap:6px;padding:4px 6px;
   font-size:11.5px;cursor:pointer;white-space:nowrap;overflow:hidden;border-radius:5px;color:var(--text);}
@@ -607,8 +628,9 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
   <div class="popover" id="cwd-pop" style="width:320px;">
     <label>Start shell in directory</label>
     <div class="in-wrap">
-      <input id="cwd-input" spellcheck="false" placeholder="~/projects  or  /var/log"/>
+      <input id="cwd-input" spellcheck="false" autocomplete="off" placeholder="~/projects  or  /var/log"/>
       <button id="cwd-clear" class="in-clear" title="Clear" tabindex="-1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      <div class="cwd-ac" id="cwd-ac"></div>
     </div>
     <label style="margin-top:10px;">Run command on start <span style="opacity:.6;">(optional)</span></label>
     <div class="in-wrap">
@@ -674,6 +696,8 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 <div class="sidebar" id="sidebar">
   <div class="sb-head">
     <span class="sb-title" id="sb-title">Directory Tree</span>
+    <button class="sb-tool" id="sb-hidden-btn" title="Show hidden files" aria-label="Toggle hidden files"></button>
+    <button class="sb-tool" id="sb-refresh-btn" title="Refresh tree" aria-label="Refresh tree"></button>
     <button class="sb-close" id="sb-close-btn" title="Collapse sidebar (⌘B)" aria-label="Collapse sidebar">«</button>
   </div>
   <div class="tree" id="tree"></div>
@@ -739,7 +763,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
     <div class="sc-about">
       <b>Terminal Dashboard</b> — floating terminal windows in your browser, each backed by a real
       shell on this machine. Refresh or drop the connection without losing a session, group shells
-      into <b>projects</b>, and drive it all from <b class="kbd-inline">⌘K</b>. <span style="opacity:.85">© 2026 <a href="https://github.com/kiril6" target="_blank" rel="noopener" class="sc-credit">kiril6</a> · MIT</span>
+      into <b>projects</b>, and drive it all from <b class="kbd-inline">⌘K</b>. <span style="opacity:.85"><a href="https://github.com/kiril6/termdeck" target="_blank" rel="noopener" class="sc-credit">GitHub</a> · © 2026 <a href="https://github.com/kiril6" target="_blank" rel="noopener" class="sc-credit">kiril6</a> · MIT</span>
     </div>
     <div class="sc-section">
       <div class="sc-section-label">Global</div>
@@ -812,6 +836,12 @@ const ICON={
   keyboard:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v12H3zM7 10h.01M11 10h.01M15 10h.01M8 14h8"/></svg>',
   snippet:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',
   gamepad:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h4M8 10v4M15 11h.01M18 13h.01M17 5H7a5 5 0 0 0-5 5l1.5 7a2.5 2.5 0 0 0 4.6.8L9 15h6l.9 2.8a2.5 2.5 0 0 0 4.6-.8L22 10a5 5 0 0 0-5-5z"/></svg>',
+  refresh:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v5h-5"/></svg>',
+  eye:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+  eyeOff:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 8 10 8a17 17 0 0 1-2.6 3.4M6.6 6.6A17 17 0 0 0 2 12s3.5 8 10 8a9 9 0 0 0 5.4-1.6M2 2l20 20M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>',
+  copy:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h11v11H9zM5 15H4V4h11v1"/></svg>',
+  pin:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5M9 3h6l-1 6 3 3H7l3-3-1-6z"/></svg>',
+  collapse:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M16 9l-3 3 3 3"/></svg>',
 };
 
 /* ════════════════════════════════════════════════
@@ -1678,7 +1708,7 @@ function openTabWS(s,tab){
     }else if(m.type==="exit"){
       tab.exited=true; setTabStatus(s,tab,"dead");
       tab.term.write("\r\n\x1b[2m[process exited \u2014 click \u27f3 to restart]\x1b[0m\r\n");
-      toast("\ud83d\udfe5","Shell exited","\""+s.name+"\" tab "+(s.tabs.indexOf(tab)+1),4000,()=>{switchTab(s,tab.id);revealWindow(s);});
+      announceExit(s,tab);   // coalesced: a burst (e.g. mass reattach after long away) becomes ONE toast
     }
   };
   ws.onclose=()=>{if(tab.closedByUser||tab.exited)return; scheduleTabRecon(s,tab);};
@@ -1689,6 +1719,19 @@ function openTabWS(s,tab){
     kill:()=>ws.readyState===1&&ws.send(JSON.stringify({type:"kill"})),
     close:()=>ws.close(),
   };
+}
+// Coalesce "shell exited" toasts: on mass reattach after a long absence every dead PTY fires exit
+// near-simultaneously — collapse a burst into a single toast instead of N stacked ones.
+const DEAD_DOT='<span class="led dead"></span>';
+let exitBatch=[], exitTimer=null;
+function announceExit(s,tab){
+  exitBatch.push({s,tab}); clearTimeout(exitTimer); exitTimer=setTimeout(flushExit,700);
+}
+function flushExit(){
+  const b=exitBatch; exitBatch=[]; if(!b.length)return;
+  const {s,tab}=b[0], jump=()=>{switchTab(s,tab.id);revealWindow(s);};
+  if(b.length===1) toast(DEAD_DOT,"Shell exited","\""+s.name+"\" tab "+(s.tabs.indexOf(tab)+1),4000,jump);
+  else             toast(DEAD_DOT,"Shells exited",b.length+" shells exited while you were away",5000,jump);
 }
 function scheduleTabRecon(s,tab){
   tab.reconnecting=true; tab.retries++;
@@ -2217,6 +2260,9 @@ function openSidebar(){sidebarOpen=true;sidebar.classList.add("open");desktop.cl
 function closeSidebar(){sidebarOpen=false;sidebar.classList.remove("open");desktop.classList.remove("sb-open");}
 
 let treeRoot=null; // breadcrumb override; null = follow project/focus
+let showHidden=localStorage.getItem("td-hidden")==="1"; // include dotfiles in the tree
+const treeOpen=new Set();  // absolute paths of expanded folders — survives a refresh so state + new files both show
+let treeLastRoot=null;
 function treeRootPath(){
   if(treeRoot) return treeRoot;
   const proj=projects.get(activeProject);
@@ -2227,10 +2273,12 @@ function treeRootPath(){
 }
 function renderCrumbs(root){
   sbTitleEl.innerHTML="";
-  if(treeRoot){ // show reset-to-project-root button once we've navigated away
+  if(treeRoot){ // navigated away: offer reset + pin-as-root
     const home=el("button","sb-reset");home.innerHTML=ICON.home;home.title="Back to project root";
     home.addEventListener("click",()=>{treeRoot=null;refreshTree();});
-    sbTitleEl.append(home);
+    const pin=el("button","sb-pin");pin.innerHTML=ICON.pin;pin.title="Pin as this project's root";
+    pin.addEventListener("click",()=>setProjectRoot(treeRoot));
+    sbTitleEl.append(home,pin);
   }
   if(!LIVE||root==="~"||root.startsWith("~")){ // demo / home fallback: single crumb, no deep nav
     const c=el("span","crumb");c.textContent=root.replace(/^\/home\/[^/]+/,"~");sbTitleEl.append(c);return;
@@ -2248,17 +2296,24 @@ function renderCrumbs(root){
 function refreshTree(){
   if(!sidebarOpen)return;
   const root=treeRootPath();
+  if(root!==treeLastRoot){treeOpen.clear();treeLastRoot=root;} // new root → forget prior expansions
   renderCrumbs(root);
   treeEl.innerHTML="";
   if(LIVE) mountTree(treeEl,root);
   else     renderDemoTree(treeEl,root.replace(/^\/home\/[^/]+/,"~"));
+}
+// set the active project's tree root explicitly and persist it ("state the path specifically")
+function setProjectRoot(path){
+  const proj=projects.get(activeProject); if(!proj)return;
+  proj.root=path; treeRoot=null; treeLastRoot=null; refreshTree(); scheduleSave();
+  toast(ICON.pin,"Project root set",path,2200);
 }
 
 // \u2500\u2500 real filesystem tree (LIVE): reads /api/ls, lazy-expands dirs \u2500\u2500
 function fIcon(name){const e=(name.split(".").pop()||"").toLowerCase();return({ts:"\ud83d\udcd8",js:"\ud83d\udcd9",json:"\ud83d\udcdd",md:"\ud83d\udcda",env:"\ud83d\udd10",sh:"\ud83d\udc1a",py:"\ud83d\udc0d",html:"\ud83c\udf10",css:"\ud83c\udfa8",svg:"\ud83d\uddbc"})[e]||"\ud83d\udcc4";}
 function joinPath(dir,name){const sep=dir.includes("\\")&&!dir.includes("/")?"\\":"/";return dir.replace(/[\\/]+$/,"")+sep+name;}
 async function apiLs(dir){
-  const r=await fetch("/api/ls?dir="+encodeURIComponent(dir||"~"));
+  const r=await fetch("/api/ls?dir="+encodeURIComponent(dir||"~")+(showHidden?"&all=1":""));
   const j=await r.json().catch(()=>({}));
   if(!r.ok) throw new Error(j.error||("HTTP "+r.status));
   return j;
@@ -2279,27 +2334,43 @@ function treeNode(en,full,depth){
   const wrap=el("div");
   const row=el("div","tn"+(en.dir?" dir-node":""));
   row.style.paddingLeft=(8+depth*14)+"px";
+  const reveal=()=>fetch("/api/reveal?path="+encodeURIComponent(full)).catch(()=>{});
+  const copyPath=()=>{try{navigator.clipboard.writeText(full);toast(ICON.copy,"Path copied",full,1600);}catch{}};
   if(en.dir){
     const car=el("span","tn-caret");car.innerHTML=ICON.caret;
     const ic=el("span","tn-icon");ic.textContent="\ud83d\udcc1";
     const nm=el("span","tn-name");nm.textContent=en.name;
     const add=el("button","tn-act");add.innerHTML=ICON.plus;add.title="New terminal here";
     row.append(car,ic,nm,add);
-    const kids=el("div","tc"); let loaded=false,open=false;
-    row.addEventListener("click",(e)=>{
-      if(e.target===add)return;
-      open=!open; row.classList.toggle("open",open); ic.textContent=open?"\ud83d\udcc2":"\ud83d\udcc1"; kids.classList.toggle("open",open);
-      if(open&&!loaded){loaded=true; fillNode(kids,full,depth+1);}
-    });
+    const kids=el("div","tc"); let loaded=false;
+    const setOpen=(o)=>{
+      row.classList.toggle("open",o); ic.textContent=o?"\ud83d\udcc2":"\ud83d\udcc1"; kids.classList.toggle("open",o);
+      if(o){treeOpen.add(full); if(!loaded){loaded=true; fillNode(kids,full,depth+1);}}
+      else treeOpen.delete(full);
+    };
+    row.addEventListener("click",(e)=>{ if(e.target.closest(".tn-act"))return; setOpen(!row.classList.contains("open")); });
     add.addEventListener("click",(e)=>{e.stopPropagation(); createSession({cwd:full}); scheduleSave(); toast("\u2795","New terminal",full,2000);});
+    row.addEventListener("contextmenu",(e)=>{e.preventDefault();e.stopPropagation(); showCtxMenu(e.clientX,e.clientY,[
+      {label:"New terminal here",run:()=>{createSession({cwd:full});scheduleSave();}},
+      {label:"Open as new project",run:()=>{const proj=addProject(en.name); if(!proj)return; setCwd(full); createSession({cwd:full,project:proj.id}); scheduleSave();}},
+      {label:"Set as project root",run:()=>setProjectRoot(full)},
+      {sep:true},
+      {label:"Copy path",run:copyPath},
+      {label:"Reveal in file manager",run:reveal},
+    ]);});
     wrap.append(row,kids);
+    if(treeOpen.has(full)) setOpen(true);   // restore expansion after a refresh (also picks up new files)
   }else{
     const ic=el("span","tn-icon");ic.textContent=fIcon(en.name);
     const nm=el("span","tn-name");nm.textContent=en.name;
     const rev=el("button","tn-act");rev.innerHTML=ICON.reveal;rev.title="Reveal in file manager";
     row.append(ic,nm,rev);
-    const reveal=(e)=>{e&&e.stopPropagation(); fetch("/api/reveal?path="+encodeURIComponent(full)).catch(()=>{});};
-    row.addEventListener("click",()=>openFileViewer(full,en.name)); rev.addEventListener("click",reveal);
+    row.addEventListener("click",()=>openFileViewer(full,en.name)); rev.addEventListener("click",(e)=>{e.stopPropagation();reveal();});
+    row.addEventListener("contextmenu",(e)=>{e.preventDefault();e.stopPropagation(); showCtxMenu(e.clientX,e.clientY,[
+      {label:"Open file",run:()=>openFileViewer(full,en.name)},
+      {label:"Copy path",run:copyPath},
+      {label:"Reveal in file manager",run:reveal},
+    ]);});
     wrap.append(row);
   }
   return wrap;
@@ -2341,7 +2412,14 @@ function renderDemoTree(container,root){
 }
 
 document.getElementById("sb-btn").addEventListener("click",toggleSidebar);
-document.getElementById("sb-close-btn").addEventListener("click",closeSidebar);
+const sbCloseBtn=document.getElementById("sb-close-btn"); sbCloseBtn.innerHTML=ICON.collapse;
+sbCloseBtn.addEventListener("click",closeSidebar);
+const sbRefreshBtn=document.getElementById("sb-refresh-btn"), sbHiddenBtn=document.getElementById("sb-hidden-btn");
+sbRefreshBtn.innerHTML=ICON.refresh;
+sbRefreshBtn.addEventListener("click",refreshTree); // same root keeps treeOpen → expanded folders restore, new files appear
+function syncHiddenBtn(){sbHiddenBtn.innerHTML=showHidden?ICON.eye:ICON.eyeOff;sbHiddenBtn.classList.toggle("on",showHidden);sbHiddenBtn.title=showHidden?"Hide hidden files":"Show hidden files";}
+syncHiddenBtn();
+sbHiddenBtn.addEventListener("click",()=>{showHidden=!showHidden;localStorage.setItem("td-hidden",showHidden?"1":"0");syncHiddenBtn();refreshTree();});
 
 /* ════════════════════════════════════════════════
    GLOBAL KEYBOARD HANDLER
@@ -2527,24 +2605,65 @@ folderBtn.addEventListener("click",(e)=>{
     const r=folderBtn.getBoundingClientRect();
     cwdPop.style.top=(r.bottom+6)+"px"; cwdPop.style.left=Math.max(12,r.right-320)+"px";
     cwdInput.value=curCwd(); syncCwdClear(); cwdInput.focus(); cwdInput.select(); // select-on-open: keeps memory, one keystroke overwrites
-  }
+    acUpdate();
+  } else acClose();
 });
 const cwdClear=document.getElementById("cwd-clear");
 function syncCwdClear(){cwdInput.parentElement.classList.toggle("has-val",!!cwdInput.value);}
 cwdInput.addEventListener("input",syncCwdClear);
-cwdClear.addEventListener("click",()=>{cwdInput.value="";syncCwdClear();cwdInput.focus();});
+cwdClear.addEventListener("click",()=>{cwdInput.value="";syncCwdClear();acUpdate();cwdInput.focus();});
+
+// ── path autocomplete + live validity for the Dir popover (uses /api/ls) ──
+const cwdAc=document.getElementById("cwd-ac");
+let acItems=[], acSel=-1, acTimer=null, acSeq=0;
+function acClose(){cwdAc.classList.remove("open");cwdAc.innerHTML="";acItems=[];acSel=-1;}
+function acSplit(v){ // typed value → { parent dir to list, trailing fragment to match }
+  if(!v||v==="~") return {parent:v||"~",frag:""};
+  if(v.endsWith("/")) return {parent:v,frag:""};
+  const i=v.lastIndexOf("/");
+  if(i<0) return {parent:"~",frag:v};              // bare word → complete under home
+  return {parent:v.slice(0,i)||"/",frag:v.slice(i+1)};
+}
+async function acUpdate(){
+  if(!LIVE) return;
+  const v=cwdInput.value.trim(), wrap=cwdInput.parentElement;
+  if(!v){wrap.classList.remove("ok","bad");acClose();return;}
+  const {parent,frag}=acSplit(v), seq=++acSeq;
+  let d; try{ d=await apiLs(parent); }catch{ if(seq===acSeq){wrap.classList.remove("ok");wrap.classList.add("bad");acClose();} return; }
+  if(seq!==acSeq) return;                            // a newer keystroke already fired
+  const dirs=d.entries.filter((e)=>e.dir), fl=frag.toLowerCase();
+  wrap.classList.remove("bad");
+  wrap.classList.toggle("ok", frag===""||dirs.some((e)=>e.name===frag)); // typed path is itself a real dir
+  cwdAc.innerHTML="";acItems=[];acSel=-1;
+  dirs.filter((e)=>e.name.toLowerCase().startsWith(fl)).slice(0,10).forEach((e)=>{
+    const full=joinPath(d.dir,e.name), it=el("div","ac-item"); it.dataset.full=full;
+    it.append(Object.assign(el("span","ac-ic"),{textContent:"📁"}),Object.assign(el("span","ac-nm"),{textContent:e.name}));
+    it.addEventListener("mousedown",(ev)=>{ev.preventDefault();acPick(full);});
+    cwdAc.append(it);acItems.push(it);
+  });
+  cwdAc.classList.toggle("open",acItems.length>0);
+}
+function acPick(full){cwdInput.value=full+"/";syncCwdClear();cwdInput.focus();acUpdate();}
+function acMove(d){if(!acItems.length)return;acSel=(acSel+d+acItems.length)%acItems.length;acItems.forEach((it,i)=>it.classList.toggle("sel",i===acSel));acItems[acSel].scrollIntoView({block:"nearest"});}
+cwdInput.addEventListener("input",()=>{clearTimeout(acTimer);acTimer=setTimeout(acUpdate,160);});
 const cwdCmd=document.getElementById("cwd-cmd");
-function spawnFromPopover(){const p=cwdInput.value.trim();const c=cwdCmd.value.trim();setCwd(p);cwdPop.classList.remove("open");
+// validate a typed path before spawning — else the server silently drops a bad cwd to $HOME (server.js safeDir)
+async function badDir(p){ if(!LIVE||!p) return false; try{ return !(await fetch("/api/ls?dir="+encodeURIComponent(p))).ok; }catch{ return false; } }
+function popErr(p){ toast(ICON.warn,"No such folder",p); cwdPop.classList.add("open"); cwdInput.focus(); cwdInput.select(); }
+async function spawnFromPopover(){const p=cwdInput.value.trim();const c=cwdCmd.value.trim();
+  if(await badDir(p)){popErr(p);return;}
+  setCwd(p);cwdPop.classList.remove("open");acClose();
   const proj=projects.get(activeProject);
   const firstTerm=proj && ![...sessions.values()].some((x)=>x.project===activeProject);
   if(p&&firstTerm&&/^project \d+$/.test(proj.name||"")){ // first shell into a fresh project → name it after the folder, like "New project"
     proj.name=p.replace(/[\\/]+$/,"").split(/[\\/]/).pop()||proj.name; proj.nameEl.textContent=proj.name;
   }
   createSession({cwd:p,cmd:c||undefined});cwdCmd.value="";scheduleSave();}
-function spawnAsProject(){
+async function spawnAsProject(){
   const p=cwdInput.value.trim();const c=cwdCmd.value.trim();
   if(!p){toast(ICON.warn,"Need a path","“New project” needs a directory"); return;}
-  cwdPop.classList.remove("open");
+  if(await badDir(p)){popErr(p);return;}
+  cwdPop.classList.remove("open");acClose();
   const base=p.replace(/[\\/]+$/,"").split(/[\\/]/).pop()||p;
   const proj=addProject(base); if(!proj) return;   // addProject switches to it; null if at limit
   setCwd(p);   // remember path on the NEW project (now active), not the one we came from
@@ -2553,7 +2672,14 @@ function spawnAsProject(){
 }
 document.getElementById("cwd-go").addEventListener("click",spawnFromPopover);
 document.getElementById("cwd-proj").addEventListener("click",spawnAsProject);
-cwdInput.addEventListener("keydown",(e)=>{if(e.key==="Enter")spawnFromPopover();if(e.key==="Escape")cwdPop.classList.remove("open");});
+cwdInput.addEventListener("keydown",(e)=>{
+  const open=cwdAc.classList.contains("open");
+  if(open&&e.key==="ArrowDown"){e.preventDefault();acMove(1);return;}
+  if(open&&e.key==="ArrowUp"){e.preventDefault();acMove(-1);return;}
+  if(open&&e.key==="Tab"){e.preventDefault();acPick((acItems[acSel<0?0:acSel]).dataset.full);return;}
+  if(e.key==="Enter"){if(open&&acSel>=0){e.preventDefault();acPick(acItems[acSel].dataset.full);return;} spawnFromPopover();return;}
+  if(e.key==="Escape"){if(open){acClose();return;} cwdPop.classList.remove("open");}
+});
 cwdCmd.addEventListener("keydown",(e)=>{if(e.key==="Enter")spawnFromPopover();if(e.key==="Escape")cwdPop.classList.remove("open");});
 
 // ── small-screen overflow menu ──

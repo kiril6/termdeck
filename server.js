@@ -147,8 +147,9 @@ app.get('/api/ls', apiGuard, (req, res) => {
   let ents;
   try { ents = fs.readdirSync(dir, { withFileTypes:true }); }
   catch (e) { return res.status(403).json({ error:e.code || 'read failed', dir }); }
+  const all = req.query.all === '1';                 // ?all=1 → include dotfiles (sidebar "show hidden")
   const entries = ents
-    .filter((e) => !e.name.startsWith('.'))          // hide dotfiles, like `ls`
+    .filter((e) => all || !e.name.startsWith('.'))   // hide dotfiles by default, like `ls`
     .map((e) => { try { return { name:e.name, dir:e.isDirectory() }; } catch { return { name:e.name, dir:false }; } })
     .sort((a, b) => (a.dir !== b.dir ? (a.dir ? -1 : 1) : a.name.localeCompare(b.name)));
   res.json({ dir, entries });
