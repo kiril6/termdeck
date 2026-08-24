@@ -35,6 +35,10 @@ Three files. Backend + frontend, no framework beyond Express.
 - Floating draggable/resizable window panes, tiling, projects sidebar, theme picker, command palette (⌘K), search.
 - Each pane opens its own WebSocket to the backend, passing `id`, `cols`, `rows`, `cwd`, optional `log`.
 - State (windows, projects, themes) persisted in `localStorage`.
+- Demo mode (no backend): forced on `file://`, `?demo`, or a `github.io` host (`FORCE_DEMO`). Static hosts get the UI + a fake shell, no PTYs.
+
+**`docs/`** — GitHub Pages showcase (served at `kiril6.github.io/termdeck/`). `docs/index.html` is the landing page; `docs/app/` is a backend-free copy of the frontend for the live "Try the demo" link.
+- ⚠️ **`docs/app/index.html` is a generated copy of `public/index.html`.** After ANY edit to `public/index.html`, run `npm run build:demo` (→ `scripts/build-demo.js`) and commit the result, or the hosted demo drifts from the real app. The script copies the HTML with `/vendor/` rewritten to relative paths and re-copies the xterm assets.
 
 **`install.js`** — one-shot dependency installer. Picks node-pty variant by platform, installs base deps `--ignore-scripts` first, falls back to plain `npm install` on failure.
 

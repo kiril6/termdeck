@@ -22,9 +22,12 @@ This project is built with the help of [Claude Code](https://claude.com/claude-c
 ```bash
 npm start          # start the server
 # edit public/index.html or server.js, then reload the browser
+npm run build:demo # ONLY if you changed public/index.html — resync the GitHub Pages demo
 ```
 
 There's no linter or test suite yet — verify changes by hand in the browser. If you add tests or CI, keep them lightweight.
+
+> **After editing `public/index.html`, run `npm run build:demo` and commit the result.** The hosted demo at `docs/app/` is a generated copy of the frontend; without a rebuild it drifts from the real app.
 
 ## Submitting changes
 
