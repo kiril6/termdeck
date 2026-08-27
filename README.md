@@ -92,7 +92,7 @@ node install.js   # first-time setup — picks the right node-pty prebuilt for y
 npm start         # runs the server → http://localhost:3000
 ```
 
-**Optional but recommended:** install **tmux** so shells survive a server restart/crash
+**Optional but recommended (either way above):** install **tmux** so shells survive a server restart/crash
 (macOS `brew install tmux`, Debian/Ubuntu `sudo apt install tmux`). Without it the app still
 runs — shells just don't outlive the server. Not available on Windows; set `NO_TMUX=1` to force it off.
 

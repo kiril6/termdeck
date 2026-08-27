@@ -946,6 +946,8 @@ document.documentElement.classList.toggle("is-mac",MAC);
 let instanceActive = true;   // false when another dashboard tab holds the lock (see single-instance guard)
 let selfReload = false;      // true when we trigger location.reload() ourselves — suppresses the beforeunload prompt
 let broadcastOn = false;     // when true, keystrokes in any terminal mirror to all live shells
+// A tab Cast can reach: a real live shell, or a demo shell (echoes locally) so the showcase can demo Cast too.
+const castable = (t)=>t.status==="live"||t.status==="demo";
 const sessions    = new Map();
 let order         = [];
 const projects    = new Map();
@@ -1154,7 +1156,7 @@ function runSnippet(sn){
   t.conn.send(sn.cmd); try{t.term.focus();}catch{}
   // Cast on → mirror the snippet into every other live shell in the active project (matches input broadcast scope).
   if(broadcastOn) sessions.forEach((os)=>{ if(os.project!==activeProject) return; os.tabs.forEach((ot)=>{
-    if(ot!==t && !os.isLog && ot.status==="live" && ot.conn?.send) ot.conn.send(sn.cmd);
+    if(ot!==t && !os.isLog && castable(ot) && ot.conn?.send) ot.conn.send(sn.cmd);
   });});
 }
 
@@ -1531,7 +1533,7 @@ function addTab(s, opts){
       // Broadcast: mirror this tab's input to every other live shell in the SAME project.
       // Scoped to activeProject so a cast can't hit shells in a project you can't see.
       if(broadcastOn) sessions.forEach((os)=>{ if(os.project!==activeProject) return; os.tabs.forEach((ot)=>{
-        if(ot!==tab && !os.isLog && ot.status==="live" && ot.conn?.send) ot.conn.send(d);
+        if(ot!==tab && !os.isLog && castable(ot) && ot.conn?.send) ot.conn.send(d);
       });});
     });
   }
@@ -1877,7 +1879,7 @@ const bcastBtn=document.getElementById("bcast");
 // Shells a cast would actually reach: live, non-log tabs in the active project.
 // Cast needs ≥2 (a lone shell would only mirror to itself = no-op), so the button
 // gates on this and an armed cast auto-disarms when the count drops below 2.
-function castableCount(){let n=0;sessions.forEach((s)=>{if(s.project!==activeProject||s.isLog)return;s.tabs.forEach((t)=>{if(t.status==="live"&&t.conn?.send)n++;});});return n;}
+function castableCount(){let n=0;sessions.forEach((s)=>{if(s.project!==activeProject||s.isLog)return;s.tabs.forEach((t)=>{if(castable(t)&&t.conn?.send)n++;});});return n;}
 function syncCastBtn(){
   const ok=castableCount()>=2;
   bcastBtn.disabled=!ok;

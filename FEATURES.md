@@ -112,6 +112,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   **Auto-disarms on project switch** so an armed cast never carries into another context.
   Button is **disabled unless the active project has ≥2 live shells** (a lone shell has nothing to
   cast to); an armed cast auto-disarms if the live-shell count drops below 2.
+  Works in **demo mode** too — demo shells count and echo mirrored input, so the showcase can demonstrate Cast.
 - 🖥️ **Command snippets** — save reusable commands (palette → *Save snippet…* or `⌘⌥S`, in-app input modal),
   run from the palette's Snippets group **or the 🔖 icon in each terminal's footer**. Both surfaces expose
   per-row **edit ✎ / delete 🗑** (palette rows show the buttons on hover). The footer menu is
