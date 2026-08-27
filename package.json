@@ -1,12 +1,25 @@
 {
   "name": "terminal-dashboard",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A floating-window terminal dashboard served on localhost.",
   "main": "server.js",
-  "bin": { "termdeck": "server.js" },
-  "files": ["server.js", "install.js", "public", "scripts", "FEATURES.md"],
-  "repository": { "type": "git", "url": "https://github.com/kiril6/termdeck.git" },
-  "bugs": { "url": "https://github.com/kiril6/termdeck/issues" },
+  "bin": {
+    "termdeck": "server.js"
+  },
+  "files": [
+    "server.js",
+    "install.js",
+    "public",
+    "scripts",
+    "FEATURES.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kiril6/termdeck.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kiril6/termdeck/issues"
+  },
   "homepage": "https://github.com/kiril6/termdeck#readme",
   "license": "MIT",
   "scripts": {
