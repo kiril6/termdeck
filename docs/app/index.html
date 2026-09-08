@@ -180,7 +180,7 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
   text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;}
 .game-banner.show{display:block;}
 .game-hint{position:absolute;bottom:8px;left:0;right:0;font-size:11px;color:var(--text);text-align:center;line-height:1.3;
-  text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;pointer-events:none;}
+  text-shadow:0 0 4px var(--bg),0 0 4px var(--bg),0 0 2px var(--bg);pointer-events:none;}
 
 /* ── command palette ── */
 .pal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9990;display:none;}
@@ -2845,11 +2845,12 @@ let gameRAF=null, gState=null, gCur=null;   // gCur = current game module
 function gColors(){const cs=getComputedStyle(document.documentElement);return{
   fg:cs.getPropertyValue("--text").trim()||"#e6e6e6",
   mut:cs.getPropertyValue("--muted").trim()||"#888",
+  bg:cs.getPropertyValue("--bg").trim()||"#0c0c0c",   // halo colour so canvas text reads in light or dark themes
   acc:cs.getPropertyValue("--live").trim()||"#4fd6be"};}
-function gOverText(msg,c){gctx.save();gctx.font="14px monospace";gctx.textAlign="center";gctx.textBaseline="middle";
+function gOverText(msg,c){gctx.save();gctx.font="bold 14px monospace";gctx.textAlign="center";gctx.textBaseline="middle";
   const x=CW/2,y=CH/2;
-  gctx.lineJoin="round";gctx.lineWidth=4;gctx.strokeStyle="#000";
-  gctx.shadowColor="rgba(0,0,0,.9)";gctx.shadowBlur=8;gctx.strokeText(msg,x,y);
+  gctx.lineJoin="round";gctx.lineWidth=5;gctx.strokeStyle=c.bg;
+  gctx.shadowColor=c.bg;gctx.shadowBlur=8;gctx.strokeText(msg,x,y);
   gctx.shadowBlur=0;gctx.fillStyle=c.fg;gctx.fillText(msg,x,y);gctx.restore();}
 
 /* ── dino runner ── */
@@ -2901,7 +2902,7 @@ function gSpawnFood(){const g=gState;let f;do{f={x:Math.floor(gRand()*COLS),y:Ma
   while(g.body.some(b=>b.x===f.x&&b.y===f.y));g.food=f;}
 let gSeed=1;function gRand(){gSeed=(gSeed*1103515245+12345)&0x7fffffff;return gSeed/0x7fffffff;}  // no Math.random dep needed
 function gScoreBadge(n,c){gctx.save();gctx.font="11px monospace";gctx.textAlign="right";
-  gctx.lineJoin="round";gctx.lineWidth=2;gctx.strokeStyle="#000";gctx.strokeText("score "+n,CW-10,18);
+  gctx.lineJoin="round";gctx.lineWidth=3;gctx.strokeStyle=c.bg;gctx.strokeText("score "+n,CW-10,18);
   gctx.fillStyle=c.fg;gctx.fillText("score "+n,CW-10,18);gctx.restore();}
 
 const GAMES={dino:DINO,snake:SNAKE};
