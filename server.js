@@ -22,10 +22,19 @@ const url     = require('url');
 const { WebSocketServer } = require('ws');
 
 // ── Load node-pty — try both the standard and the Linux prebuilt fork ────────
-let pty;
+let pty, ptyDir;
 const ptyAttempts = ['node-pty', '@homebridge/node-pty-prebuilt-multiarch'];
 for (const pkg of ptyAttempts) {
-  try { pty = require(pkg); break; } catch {}
+  try { pty = require(pkg); ptyDir = path.dirname(require.resolve(pkg + '/package.json')); break; } catch {}
+}
+
+// macOS unpacks node-pty prebuilds without the execute bit on spawn-helper, which
+// node-pty forks to exec shells → "posix_spawnp failed". install.js fixes this, but
+// installs that skip it (npx github:, npm i -g) don't — so restore +x at runtime too.
+if (pty && ptyDir && process.platform === 'darwin') {
+  for (const a of ['darwin-arm64', 'darwin-x64']) {
+    try { fs.chmodSync(path.join(ptyDir, 'prebuilds', a, 'spawn-helper'), 0o755); } catch {}
+  }
 }
 
 if (!pty) {
@@ -52,9 +61,15 @@ const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
 // xterm.js + addons served locally from node_modules so the app works fully offline
 // (no CDN). Scoped to just these packages — never expose all of node_modules.
+// Resolve each package's real path via node resolution (not __dirname/node_modules):
+// when termdeck runs as an installed dependency, npm hoists these to a parent
+// node_modules, so a hardcoded __dirname/node_modules/<p> would 404. See require.resolve.
 for (const p of ['xterm', 'xterm-addon-fit', 'xterm-addon-search',
-                 'xterm-addon-web-links', 'xterm-addon-webgl', 'xterm-addon-serialize'])
-  app.use('/vendor/' + p, express.static(path.join(__dirname, 'node_modules', p)));
+                 'xterm-addon-web-links', 'xterm-addon-webgl', 'xterm-addon-serialize']) {
+  try {
+    app.use('/vendor/' + p, express.static(path.dirname(require.resolve(p + '/package.json'))));
+  } catch { console.error('  [vendor] cannot resolve', p, '— run: node install.js'); }
+}
 app.get('/', (_req, res) => {
   const found = [
     path.join(__dirname, 'index.html'),

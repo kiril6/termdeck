@@ -204,7 +204,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   (OS opener: `open`/`start`/`xdg-open`). `NO_OPEN=1` skips it; `BROWSER=<name|path>` picks a
   specific browser (e.g. `BROWSER="Google Chrome"` on macOS, `BROWSER=firefox` on Linux).
 - 🔌 `/debug` page — dumps env and tries each shell candidate when shells won't start.
-- 🔌 **`npx` runnable** — `npx github:kiril6/termdeck` fetches deps and launches the server with no clone (`bin: termdeck`, shebang on `server.js`). All paths are `__dirname`-relative so it runs from any install dir. tmux/durable-session support only if `tmux` is on the host.
+- 🔌 **`npx` runnable** — `npx github:kiril6/termdeck` fetches deps and launches the server with no clone (`bin: termdeck`, shebang on `server.js`). Runs correctly as an installed dependency (npx / `npm i -g`), not just from a repo clone: `/vendor/*` assets resolve xterm via `require.resolve` (deps get hoisted to a parent `node_modules`, so `__dirname/node_modules` would 404), and node-pty's `spawn-helper` is `chmod +x`'d at startup on macOS (installs that skip `install.js` leave it non-executable → `posix_spawnp failed`). tmux/durable-session support only if `tmux` is on the host.
 
 ## Modes
 - 🖥️ **Live** over `http(s)://` (real shells). **Demo** over `file://`, with `?demo` in the URL, or on a `github.io` host (no backend, UI preview with a fake shell).
