@@ -506,7 +506,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
   color:var(--muted);cursor:pointer;font-size:15px;display:grid;place-items:center;line-height:1;}
 .wtab-add:hover{color:var(--accent);}
 
-.win-ctrls{display:flex;gap:1px;flex:0 0 auto;}
+.win-ctrls{display:flex;gap:1px;flex:0 0 auto;position:relative;z-index:7;}/* above resize grips so title-bar buttons stay clickable */
 .wbtn{width:24px;height:22px;border:0;border-radius:5px;background:transparent;
   color:var(--muted);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;
   transition:background .1s,color .1s;}
@@ -518,13 +518,16 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 
 /* panes & footer */
 .win-panes{flex:1;min-height:0;position:relative;}
-.win-pane{position:absolute;inset:0;background:var(--win-body);padding:5px 3px 3px 7px;display:none;overflow:hidden;}
+/* No vertical padding: FitAddon measures this pane's border-box height, so any
+   top/bottom padding makes it compute one row too many → the last row is clipped
+   under the footer. Horizontal padding is safe (doesn't affect the row count). */
+.win-pane{position:absolute;inset:0;background:var(--win-body);padding:0 3px 0 7px;display:none;overflow:hidden;}
 .win-pane.active{display:block;}
 .win-pane .xterm{height:100%;}
 .win-pane .xterm-viewport{scrollbar-width:thin;scrollbar-color:var(--line) transparent;background-color:transparent!important;}
-.win-pane .xterm-viewport::-webkit-scrollbar{width:10px;}
-.win-pane .xterm-viewport::-webkit-scrollbar-track{background:transparent;}
-.win-pane .xterm-viewport::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px;border:2px solid transparent;background-clip:padding-box;min-height:24px;}
+.win-pane .xterm-viewport::-webkit-scrollbar{width:10px;cursor:default;}/* arrow over the scrollbar, not the terminal's text cursor */
+.win-pane .xterm-viewport::-webkit-scrollbar-track{background:transparent;margin-bottom:14px;}/* clear the resize grip corner */
+.win-pane .xterm-viewport::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px;border:2px solid transparent;background-clip:padding-box;min-height:24px;cursor:default;}
 .win-pane .xterm-viewport::-webkit-scrollbar-thumb:hover{background:var(--muted);}
 .win-foot{height:22px;flex:0 0 22px;display:flex;align-items:center;gap:6px;
   padding:0 8px;background:var(--head-b);border-top:1px solid var(--line-soft);
@@ -539,9 +542,17 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 .win-foot .foot-game,.win-foot .foot-snip{flex:0 0 auto;display:inline-flex;align-items:center;cursor:pointer;color:var(--muted);opacity:.7;transition:opacity .12s,color .12s;}
 .win-foot .foot-game svg,.win-foot .foot-snip svg{width:13px;height:13px;display:block;}
 .win-foot .foot-game:hover,.win-foot .foot-snip:hover{opacity:1;color:var(--live,#4fd6be);}
-.resize{position:absolute;right:0;bottom:22px;width:14px;height:14px;cursor:nwse-resize;z-index:3;}
-.resize::after{content:"";position:absolute;right:3px;bottom:3px;width:6px;height:6px;
-  border-right:2px solid var(--line);border-bottom:2px solid var(--line);}
+/* edge + corner resize handles on all four sides. z above the terminal canvas so
+   they catch mousedown; .win-ctrls sits above them so title-bar buttons stay clickable. */
+.wgrip{position:absolute;z-index:6;}
+.wgrip-n{top:0;left:11px;right:11px;height:5px;cursor:ns-resize;}
+.wgrip-s{bottom:0;left:11px;right:11px;height:5px;cursor:ns-resize;}
+.wgrip-w{left:0;top:11px;bottom:11px;width:5px;cursor:ew-resize;}
+.wgrip-e{right:0;top:11px;bottom:11px;width:5px;cursor:ew-resize;}
+.wgrip-nw{top:0;left:0;width:11px;height:11px;cursor:nwse-resize;}
+.wgrip-ne{top:0;right:0;width:11px;height:11px;cursor:nesw-resize;}
+.wgrip-sw{bottom:0;left:0;width:11px;height:11px;cursor:nesw-resize;}
+.wgrip-se{bottom:0;right:0;width:11px;height:11px;cursor:nwse-resize;}
 
 /* ── dock ── */
 .dock{position:absolute;left:0;right:0;bottom:0;height:60px;display:flex;align-items:center;
@@ -1363,8 +1374,8 @@ function createSession(desc, isLog){
   if(!isLog) footActions.append(footSnip);   // read-only log terminals ignore input, so no insert affordance
   footActions.append(footGame);
   foot.append(badgeShell,badgeCwd,footActions,uptimeEl);   // icons grouped, timer pinned to the trailing corner
-  const resize=el("div","resize");
-  win.append(head,panes,foot,resize);
+  const grips=["n","s","e","w","nw","ne","sw","se"].map((d)=>{const g=el("div","wgrip wgrip-"+d);g.dataset.dir=d;return g;});
+  win.append(head,panes,foot,...grips);
   desktop.append(win);
 
   // position
@@ -1392,7 +1403,7 @@ function createSession(desc, isLog){
 
   const s={
     id,project,name,isLog:!!isLog,cwd:desc.cwd||curCwd()||"",
-    win,head,led,winTabs,wtabsTrack,wtabAdd,panes,foot,badgeShell,badgeCwd,uptimeEl,resize,chip,cled,cname,cmove,
+    win,head,led,winTabs,wtabsTrack,wtabAdd,panes,foot,badgeShell,badgeCwd,uptimeEl,chip,cled,cname,cmove,
     themeId:desc.themeId&&THEMES[desc.themeId]?desc.themeId:null,
     tabs:[],activeTabId:null,
     status:"pending",minimized:false,maximized:false,prevRect:desc.prevRect||null,
@@ -1678,7 +1689,7 @@ function openTabWS(s,tab){
   tab.exited=false;
   setTabStatus(s,tab,tab.reconnecting?"reconnecting":"pending");
 
-  ws.onopen=()=>{tab.retries=0; tab.reconnecting=false; setTabStatus(s,tab,"live"); refitTab(s,tab);};
+  ws.onopen=()=>{tab.retries=0; tab.reconnecting=false; setTabStatus(s,tab,"live"); refitTab(s,tab); requestAnimationFrame(()=>snapWinHeight(s));};
   ws.onmessage=(ev)=>{
     let m; try{m=JSON.parse(ev.data);}catch{return;}
     if(m.type==="attach"){
@@ -1791,7 +1802,7 @@ function closeSession(s,skipCount){
    WINDOW BEHAVIOUR
    ════════════════════════════════════════════════ */
 function wireWindow(s){
-  const{win,head,resize}=s;
+  const{win,head}=s;
   win.addEventListener("mousedown",()=>focus(s));
   head.addEventListener("mousedown",(e)=>{
     // drag from grip, empty header, or empty tab-track — but not tabs/controls themselves
@@ -1820,13 +1831,7 @@ function wireWindow(s){
     };
     document.addEventListener("mousemove",mv); document.addEventListener("mouseup",up);
   });
-  resize.addEventListener("mousedown",(e)=>{
-    e.stopPropagation(); focus(s); if(s.maximized)return;
-    const r=win.getBoundingClientRect(),sx=e.clientX,sy=e.clientY,sw=r.width,sh=r.height;
-    const mv=(ev)=>{win.style.width=Math.max(320,sw+ev.clientX-sx)+"px"; win.style.height=Math.max(200,sh+ev.clientY-sy)+"px"; refitActive(s);};
-    const up=()=>{document.removeEventListener("mousemove",mv); document.removeEventListener("mouseup",up); refitActive(s); scheduleSave();};
-    document.addEventListener("mousemove",mv); document.addEventListener("mouseup",up);
-  });
+  win.querySelectorAll(".wgrip").forEach((g)=>g.addEventListener("mousedown",(e)=>startResize(s,g.dataset.dir,e)));
 
   // window controls
   const [bRestart,bTheme,bMin,bMax,bClose]=s.head.querySelectorAll(".win-ctrls .wbtn");
@@ -1864,6 +1869,42 @@ function refitActive(s){
 function refitTab(s,tab){
   if(s.minimized||s.project!==activeProject||s.activeTabId!==tab.id)return;
   try{tab.fit.fit(); if(tab.conn?.resize) tab.conn.resize(tab.term.cols,tab.term.rows);}catch{}
+}
+// FitAddon quantises rows to whole cells, so an arbitrary window height leaves a
+// sub-row strip of empty terminal below the last line, before the footer. Trim the
+// window by exactly that leftover so the footer sits flush against the last row.
+function snapWinHeight(s){
+  if(s.minimized||s.maximized||s.project!==activeProject)return;
+  const t=activeTab(s); const el=t&&t.term&&t.term.element; if(!el)return;
+  const vp=el.querySelector(".xterm-viewport"), sc=el.querySelector(".xterm-screen");
+  if(!vp||!sc)return;
+  const rem=vp.clientHeight-sc.clientHeight;
+  if(rem>0&&rem<40){ s.win.style.height=(s.win.offsetHeight-rem)+"px"; refitActive(s); }
+}
+// Drag-resize from any edge/corner. `dirs` is a subset of "nsew" (e.g. "se","w","ne").
+// Left/top move only for the w/n edges so the opposite edge stays anchored.
+function startResize(s,dirs,e){
+  e.stopPropagation(); e.preventDefault(); focus(s); if(s.maximized)return;
+  const win=s.win, MINW=320, MINH=200;
+  const x0=parseFloat(win.style.left)||0, y0=parseFloat(win.style.top)||0, w0=win.offsetWidth, h0=win.offsetHeight;
+  const dr=desktop.getBoundingClientRect();   // clamp so no edge leaves the desktop bounds
+  const sx=e.clientX, sy=e.clientY;
+  const mv=(ev)=>{
+    const dx=ev.clientX-sx, dy=ev.clientY-sy;
+    let nx=x0, ny=y0, nw=w0, nh=h0;
+    if(dirs.indexOf("e")>=0) nw=Math.max(MINW,Math.min(w0+dx, dr.width-x0));       // right edge ≤ desktop right
+    if(dirs.indexOf("s")>=0) nh=Math.max(MINH,Math.min(h0+dy, dr.height-y0));      // bottom edge ≤ desktop bottom
+    if(dirs.indexOf("w")>=0){ nw=Math.max(MINW,Math.min(w0-dx, x0+w0)); nx=x0+(w0-nw); }   // left edge ≥ 0
+    if(dirs.indexOf("n")>=0){ nh=Math.max(MINH,Math.min(h0-dy, y0+h0)); ny=y0+(h0-nh); }   // top edge ≥ 0
+    const a=resizeAlign(s,dirs,nx,ny,nw,nh);   // snap dragged edge to neighbour windows
+    if(a.w>=MINW){ nx=a.x; nw=a.w; }
+    if(a.h>=MINH){ ny=a.y; nh=a.h; }
+    win.style.left=nx+"px"; win.style.top=ny+"px"; win.style.width=nw+"px"; win.style.height=nh+"px";
+    refitActive(s);
+    if(a.guides.length) showGuides(a.guides); else hideGuides();
+  };
+  const up=()=>{document.removeEventListener("mousemove",mv); document.removeEventListener("mouseup",up); hideGuides(); refitActive(s); snapWinHeight(s); scheduleSave();};
+  document.addEventListener("mousemove",mv); document.addEventListener("mouseup",up);
 }
 // Per-terminal font zoom (⌘+/⌘-/⌘0). dir>0 in, <0 out, 0 reset.
 function zoomTab(s,tab,dir){
@@ -1941,6 +1982,20 @@ function computeAlign(drag,x,y,w,h,dr){
     if(sy===null) for(let i=0;i<3;i++) for(let j=0;j<3;j++) if(Math.abs(dY[i]-oY[j])<=ATHRESH){sy=y+(oY[j]-dY[i]);guides.push({type:"h",pos:oY[j],from:Math.min(ol,x)-12,to:Math.max(ol+ow,x+w)+12});break;}
   }
   return{x:sx!==null?clamp(sx,-w+80,dr.width-80):x,y:sy!==null?clamp(sy,0,dr.height-34):y,guides};
+}
+// Resize-time alignment: snap the dragged edge(s) to other windows' left/right/top/bottom
+// edges (within ATHRESH), adjusting size — the resize counterpart of computeAlign.
+function resizeAlign(drag,dirs,x,y,w,h){
+  const others=order.map((id)=>sessions.get(id)).filter((o)=>o&&o!==drag&&!o.minimized&&!o.maximized&&o.project===activeProject);
+  const xL=[],yL=[];
+  for(const o of others){const ol=parseFloat(o.win.style.left)||0,ot=parseFloat(o.win.style.top)||0,ow=o.win.offsetWidth,oh=o.win.offsetHeight;xL.push(ol,ol+ow);yL.push(ot,ot+oh);}
+  const near=(v,lines)=>{for(const L of lines) if(Math.abs(v-L)<=ATHRESH) return L; return null;};
+  let nx=x,ny=y,nw=w,nh=h;const guides=[];
+  if(dirs.indexOf("e")>=0){const L=near(x+w,xL);if(L!==null){nw=L-x;guides.push({type:"v",pos:L,from:y-12,to:y+h+12});}}
+  if(dirs.indexOf("w")>=0){const L=near(x,xL);if(L!==null){nx=L;nw=x+w-L;guides.push({type:"v",pos:L,from:y-12,to:y+h+12});}}
+  if(dirs.indexOf("s")>=0){const L=near(y+h,yL);if(L!==null){nh=L-y;guides.push({type:"h",pos:L,from:x-12,to:x+w+12});}}
+  if(dirs.indexOf("n")>=0){const L=near(y,yL);if(L!==null){ny=L;nh=y+h-L;guides.push({type:"h",pos:L,from:x-12,to:x+w+12});}}
+  return{x:nx,y:ny,w:nw,h:nh,guides};
 }
 function showGuides(g){
   const v=g.find((x)=>x.type==="v"),h=g.find((x)=>x.type==="h");
@@ -2814,7 +2869,7 @@ const DINO={
     gctx.fillStyle=c.acc;gctx.fillRect(40,g.dino.y,20,22);
     gctx.fillStyle=c.fg;for(const o of g.obs)gctx.fillRect(o.x,g.ground-o.h,o.w,o.h);
     gScoreBadge(Math.floor(g.score/10),c);
-    if(g.over)gOverText("game over — Space to restart",c);}
+    if(g.over)gOverText("Game over — Space to restart",c);}
 };
 
 /* ── snake ── */
@@ -2840,7 +2895,7 @@ const SNAKE={
     gctx.fillStyle=c.fg;gctx.fillRect(g.food.x*SNK+2,g.food.y*SNK+2,SNK-4,SNK-4);
     gctx.fillStyle=c.acc;for(const b of g.body)gctx.fillRect(b.x*SNK+1,b.y*SNK+1,SNK-2,SNK-2);
     gScoreBadge(g.score,c);
-    if(g.over)gOverText("game over — Space to restart",c);}
+    if(g.over)gOverText("Game over — Space to restart",c);}
 };
 function gSpawnFood(){const g=gState;let f;do{f={x:Math.floor(gRand()*COLS),y:Math.floor(gRand()*ROWS)};}
   while(g.body.some(b=>b.x===f.x&&b.y===f.y));g.food=f;}
