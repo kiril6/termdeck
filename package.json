@@ -1,6 +1,6 @@
 {
   "name": "terminal-dashboard",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A floating-window terminal dashboard served on localhost.",
   "main": "server.js",
   "bin": {
