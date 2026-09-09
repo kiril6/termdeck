@@ -460,7 +460,8 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
 .win-head{height:34px;flex:0 0 34px;display:flex;align-items:center;gap:6px;
   padding:0 6px 0 10px;
   background:linear-gradient(180deg,var(--head-a),var(--head-b));
-  border-bottom:1px solid var(--line-soft);min-width:0;}
+  border-bottom:1px solid var(--line-soft);min-width:0;
+  touch-action:none;}  /* drag with touch instead of scrolling the page */
 .win-grip{flex:0 0 auto;display:flex;align-items:center;padding:2px;border-radius:5px;color:var(--muted);opacity:.5;cursor:grab;transition:opacity .12s,color .12s,background .12s;}
 .win-grip:hover{opacity:1;color:var(--accent);background:var(--chip-active);}
 .win-head:active .win-grip{cursor:grabbing;}
@@ -477,7 +478,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 
 /* tab strip inside window head */
 .win-tabs{display:flex;align-items:center;flex:1;min-width:0;position:relative;overflow:hidden;}
-.wtabs-track{display:flex;align-items:center;gap:2px;flex:1;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;cursor:grab;}
+.wtabs-track{display:flex;align-items:center;gap:2px;flex:1;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;cursor:grab;touch-action:pan-x;}
 .wtabs-track::-webkit-scrollbar{display:none;}
 .wtabs-edge{position:absolute;top:0;bottom:0;width:22px;display:flex;align-items:center;justify-content:center;
   font-size:14px;color:var(--muted);cursor:pointer;opacity:0;pointer-events:none;transition:opacity .12s;z-index:2;}
@@ -544,7 +545,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 .win-foot .foot-game:hover,.win-foot .foot-snip:hover{opacity:1;color:var(--live,#4fd6be);}
 /* edge + corner resize handles on all four sides. z above the terminal canvas so
    they catch mousedown; .win-ctrls sits above them so title-bar buttons stay clickable. */
-.wgrip{position:absolute;z-index:6;}
+.wgrip{position:absolute;z-index:6;touch-action:none;}
 .wgrip-n{top:0;left:11px;right:11px;height:5px;cursor:ns-resize;}
 .wgrip-s{bottom:0;left:11px;right:11px;height:5px;cursor:ns-resize;}
 .wgrip-w{left:0;top:11px;bottom:11px;width:5px;cursor:ew-resize;}
@@ -1803,8 +1804,9 @@ function closeSession(s,skipCount){
    ════════════════════════════════════════════════ */
 function wireWindow(s){
   const{win,head}=s;
-  win.addEventListener("mousedown",()=>focus(s));
-  head.addEventListener("mousedown",(e)=>{
+  win.addEventListener("pointerdown",()=>focus(s));
+  head.addEventListener("pointerdown",(e)=>{
+    if(e.pointerType==="mouse"&&e.button!==0)return;   // ignore right/middle click
     // drag from grip, empty header, or empty tab-track — but not tabs/controls themselves
     if(e.target.closest(".win-ctrls,.wtab,.wtab-add,.wtabs-edge"))return;
     focus(s);
@@ -1822,16 +1824,16 @@ function wireWindow(s){
       win.style.left=x+"px"; win.style.top=y+"px"; showSnap(snapZone);
     };
     const up=()=>{
-      document.removeEventListener("mousemove",mv); document.removeEventListener("mouseup",up);
+      document.removeEventListener("pointermove",mv); document.removeEventListener("pointerup",up);
       head.classList.remove("wh-drag");
       document.body.classList.remove("win-dragging");
       hideSnap(); hideGuides();
       if(snapZone) applyRect(s,snapZone.full?null:snapZone,snapZone.full);
       scheduleSave();
     };
-    document.addEventListener("mousemove",mv); document.addEventListener("mouseup",up);
+    document.addEventListener("pointermove",mv); document.addEventListener("pointerup",up);
   });
-  win.querySelectorAll(".wgrip").forEach((g)=>g.addEventListener("mousedown",(e)=>startResize(s,g.dataset.dir,e)));
+  win.querySelectorAll(".wgrip").forEach((g)=>g.addEventListener("pointerdown",(e)=>startResize(s,g.dataset.dir,e)));
 
   // window controls
   const [bRestart,bTheme,bMin,bMax,bClose]=s.head.querySelectorAll(".win-ctrls .wbtn");
@@ -1903,8 +1905,8 @@ function startResize(s,dirs,e){
     refitActive(s);
     if(a.guides.length) showGuides(a.guides); else hideGuides();
   };
-  const up=()=>{document.removeEventListener("mousemove",mv); document.removeEventListener("mouseup",up); hideGuides(); refitActive(s); snapWinHeight(s); scheduleSave();};
-  document.addEventListener("mousemove",mv); document.addEventListener("mouseup",up);
+  const up=()=>{document.removeEventListener("pointermove",mv); document.removeEventListener("pointerup",up); hideGuides(); refitActive(s); snapWinHeight(s); scheduleSave();};
+  document.addEventListener("pointermove",mv); document.addEventListener("pointerup",up);
 }
 // Per-terminal font zoom (⌘+/⌘-/⌘0). dir>0 in, <0 out, 0 reset.
 function zoomTab(s,tab,dir){

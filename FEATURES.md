@@ -9,7 +9,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 ---
 
 ## Terminals & windows
-- 🖥️ Floating, draggable, resizable terminal windows; minimize, maximize, tile into a grid. Resize from any of the four edges or four corners (dragging the top/left edge keeps the opposite edge anchored); the dragged edge snaps to neighbouring windows' edges (with an alignment guide) and stays within the desktop bounds.
+- 🖥️ Floating, draggable, resizable terminal windows; minimize, maximize, tile into a grid. Resize from any of the four edges or four corners (dragging the top/left edge keeps the opposite edge anchored); the dragged edge snaps to neighbouring windows' edges (with an alignment guide) and stays within the desktop bounds. Move and resize work with touch as well as mouse (pointer events).
 - 🖥️ Multiple tabs (shells) per window with a scrollable tab strip. **Double-click a tab name to rename it**; the tab count and custom names persist across reloads (`localStorage`).
 - 🖥️ Read-only **log panels** (`⌘⌥L`) — mirror output with input disabled.
 - 🖥️ Per-terminal **font zoom** — `⌘+` / `⌘-` / `⌘0`; PTY re-fits to the new size.
