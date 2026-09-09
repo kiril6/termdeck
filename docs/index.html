@@ -110,7 +110,10 @@ npx github:kiril6/termdeck
 <span class="c"># …or clone it: first-time setup picks the right node-pty prebuilt for your OS</span>
 node install.js
 <span class="c"># run the server → http://localhost:3000</span>
-npm start</pre>
+npm start
+
+<span class="c"># optional: install tmux first for shells that survive a server restart</span>
+brew install tmux   <span class="c"># macOS · apt/dnf/pacman on Linux</span></pre>
   <div class="callout">
     <strong>This is a local-first tool, not a static site.</strong> Its core is a Node process that
     spawns real PTYs — so it runs on your machine, not on GitHub Pages. This page is just the
