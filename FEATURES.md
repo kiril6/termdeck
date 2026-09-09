@@ -76,7 +76,11 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   **Ceiling:** nothing survives a machine **reboot** (process memory is gone) — tmux only survives
   the server dying, not the OS. Across a restart, xterm's native scrollback replay is skipped (tmux
   repaints the current screen; history stays reachable via tmux copy-mode). Startup banner reports
-  whether durable sessions are on.
+  whether durable sessions are on. When tmux is **absent** and the server is started from a real
+  terminal (npx / `npm start` by hand), it offers once to install tmux via the OS package manager
+  (brew/apt/dnf/pacman/zypper/apk), explaining the trade-off; declining writes `~/.termdeck-tmux-optout`
+  so it never asks again. Skipped entirely on Windows, with `NO_TMUX=1`, or when stdin isn't a TTY
+  (CI / piped / detached), so scripted runs never block.
 - 🔌 **Reattach model:** on WS disconnect the PTY is NOT killed — a 60s grace timer holds it;
   reconnecting with the same `id` replays the last 1 MB of output. Survives browser refresh.
 - 🖥️ **Wake reconnect** — on tab refocus (`visibilitychange`), reconnecting shells retry
@@ -204,7 +208,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   (OS opener: `open`/`start`/`xdg-open`). `NO_OPEN=1` skips it; `BROWSER=<name|path>` picks a
   specific browser (e.g. `BROWSER="Google Chrome"` on macOS, `BROWSER=firefox` on Linux).
 - 🔌 `/debug` page — dumps env and tries each shell candidate when shells won't start.
-- 🔌 **`npx` runnable** — `npx github:kiril6/termdeck` fetches deps and launches the server with no clone (`bin: termdeck`, shebang on `server.js`). Runs correctly as an installed dependency (npx / `npm i -g`), not just from a repo clone: `/vendor/*` assets resolve xterm via `require.resolve` (deps get hoisted to a parent `node_modules`, so `__dirname/node_modules` would 404), and node-pty's `spawn-helper` is `chmod +x`'d at startup on macOS (installs that skip `install.js` leave it non-executable → `posix_spawnp failed`). tmux/durable-session support only if `tmux` is on the host.
+- 🔌 **`npx` runnable** — `npx github:kiril6/termdeck` fetches deps and launches the server with no clone (`bin: termdeck`, shebang on `server.js`). Runs correctly as an installed dependency (npx / `npm i -g`), not just from a repo clone: `/vendor/*` assets resolve xterm via `require.resolve` (deps get hoisted to a parent `node_modules`, so `__dirname/node_modules` would 404), and node-pty's `spawn-helper` is `chmod +x`'d at startup on macOS (installs that skip `install.js` leave it non-executable → `posix_spawnp failed`). tmux/durable-session support only if `tmux` is on the host (offered for install on first interactive run — see Durable sessions). If the port is already taken, it exits with a clear `PORT=3001 npm start` hint instead of a raw stack trace.
 
 ## Modes
 - 🖥️ **Live** over `http(s)://` (real shells). **Demo** over `file://`, with `?demo` in the URL, or on a `github.io` host (no backend, UI preview with a fake shell).

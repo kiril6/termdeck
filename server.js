@@ -237,10 +237,72 @@ const BUFFER    = 1_000_000;   // per-session replay ring: last ~1MB of output r
 // falls back to the raw-shell spawn below. Ceiling: nothing survives a REBOOT
 // (process memory is gone); tmux only survives the server dying, not the OS.
 const { execFileSync } = require('child_process');
-const TMUX_OK = !isWindows && !process.env.NO_TMUX && (() => {
-  try { execFileSync('tmux', ['-V'], { stdio: 'ignore' }); return true; } catch { return false; }
-})();
+const tmuxPresent = () => { try { execFileSync('tmux', ['-V'], { stdio: 'ignore' }); return true; } catch { return false; } };
+let TMUX_OK = !isWindows && !process.env.NO_TMUX && tmuxPresent();   // let: maybePromptTmux() may flip it on after an install
 function tmuxSessionName(id) { return 'td_' + String(id).replace(/[^A-Za-z0-9_]/g, '').slice(0, 60); }
+
+// ── One-time offer to install tmux for durable sessions ──────────────────────
+// Only when attached to a real terminal (npx / `npm start` by hand), tmux is
+// absent, and the user hasn't opted out. Never in CI/pipes, on Windows, or with
+// NO_TMUX set — so it can't hang a scripted/detached run. Declining writes a
+// marker so we ask at most once. Installing is the user's explicit y/N in their
+// own terminal (sudo prompts land there via stdio:inherit).
+const TMUX_OPTOUT = path.join(os.homedir(), '.termdeck-tmux-optout');
+function ask(q) {
+  return new Promise((r) => {
+    const rl = require('readline').createInterface({ input: process.stdin, output: process.stdout });
+    let done = false;
+    const fin = (v) => { if (done) return; done = true; rl.close(); r(v); };
+    rl.on('close', () => fin(''));            // stdin EOF → no answer → treat as decline, don't hang startup
+    rl.question(q, (a) => fin(a.trim()));
+  });
+}
+// The package-manager command for this OS, or null if we can't spot one.
+function tmuxInstaller() {
+  if (process.platform === 'darwin') {
+    try { execFileSync('sh', ['-c', 'command -v brew'], { stdio: 'ignore' }); } catch { return null; }
+    return { cmd: 'brew', args: ['install', 'tmux'], sudo: false, show: 'brew install tmux' };
+  }
+  for (const m of [
+    { cmd: 'apt-get', args: ['install', '-y', 'tmux'],        show: 'sudo apt-get install -y tmux' },
+    { cmd: 'dnf',     args: ['install', '-y', 'tmux'],        show: 'sudo dnf install -y tmux' },
+    { cmd: 'pacman',  args: ['-S', '--noconfirm', 'tmux'],    show: 'sudo pacman -S tmux' },
+    { cmd: 'zypper',  args: ['install', '-y', 'tmux'],        show: 'sudo zypper install -y tmux' },
+    { cmd: 'apk',     args: ['add', 'tmux'],                  show: 'sudo apk add tmux' },
+  ]) {
+    try { execFileSync('sh', ['-c', 'command -v ' + m.cmd], { stdio: 'ignore' }); return { ...m, sudo: true }; } catch {}
+  }
+  return null;
+}
+async function maybePromptTmux() {
+  if (TMUX_OK || isWindows || process.env.NO_TMUX) return;
+  if (!process.stdin.isTTY || !process.stdout.isTTY) return;   // detached / piped / CI
+  try { if (fs.existsSync(TMUX_OPTOUT)) return; } catch {}
+  console.log('\n  \x1b[36mtmux is not installed.\x1b[0m termdeck can use it for durable sessions:');
+  console.log('    \x1b[2mwithout tmux →\x1b[0m shells survive a browser refresh (60s grace + replay)');
+  console.log('    \x1b[2mwith tmux    →\x1b[0m shells also survive the server restarting or crashing');
+  const inst = tmuxInstaller();
+  const optOut = () => { try { fs.writeFileSync(TMUX_OPTOUT, ''); } catch {} };
+  if (!inst) {
+    console.log('  Couldn\'t find a package manager — install tmux yourself, then restart. Won\'t ask again.\n');
+    optOut(); return;
+  }
+  const ans = await ask(`  Install it now with \x1b[1m${inst.show}\x1b[0m? [y/N] `);
+  if (!/^y(es)?$/i.test(ans)) {
+    optOut();
+    console.log(`  Skipped. Run \x1b[1m${inst.show}\x1b[0m anytime — won't ask again.\n`);
+    return;
+  }
+  try {
+    const bin  = inst.sudo ? 'sudo' : inst.cmd;
+    const args = inst.sudo ? [inst.cmd, ...inst.args] : inst.args;
+    execFileSync(bin, args, { stdio: 'inherit' });   // sudo/brew interact in the user's terminal
+    if (tmuxPresent()) { TMUX_OK = true; console.log('  \x1b[32m✓ tmux installed — durable sessions enabled.\x1b[0m\n'); }
+    else console.log('  tmux still not on PATH — continuing without it.\n');
+  } catch {
+    console.log(`  Install didn't complete — continuing without tmux. Run \x1b[1m${inst.show}\x1b[0m manually.\n`);
+  }
+}
 
 function shellCandidates() {
   return [
@@ -436,7 +498,11 @@ for (const sig of ['SIGINT', 'SIGTERM']) process.once(sig, () => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, HOST, () => {
+server.on('error', (e) => {
+  if (e.code === 'EADDRINUSE') { console.error(`\n  Port ${PORT} is already in use. Start on another: \x1b[1mPORT=3001 npm start\x1b[0m\n`); process.exit(1); }
+  throw e;
+});
+maybePromptTmux().finally(() => server.listen(PORT, HOST, () => {
   const ptyPkg = (() => { for (const p of ptyAttempts) { try { return p+'@'+require(p+'/package.json').version; } catch {} } return '?'; })();
   const loopback = ['127.0.0.1', 'localhost', '::1'].includes(HOST);
   console.log(`\n  Terminal Dashboard → http://localhost:${PORT}`);
@@ -446,7 +512,7 @@ server.listen(PORT, HOST, () => {
   if (!loopback) console.log(`\n  \x1b[33m⚠ Bound to ${HOST} — shells reachable from the network. Only do this on a trusted LAN.\x1b[0m`);
   console.log('');
   openBrowser(`http://localhost:${PORT}`);
-});
+}));
 
 // Open the dashboard on start. NO_OPEN=1 skips it. BROWSER=<name|path> picks the browser
 // (e.g. BROWSER="Google Chrome" on macOS, BROWSER=firefox on Linux); default = OS default.
