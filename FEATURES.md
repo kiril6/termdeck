@@ -83,6 +83,8 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   (CI / piped / detached), so scripted runs never block.
 - 🔌 **Reattach model:** on WS disconnect the PTY is NOT killed — a 60s grace timer holds it;
   reconnecting with the same `id` replays the last 1 MB of output. Survives browser refresh.
+  `TD_GRACE_MS` and `TD_BUFFER` override those defaults with positive numeric values;
+  invalid, zero, and negative values safely fall back to the defaults.
 - 🖥️ **Wake reconnect** — on tab refocus (`visibilitychange`), reconnecting shells retry
   immediately instead of waiting out the backoff (localhost drops on sleep aren't network events).
 - 🖥️ WS auto-reconnect with exponential backoff (caps at 5s).

@@ -104,6 +104,15 @@ Override the port:
 PORT=4000 npm start
 ```
 
+The bind address, reattach grace period, and replay-buffer size are configurable too:
+
+```bash
+HOST=127.0.0.1 TD_GRACE_MS=120000 TD_BUFFER=2000000 npm start
+```
+
+`TD_GRACE_MS` and `TD_BUFFER` accept positive numbers. Invalid, zero, or negative
+values fall back to 60 seconds and 1,000,000 bytes respectively.
+
 ### Updating
 
 The current version shows in the app's **? Help** panel. Check [Releases](https://github.com/kiril6/termdeck/releases) for what's new, then:

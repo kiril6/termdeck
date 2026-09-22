@@ -225,8 +225,12 @@ const wss    = new WebSocketServer({ server, verifyClient: ({ req }) => {
 
 const isWindows = os.platform() === 'win32';
 const HOME      = process.env.HOME || process.env.USERPROFILE || os.homedir();
-const GRACE_MS  = 60_000;
-const BUFFER    = 1_000_000;   // per-session replay ring: last ~1MB of output redelivered on reattach
+function positiveEnvNumber(name, fallback) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+const GRACE_MS  = positiveEnvNumber('TD_GRACE_MS', 60_000);
+const BUFFER    = positiveEnvNumber('TD_BUFFER', 1_000_000); // per-session replay ring
 
 // ── Durable sessions via tmux ────────────────────────────────────────────────
 // A raw PTY dies with this node process (server restart / crash → every shell
