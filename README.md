@@ -42,6 +42,13 @@ Three things set it apart:
 - **Live working directory** — each window's cwd badge follows the shell as it `cd`s. The backend polls each shell's real working dir from the OS (~1.5s), so it needs no shell config or `OSC 7`.
 - **Persistent layout** — windows, projects, and themes saved to `localStorage`; a single-instance guard keeps two dashboard tabs from clobbering each other's state.
 
+**AI agents**
+- **AI CLI presets** — launch Claude Code, Codex, Gemini or Copilot in a fresh shell in one click from the palette, or save your own (label + command). On agent exit you drop back to the local shell.
+- **Agent worktrees** — palette → *New agent task…*: pick a branch, an agent CLI and a prompt, and termdeck cuts a **git worktree** off your repo and opens it as its own project tab, rooted at that checkout. *(Needs `git` on the host — it's the only feature that does, and everything else works without it.)* Three agents can work at once without overwriting each other. Worktrees live in a sibling `<repo>-worktrees/<branch>` folder; nothing is ever deleted for you.
+- **Review agent changes** — palette → *Review agent changes…*: a read-only diff of a worktree against the commit it was cut from, so **committed and uncommitted work both show in one view**, with a file summary and untracked files listed. View-only by design — you already have a shell in that worktree.
+- **"Waiting on you" watch** — an agent tab that goes quiet flips to an amber pulse plus a notification, so a row of agents reads as a who-needs-me queue.
+- **Approval-prompt routing** — when an agent blocks on *"Allow this tool? (y/n)"* it jumps straight to a louder red alert, no idle wait. termdeck **never auto-answers** — it only surfaces and jumps to the prompt.
+
 **Productivity**
 - **Command palette** — `⌘K` for fuzzy actions, sessions, and snippets.
 - **Command snippets** — save reusable commands and run them from the palette; a snippet is *typed* into the focused shell (not auto-run) so you can review before pressing Enter.

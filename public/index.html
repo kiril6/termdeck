@@ -285,6 +285,9 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
 .fv-body{margin:0;padding:16px 20px;font-family:var(--mono);font-size:12px;line-height:1.5;
   color:var(--text);white-space:pre;overflow:auto;max-height:70vh;tab-size:4;}
 .fv-body.msg{white-space:pre-wrap;color:var(--muted);}
+.fv-body .d-add{color:#46d17f;} .fv-body .d-del{color:#e0655f;}
+.fv-body .d-hunk{color:var(--accent);} .fv-body .d-meta{color:var(--muted);}
+.fv-body .d-file{color:var(--text);font-weight:600;}
 
 /* ── toast notifications ── */
 .toasts{position:fixed;bottom:70px;right:14px;z-index:9980;
@@ -1109,7 +1112,9 @@ function inputModal(title, fields, okLabel="Save"){
     card.append(h);
     fields.forEach((f)=>{
       const lab=el("label"); lab.textContent=f.label; lab.style.cssText="display:block;color:var(--muted);font-size:12px;margin:10px 0 4px";
-      const inp=el("input"); inp.type="text"; inp.spellcheck=false; inp.placeholder=f.placeholder||""; inp.value=f.value||"";
+      const inp=f.type==="select"?el("select"):el("input");
+      if(f.type==="select"){(f.options||[]).forEach((o)=>{const op=el("option");op.value=o.value;op.textContent=o.label;inp.append(op);});}
+      else{inp.type="text"; inp.spellcheck=false; inp.placeholder=f.placeholder||""; inp.value=f.value||"";}
       inp.style.cssText="width:100%;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--text);font:13px ui-monospace,monospace;padding:8px 10px;outline:none";
       inputs[f.key]=inp; card.append(lab,inp);
     });
@@ -1224,6 +1229,83 @@ async function editAiCli(p){
 }
 function deleteAiCli(id){aiClis=aiClis.filter((x)=>x.id!==id);saveAiClis();}
 function launchAiCli(p){createSession({cwd:curCwd()||"~",cmd:p.cmd,name:p.label,agent:true});}
+// ── Agent worktrees: one isolated checkout per agent task ────────────────────
+// Three agents loose in one repo overwrite each other. "New agent task" cuts a git
+// worktree off the project's repo, opens it as its OWN project (so the tree, cwd and
+// every shell in it are scoped to that branch), and launches the agent CLI there.
+// Nothing is ever removed automatically — a finished task leaves its worktree and
+// branch on disk for you to merge or delete yourself, in the shell.
+const shQuote=(s)=>"'"+String(s).replace(/'/g,"'\\''")+"'";
+async function gitRootOf(dir){   // -> {root} | {error} — the error matters: "git not installed" is not "not a repo"
+  try{const r=await fetch("/api/git/root?dir="+encodeURIComponent(dir));
+    const j=await r.json().catch(()=>({}));
+    return r.ok?{root:j.root}:{error:j.error||("HTTP "+r.status)};}
+  catch(e){return {error:e.message};}
+}
+async function newAgentTask(){
+  if(!LIVE){toast(ICON.warn,"Demo mode","Agent worktrees need a backend \u2014 run termdeck locally",5000);return;}
+  const dir=projects.get(activeProject)?.root||curCwd()||"";
+  if(!dir){toast(ICON.warn,"No project root","Open a terminal in your repo first",4000);return;}
+  const g=await gitRootOf(dir);
+  if(!g.root){toast(ICON.warn,"Can\u2019t create a worktree",(g.error||"not a git repository")+" \u2014 "+dir,6000);return;}
+  const root=g.root;
+  const presets=[...AICLI_BUILTIN,...aiClis];
+  const v=await inputModal("New agent task",[
+    {key:"branch",label:"Branch name",placeholder:"agent/fix-login"},
+    {key:"cli",label:"Agent CLI",type:"select",options:presets.map((p)=>({value:p.cmd,label:p.label}))},
+    {key:"prompt",label:"Prompt (optional) — passed to the CLI as its first argument",placeholder:"Fix the login redirect bug"},
+  ],"Create");
+  if(!v||!v.branch)return;
+  let j;
+  try{
+    const r=await fetch("/api/git/worktree",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({dir:root,branch:v.branch})});
+    j=await r.json().catch(()=>({}));
+    if(!r.ok){toast(ICON.warn,"Couldn’t create worktree",j.error||("HTTP "+r.status),6000);return;}
+  }catch(e){toast(ICON.warn,"Couldn’t create worktree",e.message,6000);return;}
+  const p=addProject(v.branch);
+  if(!p){toast(ICON.warn,"Worktree created, no project slot",j.path,6000);return;}
+  p.root=j.path; p.base=j.base;                    // base = commit the branch was cut from; the diff baseline
+  treeRoot=null; treeLastRoot=null; refreshTree();
+  createSession({cwd:j.path,cmd:v.prompt?v.cli+" "+shQuote(v.prompt):v.cli,name:v.branch,agent:true});
+  scheduleSave();
+  toast("🌿","Worktree ready",v.branch+" → "+j.path,6000);
+}
+// Read-only review: what has the agent changed since the branch was cut? Diffs the
+// working tree against the base commit, so committed AND uncommitted work both show.
+// No accept/discard here on purpose — you have a real shell in that worktree.
+async function openAgentDiff(){
+  if(!LIVE){toast(ICON.warn,"Demo mode","Diff review needs a backend \u2014 run termdeck locally",5000);return;}
+  const p=projects.get(activeProject);
+  const dir=p?.root;
+  if(!dir){toast(ICON.warn,"No project root","This project isn’t rooted at a folder",4000);return;}
+  closeModals("file");
+  fvName.textContent="Changes — "+(p.name||"");
+  fvPath.textContent=dir;
+  fvBody.className="fv-body msg"; fvBody.textContent="Loading…";
+  fileOverlay.classList.add("open"); fileOverlay.focus();
+  let j;
+  try{
+    const r=await fetch("/api/git/diff?dir="+encodeURIComponent(dir)+"&base="+encodeURIComponent(p.base||"HEAD"));
+    j=await r.json().catch(()=>({}));
+    if(!r.ok){fvBody.textContent="⚠ "+(j.error||("HTTP "+r.status));return;}
+  }catch(e){fvBody.textContent="⚠ "+e.message;return;}
+  if(!j.files?.length&&!j.diff){fvBody.textContent="No changes since this branch was cut.";return;}
+  fvBody.className="fv-body"; fvBody.textContent="";
+  const frag=document.createDocumentFragment();
+  const add=(text,cls)=>{const n=el("span",cls);n.textContent=text+"\n";frag.append(n);};
+  (j.files||[]).forEach((f)=>add(({A:"added   ",M:"modified",D:"deleted ",R:"renamed ","?":"new     "}[f.status]||f.status+"       ")+"  "+f.path,"d-file"));
+  add("","");
+  (j.diff||"").split("\n").forEach((l)=>{
+    const cls=l.startsWith("+++")||l.startsWith("---")?"d-meta"
+      :l.startsWith("@@")?"d-hunk":l.startsWith("+")?"d-add":l.startsWith("-")?"d-del"
+      :l.startsWith("diff --git")?"d-file":"";
+    add(l,cls);
+  });
+  if(j.untracked?.length) add("\n"+j.untracked.length+" untracked file(s) listed above are not shown as a diff.","d-meta");
+  fvBody.append(frag);
+}
+
 
 // ── Scrollback: lines of history each terminal keeps. Global default, applied to new terminals at
 // creation and live to open ones. Big = long logs survive; small = less RAM across many terminals. ──
@@ -1536,7 +1618,7 @@ function createSession(desc, isLog){
   else{hint.style.display="none"; focus(s);}
 
   // spawn tabs — restore saved ones (names + cwd + agent tag), else one fresh tab
-  if(desc.tabs?.length) desc.tabs.forEach((t)=>addTab(s,{name:t.name,cwd:t.cwd,agent:t.agent}));
+  if(desc.tabs?.length) desc.tabs.forEach((t)=>addTab(s,{id:t.id,name:t.name,cwd:t.cwd,agent:t.agent}));
   else addTab(s,{cmd:desc.cmd,agent:desc.agent});   // desc.cmd = one-shot startup command (Dir popover / SSH / AI CLI); not persisted, so it won't re-fire on reload. agent=arm idle "waiting" watch.
 
   if(desc.minimized) minimize(s);
@@ -1603,7 +1685,7 @@ function saveTabOutput(s,tab){
 
 function addTab(s, opts){
   opts=opts||{};
-  const tid=newId("t"+(++tabSeq));
+  const tid=opts.id||newId("t"+(++tabSeq));   // reuse the saved id on restore: the WS id is s.id+"-"+tab.id, so a fresh id here means a fresh shell
   const pane=el("div","win-pane");
   s.panes.append(pane);
 
@@ -1827,6 +1909,7 @@ function agentWaiting(s,tab){
 // #3 approval-prompt routing: a tool-approval prompt blocks ALL progress, so it fires a
 // louder, STICKY toast (ms=0) distinct from the plain idle "waiting", and flags the tab/chip
 // red at once — no 8s wait. Cheap per-chunk regex across CLIs. NEVER auto-answers: surface + jump only.
+const REPLAY_SCAN=2000;   // bytes of a replayed buffer treated as "current screen"
 const APPROVAL_RE=/allow this (tool|command|action|edit)|do you want to (proceed|allow|continue|run|make this|create|edit)|approve this|grant (access|permission)|\b(y\s*\/\s*n|yes\s*\/\s*no|\[y\/n\])\b|press\s+y\s+to|❯\s*1\.?\s*yes/i;
 function agentApproval(s,tab){
   if(tab.approval||tab.exited||tab.status!=="live")return;   // fire only on the transition into "blocked" — repaints of the prompt are ignored
@@ -1950,12 +2033,16 @@ function openTabWS(s,tab){
   ws.onmessage=(ev)=>{
     let m; try{m=JSON.parse(ev.data);}catch{return;}
     if(m.type==="attach"){
-      if(m.resumed) tab.term.reset();
+      if(m.resumed){tab.term.reset(); tab.replay=true;}   // next output chunk is the replayed ring buffer, not live output
       if(m.cwd){tab.cwd=m.cwd; if(s.activeTabId===tab.id) s.badgeCwd.textContent=tildePath(m.cwd);}
       if(m.shell){tab.shellName=m.shell; if(s.activeTabId===tab.id) s.badgeShell.textContent=m.shell;}
     }else if(m.type==="output"){
       tab.term.write(m.data);
-      if(tab.agent){ armAgentIdle(s,tab); if(APPROVAL_RE.test(m.data)) agentApproval(s,tab); }   // (re)arm idle watch; a tool-approval prompt jumps straight to the louder red state
+      // On reattach the server replays the whole ring buffer in one chunk. Scanning all of it
+      // would re-match an approval prompt you ALREADY answered and fire a false red. The tail is
+      // the current screen, so that's the only part that reflects live state.
+      const scan=tab.replay?m.data.slice(-REPLAY_SCAN):m.data; tab.replay=false;
+      if(tab.agent){ armAgentIdle(s,tab); if(APPROVAL_RE.test(scan)) agentApproval(s,tab); }   // (re)arm idle watch; a tool-approval prompt jumps straight to the louder red state
       // "command finished" heuristic: OSC 133;D (shell integration, reliable if configured),
       // a bell, or the prompt returning \u2014 trailing $ # % > covers bash/zsh/fish/PowerShell.
       const key=s.id+tab.id;
@@ -2438,7 +2525,8 @@ const PAL_CMDS=[
   {icon:ICON.folder,label:"Open directory\u2026",sub:"Spawn shell in a specific folder",kbd:"\u2318\u21e7O",run:()=>{closePalette();document.getElementById("folder").click();}},
   {icon:ICON.snippet,label:"Save snippet\u2026",sub:"Store a reusable command",kbd:"\u2318\u2325S",run:()=>{closePalette();addSnippet();}},
   {icon:ICON.terminal,label:"Add SSH host\u2026",sub:"Save an ssh target \u2014 connect in one click from here",run:()=>{closePalette();addSshHost();}},
-  {icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>',label:"Agent overview",sub:"Who-needs-me queue across all projects",run:()=>{closePalette();openAgentPop();}},
+  {icon:ICON.folderPlus,label:"New agent task\u2026",sub:"Cut a git worktree for a branch and launch an agent in it \u2014 isolated from your other agents",run:()=>{closePalette();newAgentTask();}},
+  {icon:ICON.eye,label:"Review agent changes\u2026",sub:"Read-only diff of this project's worktree against the commit it was cut from",run:()=>{closePalette();openAgentDiff();}},
   {icon:ICON.terminal,label:"Add AI CLI preset\u2026",sub:"Save an agent command \u2014 launch it in one click; pings you when it needs input",run:()=>{closePalette();addAiCli();}},
   {icon:ICON.log,label:"Set scrollback\u2026",sub:"Lines of history each terminal keeps",run:()=>{closePalette();setScrollback();}},
   {icon:ICON.gamepad,label:"Play game",sub:"Dino or Snake while a command runs \u2014 pings when the watched terminal finishes",kbd:"\u2318\u2325G",run:()=>{closePalette();openGame();}},
@@ -2905,20 +2993,20 @@ function saveState(){
   if(!instanceActive) return;   // passive tab: never write — would clobber the active tab's layout
   try{
     const data={activeProject,
-      projects:projectOrder.map((pid)=>({id:pid,name:projects.get(pid).name,root:projects.get(pid).root||null,lastCwd:projects.get(pid).lastCwd||null})),
+      projects:projectOrder.map((pid)=>({id:pid,name:projects.get(pid).name,root:projects.get(pid).root||null,base:projects.get(pid).base||null,lastCwd:projects.get(pid).lastCwd||null})),
       sessions:order.map((id)=>{const s=sessions.get(id);if(!s)return null;const st=s.win.style;
         return{id:s.id,project:s.project,name:s.name,cwd:s.cwd,themeId:s.themeId||null,isLog:s.isLog||false,
                left:st.left,top:st.top,width:st.width,height:st.height,
                minimized:s.minimized,maximized:s.maximized,prevRect:s.prevRect,
                // agent tag persists (arms the waiting/approval watch after a reload); cmd deliberately does NOT, so it can't re-fire
-               tabs:s.tabs.map((t)=>({name:t.name,cwd:t.cwd||"",agent:!!t.agent}))};}).filter(Boolean)};
+               tabs:s.tabs.map((t)=>({id:t.id,name:t.name,cwd:t.cwd||"",agent:!!t.agent}))};}).filter(Boolean)};
     localStorage.setItem(STORE,JSON.stringify(data));
   }catch{}
 }
 function restoreState(){
   let data=null;try{data=JSON.parse(localStorage.getItem(STORE)||"null");}catch{}
   if(!data)return false;
-  if(data.projects?.length) data.projects.forEach((p)=>{addProject(p.name,p.id,true); const pr=projects.get(p.id); if(pr){if(p.root)pr.root=p.root; if(p.lastCwd)pr.lastCwd=p.lastCwd;}});
+  if(data.projects?.length) data.projects.forEach((p)=>{addProject(p.name,p.id,true); const pr=projects.get(p.id); if(pr){if(p.root)pr.root=p.root; if(p.base)pr.base=p.base; if(p.lastCwd)pr.lastCwd=p.lastCwd;}});
   else addProject("default",null,true);
   activeProject=projects.has(data.activeProject)?data.activeProject:projectOrder[0];
   projects.forEach((p)=>p.tab.classList.toggle("active",p.id===activeProject));

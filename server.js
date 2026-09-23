@@ -58,6 +58,7 @@ const app = express();
 // Serve ONLY the app dir — never express.static(__dirname), which would expose
 // server.js, package.json, and repo docs at /server.js etc. (info disclosure,
 // esp. when HOST=0.0.0.0). The '/' route below still serves a root-level index.html.
+app.use(express.json({ limit: '64kb' }));   // /api/git/worktree posts { dir, branch }
 app.use(express.static(path.join(__dirname, 'public')));
 // xterm.js + addons served locally from node_modules so the app works fully offline
 // (no CDN). Scoped to just these packages — never expose all of node_modules.
@@ -200,6 +201,74 @@ app.get('/api/read', apiGuard, (req, res) => {       // read a text file for the
     res.json({ path:target, name:baseName(target), text:buf.toString('utf8'), truncated:st.size > MAX });
   } catch (e) { res.status(403).json({ error:e.code || 'read failed' }); }
   finally { if (fd !== undefined) fs.closeSync(fd); }
+});
+
+// ── /api/git — worktree-per-agent + read-only diff review ────────────────────
+// Same Origin+Host guard as /api/ls. Worktree creation writes to the user's repo,
+// but grants no capability a shell in that repo doesn't already have (`git worktree
+// add` is one typed command) — so the trust model is unchanged. Nothing here ever
+// deletes: no worktree removal, no branch deletion, no reset. Review is read-only.
+const GIT_BRANCH_RE = /^[A-Za-z0-9._][A-Za-z0-9._/-]{0,99}$/;   // no leading '-', no spaces/globs
+function gitP(args, cwd) {                                       // execFile (no shell) → args can't inject
+  return new Promise((resolve, reject) => {
+    execFile('git', args, { cwd, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) =>
+      err ? reject(Object.assign(err, { stderr: String(stderr || '') })) : resolve(String(stdout)));
+  });
+}
+const GIT_MISSING = 'git is not installed';
+const gitFail = (e) => e.code === 'ENOENT' ? GIT_MISSING
+  : (e.stderr || e.message || 'git failed').trim().split('\n')[0];
+
+app.get('/api/git/root', apiGuard, async (req, res) => {         // is this dir a repo? → toplevel
+  const dir = expandDir(req.query.dir);
+  if (!safeDir(dir)) return res.status(404).json({ error: 'not a directory' });
+  try {
+    const root = (await gitP(['rev-parse', '--show-toplevel'], dir)).trim();
+    const branch = (await gitP(['rev-parse', '--abbrev-ref', 'HEAD'], dir)).trim();
+    res.json({ root, branch });
+  } catch (e) { res.status(404).json({ error: e.code === 'ENOENT' ? GIT_MISSING : 'not a git repository' }); }
+});
+
+// POST: creates a sibling worktree `<repo>-worktrees/<branch>` off the repo's current HEAD,
+// so each agent gets an isolated checkout instead of three agents racing on one tree.
+app.post('/api/git/worktree', apiGuard, async (req, res) => {
+  const dir    = expandDir(req.body?.dir);
+  const branch = String(req.body?.branch || '').trim();
+  if (!safeDir(dir))              return res.status(400).json({ error: 'not a directory' });
+  if (!GIT_BRANCH_RE.test(branch))return res.status(400).json({ error: 'invalid branch name' });
+  try {
+    const root   = (await gitP(['rev-parse', '--show-toplevel'], dir)).trim();
+    const base   = (await gitP(['rev-parse', 'HEAD'], root)).trim();
+    const wtHome = path.join(path.dirname(root), path.basename(root) + '-worktrees');
+    const wtPath = path.join(wtHome, branch.replace(/\//g, '-'));
+    if (fs.existsSync(wtPath))    return res.status(409).json({ error: 'worktree path already exists', path: wtPath });
+    fs.mkdirSync(wtHome, { recursive: true });
+    await gitP(['worktree', 'add', '-b', branch, wtPath, base], root);
+    res.json({ path: wtPath, branch, base, root });
+  } catch (e) { res.status(400).json({ error: gitFail(e) }); }
+});
+
+// Read-only: what has the agent changed since the worktree was cut? Diffs the working
+// tree against the base commit, so it covers both committed and uncommitted work.
+app.get('/api/git/diff', apiGuard, async (req, res) => {
+  const dir  = expandDir(req.query.dir);
+  const base = String(req.query.base || 'HEAD').trim();
+  if (!safeDir(dir)) return res.status(404).json({ error: 'not a directory' });
+  if (!/^[A-Za-z0-9._/-]{1,100}$/.test(base)) return res.status(400).json({ error: 'invalid base' });
+  try {
+    const [names, diff, untracked] = await Promise.all([
+      gitP(['diff', '--name-status', base], dir),
+      gitP(['diff', base], dir),
+      gitP(['ls-files', '--others', '--exclude-standard'], dir),
+    ]);
+    const files = names.trim() ? names.trim().split('\n').map((l) => {
+      const [status, ...rest] = l.split('\t');
+      return { status: status[0], path: rest.join('\t') };
+    }) : [];
+    const newFiles = untracked.trim() ? untracked.trim().split('\n') : [];
+    newFiles.forEach((p) => files.push({ status: '?', path: p }));
+    res.json({ dir, base, files, diff, untracked: newFiles });
+  } catch (e) { res.status(400).json({ error: gitFail(e) }); }
 });
 
 // ── WebSocket / pty server ───────────────────────────────────────────────────

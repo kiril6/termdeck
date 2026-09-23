@@ -83,6 +83,9 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   (CI / piped / detached), so scripted runs never block.
 - 🔌 **Reattach model:** on WS disconnect the PTY is NOT killed — a 60s grace timer holds it;
   reconnecting with the same `id` replays the last 1 MB of output. Survives browser refresh.
+  The WS id is `<sessionId>-<tabId>`, so **both** ids are persisted with the layout — a reload that
+  minted fresh tab ids would connect under a new id and silently get a *brand new shell* (and, with
+  tmux, leak the old `td_*` session) instead of reattaching.
   `TD_GRACE_MS` and `TD_BUFFER` override those defaults with positive numeric values;
   invalid, zero, and negative values safely fall back to the defaults.
 - 🖥️ **Wake reconnect** — on tab refocus (`visibilitychange`), reconnecting shells retry
@@ -118,6 +121,25 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   / delete 🗑 (built-ins are fixed). Launches via the run-command-on-start path (same as SSH), spawning in
   the active project root; on agent exit you drop back to the local shell. Tabs launched this way are
   tagged as *agent* tabs, which arms the waiting watch below.
+- 🖥️ **Agent worktrees — one isolated checkout per task** (palette → *New agent task…*). Three agents
+  loose in one repo overwrite each other, so a task gets its own `git worktree`: pick a **branch name**,
+  an **AI CLI preset**, and an optional **prompt**, and the backend cuts a worktree off the project's repo
+  at its current HEAD (`POST /api/git/worktree`). The worktree opens as its **own project tab**, rooted at
+  the new checkout — so the tree, the cwd and every shell in it are scoped to that branch — and the agent
+  CLI launches there with the prompt as its first argument (shell-quoted, so apostrophes and shell
+  metacharacters are passed literally, never executed). Worktrees live in a sibling
+  `<repo>-worktrees/<branch>` folder, keeping the repo itself clean. **Nothing is ever removed
+  automatically:** a finished task leaves its worktree and branch on disk to merge or delete yourself.
+  Requires the project root to be inside a git repo. Failures name their **real** cause rather than
+  a plausible-sounding wrong one: a non-repo says so, a host without git installed says *that*, and in
+  backend-free demo mode both commands say so — three different messages, never one catch-all.
+- 🖥️ **Review agent changes — read-only diff** (palette → *Review agent changes…*). Reviewing what an
+  agent did is the real bottleneck, not launching it. Diffs the project's worktree against the commit it
+  was cut from (`GET /api/git/diff`), so **committed and uncommitted work both show in one view**, with a
+  file summary (modified / added / deleted / new) above the unified diff and untracked files listed.
+  Deliberately **view-only** — no accept, merge, discard or reset buttons: you already have a real shell
+  in that worktree, and git is one typed command away. The base commit is persisted with the project, so
+  the baseline survives reloads.
 - 🔌 **"Waiting on you" agent watch** — an agent tab that streams output and then goes quiet (idle ~8s)
   flips to a **waiting** state: an amber pulse on its tab + dock chip so the dock reads as a who-needs-me
   queue, plus a toast + OS notification (naming the session, click to jump) **only when you're not already
@@ -133,6 +155,9 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   and a **sticky** toast/OS notification ("Needs approval — blocked on a permission prompt") — no 8s idle
   wait, since an approval halts *all* progress. Stays flagged through prompt repaints until you look at it.
   **Never auto-answers** — the app only surfaces + jumps, never sends `y`. Cross-CLI regex heuristic.
+  On **reattach** only the tail of the replayed ring buffer (last 2 KB — the current screen) is scanned:
+  matching the whole buffer would re-fire a red flag for a prompt you already answered earlier in the
+  session. A prompt that is still on screen is still caught; history is not re-litigated.
 - 🖥️ **Project attention dots** — the waiting/approval state also bubbles up to the **project tab** in the
   sidebar as a small dot, so a project you're not currently viewing still signals a queued agent: **amber**
   when any of its tabs is waiting, **red** when any is blocked on an approval (red wins). Recomputed as tab
@@ -229,6 +254,12 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🔌 **Loopback bind** by default (`127.0.0.1`); `HOST=0.0.0.0` (or an IP) to expose, with a warning.
 - 🔌 **WS Origin + Host validation** — rejects the upgrade unless both resolve to a known localhost
   name (blocks cross-site / DNS-rebind attacks on the shell socket). No token by design.
+- 🔌 **`/api/git/root` + `/api/git/worktree` + `/api/git/diff`** — git repo detection, worktree creation
+  and read-only diff for the agent-worktree flow, behind the **same** `apiGuard` as the rest. Worktree
+  creation writes to the repo but grants no capability a shell in that repo doesn't already have
+  (`git worktree add` is one command); **nothing here deletes** — no worktree removal, no branch deletion,
+  no reset. Branch names are validated against a strict pattern and every git call uses `execFile` with an
+  argument array (no shell), so a branch name or prompt can't inject a command.
 - 🔌 **`/api/ls` + `/api/reveal` + `/api/read`** — sidebar-tree filesystem read, OS-file-manager reveal,
   and file-text read for the in-app viewer (2 MB cap, NUL-byte binary detection), all behind the
   **same** Origin+Host guard as the WS (`apiGuard`) so a cross-site page can't read the disk.
