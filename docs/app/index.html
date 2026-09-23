@@ -159,6 +159,34 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
 .popover .pitem.current{border-color:var(--accent-dim);color:var(--accent);}
 .popover .pcount{color:var(--muted);font-size:10px;}
 
+/* ── agent overview popover ── */
+#agent-btn{position:relative;}
+.agent-badge{display:none;position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;pointer-events:none;}
+.agent-badge.working{display:block;background:var(--accent);opacity:.7;}
+.agent-badge.waiting{display:block;background:#e6a23c;box-shadow:0 0 6px #e6a23c;animation:wtwait 1.4s ease-in-out infinite;}
+.agent-badge.approval{display:block;background:#e5484d;box-shadow:0 0 7px #e5484d;animation:wtappr 0.9s ease-in-out infinite;}
+.agent-pop-inner{width:340px;max-width:calc(100vw - 24px);padding:12px;}
+.agent-pop-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.agent-pop-head label{margin-bottom:0;}
+.agent-pop-count{font-size:10px;color:var(--muted);letter-spacing:.06em;}
+.agent-list{display:flex;flex-direction:column;gap:3px;max-height:280px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--line) transparent;}
+.agent-list::-webkit-scrollbar{width:8px;}
+.agent-list::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+.agent-row{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:6px;border:1px solid transparent;cursor:pointer;font-size:12px;transition:background .12s,border-color .12s;}
+.agent-row:hover{background:var(--btn-bg);border-color:var(--line);}
+.agent-row-dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;}
+.agent-row.approval .agent-row-dot{background:#e5484d;box-shadow:0 0 7px #e5484d;animation:wtappr 0.9s ease-in-out infinite;}
+.agent-row.waiting .agent-row-dot{background:#e6a23c;box-shadow:0 0 6px #e6a23c;animation:wtwait 1.4s ease-in-out infinite;}
+.agent-row.working .agent-row-dot{background:var(--muted);opacity:.7;}
+.agent-row-info{display:flex;flex-direction:column;min-width:0;flex:1;}
+.agent-row-path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;}
+.agent-row-state{font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-top:1px;}
+.agent-row.approval .agent-row-state{color:#ff9b93;}
+.agent-row.waiting .agent-row-state{color:#e6a23c;}
+.agent-row.working .agent-row-state{color:var(--muted);}
+.agent-empty{padding:18px 10px;text-align:center;font-size:12px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:6px;}
+.agent-empty-sub{font-size:11px;opacity:.65;}
+
 /* ── mini-game overlay ── */
 .game-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9991;display:none;align-items:center;justify-content:center;}
 .game-overlay.open{display:flex;}
@@ -643,6 +671,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
   <button class="kbdhint" id="pal-btn">⌘ K</button>
   <div class="bar-actions" id="bar-actions">
     <button class="btn ico" id="sb-btn" data-label="Tree"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 7v12M4.5 12h4M4.5 19h4"/><rect x="2.5" y="3" width="4" height="4" rx="1"/><rect x="8.5" y="10" width="4" height="4" rx="1"/><rect x="8.5" y="17" width="4" height="4" rx="1"/><path d="M8.5 5H21M14.5 12H21M14.5 19H21"/></svg></button>
+    <button class="btn ico" id="agent-btn" data-label="Agents" title="Agent overview (queue across all projects)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg><span class="agent-badge" id="agent-badge"></span></button>
     <button class="btn ico" id="search-btn" data-label="Search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></button>
     <button class="btn" id="tile"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>Tile</button>
     <button class="btn" id="bcast" title="Broadcast input to all terminals in this project (⌘⌥B)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg><span id="cast-label">Cast</span></button>
@@ -689,6 +718,15 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
     <div class="theme-grid" id="theme-grid"></div>
     <button class="treset" id="theme-reset" style="display:none;">↺ Use dashboard default</button>
     <p class="hintline" id="theme-pop-hint" style="margin-top:9px;"></p>
+  </div>
+
+  <!-- Agent Overview popover -->
+  <div class="popover agent-pop-inner" id="agent-pop">
+    <div class="agent-pop-head">
+      <label id="agent-pop-label">Agent Queue</label>
+      <span class="agent-pop-count" id="agent-pop-count">0 active</span>
+    </div>
+    <div class="agent-list" id="agent-list"></div>
   </div>
 </div>
 
@@ -939,6 +977,11 @@ const themeSearch= document.getElementById("theme-search");
 const themeClear = document.getElementById("theme-clear");
 const themeReset = document.getElementById("theme-reset");
 const themeBtn   = document.getElementById("theme-btn");
+const agentBtn   = document.getElementById("agent-btn");
+const agentBadge = document.getElementById("agent-badge");
+const agentPop   = document.getElementById("agent-pop");
+const agentList  = document.getElementById("agent-list");
+const agentPopCount = document.getElementById("agent-pop-count");
 const projectsBar= document.getElementById("projects");
 const projTrack  = document.getElementById("proj-track");
 const projScroll = document.getElementById("proj-scroll");
@@ -1313,7 +1356,7 @@ function renderProjectTab(p){
   projTrack.append(tab); updateProjEdges();
   tab.addEventListener("click",(e)=>{if(e.target===del||nm.isContentEditable)return; switchProject(p.id);});
   nm.addEventListener("dblclick",(e)=>{e.stopPropagation(); nm.contentEditable="true"; nm.focus(); document.getSelection().selectAllChildren(nm);});
-  const commit=()=>{nm.contentEditable="false"; p.name=nm.textContent.trim()||p.name; nm.textContent=p.name; scheduleSave();};
+  const commit=()=>{nm.contentEditable="false"; p.name=nm.textContent.trim()||p.name; nm.textContent=p.name; updateAgentOverview(); scheduleSave();};
   nm.addEventListener("blur",commit);
   nm.addEventListener("keydown",(e)=>{if(e.key==="Enter"){e.preventDefault();nm.blur();} if(e.key==="Escape"){nm.textContent=p.name;nm.blur();} e.stopPropagation();});
   del.addEventListener("click",(e)=>{e.stopPropagation(); deleteProject(p.id);});
@@ -1380,7 +1423,7 @@ function moveSessionToProject(s,pid){
   s.chip.style.display=b?"":"none";
   if(b){hint.style.display="none"; focus(s);}
   else if(focusedId===s.id) focusedId=null;
-  updateProjCounts(); updateProjectAttention(oldPid); updateProjectAttention(pid); scheduleSave();
+  updateProjCounts(); updateProjectAttention(oldPid); updateProjectAttention(pid); updateAgentOverview(); scheduleSave();
   toast("📦","Moved","\""+s.name+"\" → "+projects.get(pid).name,4000,
     ()=>{if(s.project!==activeProject)switchProject(s.project);revealWindow(s);});
 }
@@ -1603,7 +1646,7 @@ function addTab(s, opts){
   // Double-click the tab name to rename (in-session; tab names aren't persisted across reloads). Same pattern as project tabs.
   wtName.title="Double-click to rename";
   wtName.addEventListener("dblclick",(e)=>{e.stopPropagation(); wtName.contentEditable="true"; wtName.focus(); document.getSelection().selectAllChildren(wtName);});
-  const commitTabName=()=>{wtName.contentEditable="false"; tab.name=wtName.textContent.trim()||tab.name; wtName.textContent=tab.name; scheduleSave();};
+  const commitTabName=()=>{wtName.contentEditable="false"; tab.name=wtName.textContent.trim()||tab.name; wtName.textContent=tab.name; if(tab.agent) updateAgentOverview(); scheduleSave();};
   wtName.addEventListener("blur",commitTabName);
   wtName.addEventListener("keydown",(e)=>{if(e.key==="Enter"){e.preventDefault();wtName.blur();} if(e.key==="Escape"){wtName.textContent=tab.name;wtName.blur();} e.stopPropagation();});
 
@@ -1664,6 +1707,7 @@ function addTab(s, opts){
   else openTabWS(s,tab);
 
   requestAnimationFrame(()=>{try{fit.fit();}catch{}});
+  if(opts.agent) updateAgentOverview();
   scheduleSave();
   return tab;
 }
@@ -1723,6 +1767,7 @@ function closeTab(s,tid){
   s.chip.classList.toggle("approval",s.tabs.some((t)=>t.approval));
   updateConn(); // recompute LED/conn + Cast gate after losing a shell
   updateProjectAttention(s.project);
+  updateAgentOverview();
   scheduleSave();
 }
 
@@ -1799,6 +1844,97 @@ function setWaiting(s,tab,on,approval){
   s.chip.classList.toggle("waiting",s.tabs.some((t)=>t.waiting));   // chip lit while ANY tab waits
   s.chip.classList.toggle("approval",s.tabs.some((t)=>t.approval)); // red chip while ANY tab is blocked on approval
   updateProjectAttention(s.project);
+  updateAgentOverview();
+}
+
+/* ════════════════════════════════════════════════
+   AGENT OVERVIEW (who-needs-me queue)
+   ════════════════════════════════════════════════ */
+function getAgentQueue(){
+  const list=[];
+  sessions.forEach((s)=>{
+    const proj=projects.get(s.project);
+    const pName=proj?.name||s.project||"project";
+    s.tabs.forEach((tab)=>{
+      if(!tab.agent||tab.exited||tab.closedByUser) return;
+      let state="working", rank=3;
+      if(tab.approval){ state="approval"; rank=1; }
+      else if(tab.waiting){ state="waiting"; rank=2; }
+      list.push({s,tab,pName,state,rank});
+    });
+  });
+  list.sort((a,b)=>{
+    if(a.rank!==b.rank) return a.rank-b.rank;
+    const pa=a.pName.localeCompare(b.pName); if(pa!==0) return pa;
+    const sa=(a.s.name||"").localeCompare(b.s.name||""); if(sa!==0) return sa;
+    return (a.tab.name||"").localeCompare(b.tab.name||"");
+  });
+  return list;
+}
+
+function renderAgentList(queue){
+  if(!agentList) return;
+  if(!queue) queue=getAgentQueue();
+  if(agentPopCount) agentPopCount.textContent=queue.length+(queue.length===1?" active":" active");
+  agentList.innerHTML="";
+  if(!queue.length){
+    const emp=el("div","agent-empty");
+    const t1=el("span"); t1.textContent="No active agents";
+    const t2=el("span","agent-empty-sub"); t2.textContent="All quiet";
+    emp.append(t1,t2);
+    agentList.append(emp);
+    return;
+  }
+  queue.forEach(({s,tab,pName,state})=>{
+    const row=el("div","agent-row "+state);
+    const dot=el("span","agent-row-dot");
+    const info=el("div","agent-row-info");
+    const path=el("div","agent-row-path");
+    path.textContent=pName+" · "+(s.name||"session")+" · "+(tab.name||"tab");
+    path.title=path.textContent;
+    const st=el("div","agent-row-state");
+    st.textContent=state==="approval"?"needs approval":(state==="waiting"?"waiting":(state==="working"?"working":state));
+    info.append(path,st);
+    row.append(dot,info);
+    row.addEventListener("click",()=>{
+      revealWindow(s);
+      switchTab(s,tab.id);
+      if(agentPop) agentPop.classList.remove("open");
+    });
+    agentList.append(row);
+  });
+}
+
+function updateAgentOverview(){
+  if(!agentBadge) return;
+  const queue=getAgentQueue();
+  const hasAppr=queue.some((x)=>x.state==="approval");
+  const hasWait=queue.some((x)=>x.state==="waiting");
+
+  agentBadge.className="agent-badge"+(hasAppr?" approval":(hasWait?" waiting":(queue.length?" working":"")));
+
+  if(agentBtn){
+    const apprCount=queue.filter((x)=>x.state==="approval").length;
+    const waitCount=queue.filter((x)=>x.state==="waiting").length;
+    let tip="Agent overview ("+queue.length+" active)";
+    if(hasAppr) tip="Agent overview ("+apprCount+" need"+(apprCount===1?"s":"")+" approval)";
+    else if(hasWait) tip="Agent overview ("+waitCount+" waiting)";
+    else if(!queue.length) tip="Agent overview (no active agents)";
+    agentBtn.title=tip;
+  }
+
+  if(agentPop&&agentPop.classList.contains("open")){
+    renderAgentList(queue);
+  }
+}
+
+function openAgentPop(){
+  closeModals("agent");
+  const r=agentBtn.getBoundingClientRect();
+  agentPop.style.top=(r.bottom+6)+"px";
+  agentPop.style.left=Math.max(12,Math.min(window.innerWidth-352,r.right-340))+"px";
+  agentPop.classList.add("open");
+  renderAgentList();
 }
 function openTabWS(s,tab){
   const proto=location.protocol==="https:"?"wss":"ws";
@@ -1842,6 +1978,7 @@ function openTabWS(s,tab){
       if(m.cwd){tab.cwd=m.cwd; if(s.activeTabId===tab.id) s.badgeCwd.textContent=tildePath(m.cwd);}
     }else if(m.type==="exit"){
       tab.exited=true; setTabStatus(s,tab,"dead");
+      if(tab.agent) updateAgentOverview();
       tab.term.write("\r\n\x1b[2m[process exited \u2014 click \u27f3 to restart]\x1b[0m\r\n");
       announceExit(s,tab);   // coalesced: a burst (e.g. mass reattach after long away) becomes ONE toast
     }
@@ -1903,6 +2040,7 @@ function restartSession(s){
     tab.term.reset(); openTabWS(s,tab);
   });
   s.win.classList.remove("dead");
+  if(s.tabs.some((t)=>t.agent)) updateAgentOverview();
 }
 
 function closeSession(s,skipCount){
@@ -1918,7 +2056,7 @@ function closeSession(s,skipCount){
   sessions.delete(s.id); order=order.filter((x)=>x!==s.id);
   if(focusedId===s.id) focusedId=null;
   if(s.project===activeProject&&![...sessions.values()].some((x)=>x.project===activeProject))hint.style.display="";
-  updateConn(); updateDockEdges(); updateProjEdges(); updateProjectAttention(pid); if(!skipCount){updateProjCounts(); scheduleSave();}
+  updateConn(); updateDockEdges(); updateProjEdges(); updateProjectAttention(pid); updateAgentOverview(); if(!skipCount){updateProjCounts(); scheduleSave();}
 }
 
 /* ════════════════════════════════════════════════
@@ -2300,6 +2438,7 @@ const PAL_CMDS=[
   {icon:ICON.folder,label:"Open directory\u2026",sub:"Spawn shell in a specific folder",kbd:"\u2318\u21e7O",run:()=>{closePalette();document.getElementById("folder").click();}},
   {icon:ICON.snippet,label:"Save snippet\u2026",sub:"Store a reusable command",kbd:"\u2318\u2325S",run:()=>{closePalette();addSnippet();}},
   {icon:ICON.terminal,label:"Add SSH host\u2026",sub:"Save an ssh target \u2014 connect in one click from here",run:()=>{closePalette();addSshHost();}},
+  {icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>',label:"Agent overview",sub:"Who-needs-me queue across all projects",run:()=>{closePalette();openAgentPop();}},
   {icon:ICON.terminal,label:"Add AI CLI preset\u2026",sub:"Save an agent command \u2014 launch it in one click; pings you when it needs input",run:()=>{closePalette();addAiCli();}},
   {icon:ICON.log,label:"Set scrollback\u2026",sub:"Lines of history each terminal keeps",run:()=>{closePalette();setScrollback();}},
   {icon:ICON.gamepad,label:"Play game",sub:"Dino or Snake while a command runs \u2014 pings when the watched terminal finishes",kbd:"\u2318\u2325G",run:()=>{closePalette();openGame();}},
@@ -2423,6 +2562,7 @@ function closeModals(except){
   if(except!=="theme") themePop.classList.remove("open");
   if(except!=="move") movePop.classList.remove("open");
   if(except!=="cwd") cwdPop.classList.remove("open");
+  if(except!=="agent"&&agentPop&&agentPop.classList.contains("open")) agentPop.classList.remove("open");
 }
 function openShortcuts(){closeModals("sc");scOverlay.classList.add("open");}
 function openPalette(){closeModals("palette");palOverlay.classList.add("open");palette.classList.add("open");palInput.value="";palInput.placeholder=snippets.length?"Type a command, snippet, or search sessions…":"Type a command or search sessions…";palMatches=buildPalette("");palInput.focus();}
@@ -2730,7 +2870,9 @@ document.addEventListener("keydown",(e)=>{
     if(fileOverlay.classList.contains("open")){closeFileViewer();return;}
     if(findBar&&findBar.classList.contains("open")){closeFind();return;}
     if(themePop.classList.contains("open")){themePop.classList.remove("open");return;}
+    if(movePop.classList.contains("open")){movePop.classList.remove("open");return;}
     if(cwdPop.classList.contains("open")){cwdPop.classList.remove("open");return;}
+    if(agentPop&&agentPop.classList.contains("open")){agentPop.classList.remove("open");return;}
     if(scOverlay.classList.contains("open")){scOverlay.classList.remove("open");return;}
     if(sessSearchOpen){closeSessSearch();return;}
   }
@@ -2781,7 +2923,7 @@ function restoreState(){
   activeProject=projects.has(data.activeProject)?data.activeProject:projectOrder[0];
   projects.forEach((p)=>p.tab.classList.toggle("active",p.id===activeProject));
   if(data.sessions?.length) data.sessions.forEach((d)=>createSession(d));
-  updateProjCounts(); updateProjectAttention();
+  updateProjCounts(); updateProjectAttention(); updateAgentOverview();
   hint.style.display=[...sessions.values()].some((s)=>s.project===activeProject&&!s.minimized)?"none":"";
   return true;
 }
@@ -2820,6 +2962,14 @@ document.getElementById("new").addEventListener("click",()=>createSession({cwd:c
 tileBtn.addEventListener("click",tileAll);
 document.getElementById("pal-btn").addEventListener("click",openPalette);
 searchBtn.addEventListener("click",()=>sessSearchOpen?closeSessSearch():openSessSearch());
+agentBtn.addEventListener("click",(e)=>{
+  e.stopPropagation();
+  if(agentPop.classList.contains("open")){
+    agentPop.classList.remove("open");
+  } else {
+    openAgentPop();
+  }
+});
 document.getElementById("sc-btn").addEventListener("click",()=>scOverlay.classList.toggle("open"));
 const fsBtn=document.getElementById("fs-btn");
 const fsKey=MAC?"⌃⌘F":"F11";
@@ -2973,6 +3123,7 @@ document.addEventListener("mousedown",(e)=>{
   if(cwdPop.classList.contains("open")&&!cwdPop.contains(e.target)&&e.target!==folderBtn) cwdPop.classList.remove("open");
   if(movePop.classList.contains("open")&&!movePop.contains(e.target)&&!(moveTargetSession&&e.target===moveTargetSession.cmove)) movePop.classList.remove("open");
   if(themePop.classList.contains("open")&&!themePop.contains(e.target)&&e.target!==themeBtn&&!e.target.closest('[title="Terminal theme\u2026"]')) themePop.classList.remove("open");
+  if(agentPop&&agentPop.classList.contains("open")&&!agentPop.contains(e.target)&&e.target!==agentBtn&&!agentBtn.contains(e.target)) agentPop.classList.remove("open");
 });
 
 window.addEventListener("resize",()=>{sessions.forEach((s)=>refitActive(s));updateDockEdges();updateProjEdges();});
@@ -3015,7 +3166,7 @@ if(held && held.id!==myTab){
   updateConn();
   if(!restoreState()){addProject("default",null,true);switchProject(projectOrder[0]);createSession();}
   else{toast('<span class="led live"></span>',"Restored","Layout loaded from last session",3500);}
-  updateDockEdges(); updateProjEdges();
+  updateDockEdges(); updateProjEdges(); updateAgentOverview();
 }
 
 /* ═══ mini-games: dino runner + snake ═══
