@@ -145,11 +145,10 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   queue, plus a toast + OS notification (naming the session, click to jump) **only when you're not already
   watching that tab**. New output ends the waiting state (agent resumed); viewing the tab clears it. Armed
   **only on agent tabs** (launched from an AI CLI preset), so normal shells never trip it — zero false
-  positives. Heuristic by design (idle-timer, CLI-agnostic); no per-CLI parsing. The **agent tag is
-  persisted** with the layout, so the watch survives a page reload — unlike the one-shot startup `cmd`,
-  which is deliberately *not* persisted so it can never re-fire. The waiting/approval states themselves
-  are never persisted: they're re-derived from the live output stream (a tmux reattach repaints the
-  current screen, so a still-pending approval prompt re-flags itself).
+  positives. Heuristic by design (idle-timer, CLI-agnostic); no per-CLI parsing. The one-shot
+  startup `cmd` is deliberately *not* persisted, so it can never re-fire on reload. The waiting/approval
+  states themselves are never persisted either: they're re-derived from the live output stream (a tmux
+  reattach repaints the current screen, so a still-pending approval prompt re-flags itself).
 - ⛔ **Approval-prompt routing** — when an agent tab hits a tool-approval prompt (*"Allow this tool?"*,
   *"Do you want to proceed?"*, `(y/n)`…), it jumps **straight** to a louder **red** pulse (tab + dock chip)
   and a **sticky** toast/OS notification ("Needs approval — blocked on a permission prompt") — no 8s idle
