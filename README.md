@@ -5,6 +5,7 @@
 ![Node ≥18](https://img.shields.io/badge/node-%E2%89%A518-brightgreen)
 ![Platforms: macOS · Windows · Linux](https://img.shields.io/badge/platform-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-blue)
 ![No build step](https://img.shields.io/badge/build-none-lightgrey)
+[![smoke](https://github.com/kiril6/termdeck/actions/workflows/smoke.yml/badge.svg)](https://github.com/kiril6/termdeck/actions/workflows/smoke.yml)
 
 **Your terminals as floating windows — private, and running in 30 seconds.** Drag, resize, tile, and group real shells like app windows, right in your browser. No cloud, no accounts, no API keys, no build step.
 
