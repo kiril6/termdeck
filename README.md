@@ -1,5 +1,6 @@
 # Terminal Dashboard
 
+[![npm](https://img.shields.io/npm/v/@kiril6/termdeck?label=npm)](https://www.npmjs.com/package/@kiril6/termdeck)
 [![Latest release](https://img.shields.io/github/v/release/kiril6/termdeck?label=release)](https://github.com/kiril6/termdeck/releases/latest)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Node ≥18](https://img.shields.io/badge/node-%E2%89%A518-brightgreen)
@@ -90,6 +91,12 @@ Requires **Node.js 18+**.
 **No-install run** — one command, nothing to clone:
 
 ```bash
+npx @kiril6/termdeck         # from npm → http://localhost:3000
+```
+
+Or straight from GitHub (latest, no npm release needed):
+
+```bash
 npx github:kiril6/termdeck   # fetch + run → http://localhost:3000
 ```
 
@@ -127,7 +134,8 @@ The current version shows in the app's **? Help** panel. Check [Releases](https:
 
 - **Ran with `npx`?** Re-run, forcing a fresh fetch (npx caches):
   ```bash
-  npx -y github:kiril6/termdeck@latest
+  npx -y @kiril6/termdeck@latest        # npm
+  npx -y github:kiril6/termdeck@latest  # or straight from GitHub
   ```
 - **Cloned it?** Pull and reinstall:
   ```bash
