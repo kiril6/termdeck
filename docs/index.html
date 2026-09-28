@@ -164,6 +164,7 @@
   <header>
     <div class="badges">
       <a href="https://www.npmjs.com/package/@kiril6/termdeck"><img src="https://img.shields.io/npm/v/@kiril6/termdeck?label=npm&color=bd93f9" alt="npm version"></a>
+      <a id="dl-badge" hidden href="https://npm-stat.com/charts.html?package=@kiril6/termdeck"><img src="https://img.shields.io/npm/dm/@kiril6/termdeck?label=downloads&color=bd93f9" alt="npm downloads"></a>
       <a href="https://github.com/kiril6/termdeck/stargazers"><img src="https://img.shields.io/github/stars/kiril6/termdeck?style=flat&label=stars&color=bd93f9" alt="GitHub stars"></a>
       <a href="https://github.com/kiril6/termdeck/releases/latest"><img src="https://img.shields.io/github/v/release/kiril6/termdeck?label=release" alt="Latest release"></a>
       <img src="https://img.shields.io/badge/license-MIT-green" alt="License: MIT">
@@ -303,6 +304,14 @@
       }).catch(function(){});
     });
   });
+</script>
+<script>
+// npm's download stats lag a fresh publish by ~a day, so the badge stays hidden
+// until the registry reports real numbers — no "package not found" on the hero.
+fetch("https://api.npmjs.org/downloads/point/last-month/@kiril6/termdeck")
+  .then(function(r){ return r.ok ? r.json() : Promise.reject(); })
+  .then(function(d){ if(d && d.downloads > 0) document.getElementById("dl-badge").hidden = false; })
+  .catch(function(){});
 </script>
 </body>
 </html>

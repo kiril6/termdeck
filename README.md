@@ -1,6 +1,7 @@
 # Terminal Dashboard
 
 [![npm](https://img.shields.io/npm/v/@kiril6/termdeck?label=npm)](https://www.npmjs.com/package/@kiril6/termdeck)
+[![npm downloads](https://img.shields.io/npm/dm/@kiril6/termdeck?label=downloads)](https://npm-stat.com/charts.html?package=@kiril6/termdeck)
 [![Latest release](https://img.shields.io/github/v/release/kiril6/termdeck?label=release)](https://github.com/kiril6/termdeck/releases/latest)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Node ≥18](https://img.shields.io/badge/node-%E2%89%A518-brightgreen)
