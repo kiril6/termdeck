@@ -1,0 +1,45 @@
+name: publish
+
+# Pushing a version tag publishes it. Doing this by hand is how v1.3.1 got
+# tagged and released while npm still had nothing at all.
+#
+# No NPM_TOKEN: npm trusts this workflow directly (trusted publishing, OIDC),
+# configured once on npmjs.com under the package's Settings -> Trusted
+# Publisher. Provenance is attached automatically, so the npm page shows the
+# release was built here, from this commit.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  id-token: write # lets GitHub prove to npm which workflow is publishing
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      # Trusted publishing needs npm 11.5.1+; don't depend on what Node bundles.
+      - run: npm install -g npm@^11.5.1
+
+      # A tag that disagrees with package.json would publish the wrong version
+      # under the right-looking name.
+      - name: Tag matches package.json
+        run: |
+          version="$(node -p 'require("./package.json").version')"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME but package.json says $version"
+            exit 1
+          fi
+
+      # termdeck has no test suite — this is the same check smoke.yml runs:
+      # dependencies resolve on a clean machine and the server parses.
+      - run: node install.js
+      - run: node -c server.js
+
+      - run: npm publish
