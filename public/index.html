@@ -1958,7 +1958,7 @@ function getAgentQueue(){
 function renderAgentList(queue){
   if(!agentList) return;
   if(!queue) queue=getAgentQueue();
-  if(agentPopCount) agentPopCount.textContent=queue.length+(queue.length===1?" active":" active");
+  if(agentPopCount) agentPopCount.textContent=queue.length+" active";
   agentList.innerHTML="";
   if(!queue.length){
     const emp=el("div","agent-empty");
@@ -1976,7 +1976,7 @@ function renderAgentList(queue){
     path.textContent=pName+" · "+(s.name||"session")+" · "+(tab.name||"tab");
     path.title=path.textContent;
     const st=el("div","agent-row-state");
-    st.textContent=state==="approval"?"needs approval":(state==="waiting"?"waiting":(state==="working"?"working":state));
+    st.textContent=state==="approval"?"needs approval":state;
     info.append(path,st);
     row.append(dot,info);
     row.addEventListener("click",()=>{

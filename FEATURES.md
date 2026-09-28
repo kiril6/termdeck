@@ -163,6 +163,13 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   when any of its tabs is waiting, **red** when any is blocked on an approval (red wins). Recomputed as tab
   state changes, on session close, and when a session moves between projects; cleared when the last flagged
   tab/session goes away.
+- 🧭 **Cross-project agent queue** — a toolbar button (⋯ overflow menu below 1200px) opens a popover
+  listing **every agent tab across all projects** in one who-needs-me queue, ranked
+  **needs approval → waiting → working**, ties broken alphabetically by project, session, then tab.
+  Clicking a row jumps straight to it: switches project, reveals the window, focuses the tab, closes the
+  popover. The button's badge mirrors the highest-priority state in the queue (**red** approval beats
+  **amber** waiting beats working), and its tooltip carries the count, so the whole fleet collapses to one
+  glanceable control. Empty state reads *"No active agents / All quiet"*.
 - 🖥️ **Broadcast input** — 📢 Cast toolbar toggle / `⌘⌥B`: keystrokes **and inserted snippets** mirror to
   every live shell **in the active project** (not other projects — a cast can't hit shells you can't see).
   Pulsing red state signals ON (destructive — one command hits all of the project's shells).
