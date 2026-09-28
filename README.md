@@ -51,6 +51,7 @@ Three things set it apart:
 - **Review agent changes** — palette → *Review agent changes…*: a read-only diff of a worktree against the commit it was cut from, so **committed and uncommitted work both show in one view**, with a file summary and untracked files listed. View-only by design — you already have a shell in that worktree.
 - **"Waiting on you" watch** — an agent tab that goes quiet flips to an amber pulse plus a notification, so a row of agents reads as a who-needs-me queue.
 - **Approval-prompt routing** — when an agent blocks on *"Allow this tool? (y/n)"* it jumps straight to a louder red alert, no idle wait. termdeck **never auto-answers** — it only surfaces and jumps to the prompt.
+- **Cross-project agent queue** — a toolbar button opens one popover listing **every agent tab across all projects**, ranked *needs approval → waiting → working*; clicking a row jumps straight to that tab. The state also shows as a dot on each project tab, so the escalation reads tab pulse → project dot → one queue for the whole fleet.
 
 **Productivity**
 - **Command palette** — `⌘K` for fuzzy actions, sessions, and snippets.

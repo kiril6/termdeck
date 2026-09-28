@@ -56,6 +56,8 @@ npm run release -- --first # tag + release the CURRENT version, no bump (first r
 
 It bumps `package.json`, commits, tags `v<version>`, pushes, and creates the GitHub Release with auto-generated notes. Needs a clean tree and `gh auth login`. Pick the bump type by semver: patch = fix, minor = feature, major = breaking. Nothing auto-increments — the version is a deliberate choice.
 
+**Pushing the tag also publishes to npm**, via `.github/workflows/publish.yml`. The workflow re-checks that the tag matches `package.json`, runs the smoke checks, and publishes `@kiril6/termdeck` with build provenance — there is no `NPM_TOKEN` in the repo; npm trusts the workflow itself (trusted publishing). Publishing cannot be undone and a version number can never be reused, so treat `npm run release` as the irreversible step it is. Doing it by hand is how v1.3.1 got tagged and released while npm still had nothing.
+
 ## Reporting bugs
 
 [Open an issue](https://github.com/kiril6/termdeck/issues/new) with your **OS**, **Node version**, and the output of the `/debug` page if shells fail to start.
