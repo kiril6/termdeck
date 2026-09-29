@@ -497,6 +497,14 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
   border-radius:8px;pointer-events:none;z-index:9998;display:none;}
 .guide{position:absolute;background:var(--accent);pointer-events:none;z-index:9999;
   box-shadow:0 0 6px rgba(79,214,190,.6);display:none;}
+.glue-btn{position:absolute;z-index:9995;width:24px;height:24px;margin:-12px 0 0 -12px;padding:0;display:none;
+  align-items:center;justify-content:center;border-radius:50%;cursor:pointer;color:var(--muted);
+  background:var(--panel-2);border:1px solid var(--line);box-shadow:var(--shadow);}
+.glue-btn:hover,.glue-btn.on{color:var(--accent);border-color:var(--accent);}
+.glue-btn svg{width:13px;height:13px;}
+@media (pointer:coarse){.glue-btn{width:36px;height:36px;margin:-18px 0 0 -18px;}.glue-btn svg{width:18px;height:18px;}}
+.win.glued{box-shadow:0 0 0 1px var(--accent-dim),var(--shadow);}
+.win.glued.focused{box-shadow:0 22px 50px -14px rgba(0,0,0,.85),0 0 0 1px var(--accent);}
 .guide.v{width:1px;}
 .guide.h{height:1px;}
 
@@ -778,6 +786,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
   <div class="snap-preview" id="snap"></div>
   <div class="guide v" id="guideV"></div>
   <div class="guide h" id="guideH"></div>
+  <button class="glue-btn" id="glue-btn" type="button"></button>
 </div>
 
 <!-- ═══ DIR TREE SIDEBAR ═══ -->
@@ -1620,7 +1629,7 @@ function createSession(desc, isLog){
     win,head,led,winTabs,wtabsTrack,wtabAdd,panes,foot,badgeShell,badgeCwd,uptimeEl,chip,cled,cname,cmove,
     themeId:desc.themeId&&THEMES[desc.themeId]?desc.themeId:null,
     tabs:[],activeTabId:null,
-    status:"pending",minimized:false,maximized:false,prevRect:desc.prevRect||null,
+    status:"pending",minimized:false,maximized:false,prevRect:desc.prevRect||null,glue:desc.glue||null,
     closedByUser:false,uptimeTick,
   };
   sessions.set(id,s); order.push(id);
@@ -2157,6 +2166,7 @@ function closeSession(s,skipCount){
     try{tab.term.dispose();}catch{}
   });
   s.win.remove(); s.chip.remove();
+  const gp=s.glue&&sessions.get(s.glue); if(gp)gp.glue=null;
   const pid=s.project;
   sessions.delete(s.id); order=order.filter((x)=>x!==s.id);
   if(focusedId===s.id) focusedId=null;
@@ -2179,22 +2189,29 @@ function wireWindow(s){
     document.body.classList.add("win-dragging");   // force grabbing cursor everywhere during the drag
     const r=win.getBoundingClientRect(),dr=desktop.getBoundingClientRect();
     let offX=e.clientX-r.left,offY=e.clientY-r.top,snapZone=null;
+    const gp=gluePartner(s), s0x=r.left-dr.left, s0y=r.top-dr.top, sw=r.width;   // glued partner rides along
+    const p0x=gp?parseFloat(gp.win.style.left)||0:0, p0y=gp?parseFloat(gp.win.style.top)||0:0, pw=gp?gp.win.offsetWidth:0;
     const mv=(ev)=>{
       if(s.maximized){unmaxKeeping(s);offX=Math.min(offX,parseFloat(win.style.width)-40);offY=17;}
       let x=clamp(ev.clientX-dr.left-offX,-parseFloat(win.style.width)+80,dr.width-80);
       let y=clamp(ev.clientY-dr.top-offY,0,dr.height-34);
-      snapZone=computeSnap(ev.clientX-dr.left,ev.clientY-dr.top,dr);
+      snapZone=gp?null:computeSnap(ev.clientX-dr.left,ev.clientY-dr.top,dr);   // glued pairs don't screen-snap
       if(snapZone) hideGuides();
       else{const al=computeAlign(s,x,y,win.offsetWidth,win.offsetHeight,dr);x=al.x;y=al.y;showGuides(al.guides);}
+      if(gp){   // same delta for both, clamped so neither leaves the desktop
+        const dx=clamp(x-s0x,Math.max(-sw+80-s0x,-pw+80-p0x),Math.min(dr.width-80-s0x,dr.width-80-p0x));
+        const dy=clamp(y-s0y,Math.max(-s0y,-p0y),Math.min(dr.height-34-s0y,dr.height-34-p0y));
+        x=s0x+dx; y=s0y+dy; gp.win.style.left=(p0x+dx)+"px"; gp.win.style.top=(p0y+dy)+"px";
+      }
       win.style.left=x+"px"; win.style.top=y+"px"; showSnap(snapZone);
     };
-    const up=()=>{
+    const up=(ev)=>{
       document.removeEventListener("pointermove",mv); document.removeEventListener("pointerup",up);
       head.classList.remove("wh-drag");
       document.body.classList.remove("win-dragging");
       hideSnap(); hideGuides();
       if(snapZone) applyRect(s,snapZone.full?null:snapZone,snapZone.full);
-      scheduleSave();
+      scheduleSave(); offerGlue(s,ev);
     };
     document.addEventListener("pointermove",mv); document.addEventListener("pointerup",up);
   });
@@ -2256,6 +2273,9 @@ function startResize(s,dirs,e){
   const x0=parseFloat(win.style.left)||0, y0=parseFloat(win.style.top)||0, w0=win.offsetWidth, h0=win.offsetHeight;
   const dr=desktop.getBoundingClientRect();   // clamp so no edge leaves the desktop bounds
   const sx=e.clientX, sy=e.clientY;
+  // Glued partner: dragging the shared edge grows this window and shrinks the partner by the same amount.
+  const gp=gluePartner(s), side=gp&&sharedEdge(s,gp).side;
+  const px0=gp?parseFloat(gp.win.style.left)||0:0, py0=gp?parseFloat(gp.win.style.top)||0:0, pw0=gp?gp.win.offsetWidth:0, ph0=gp?gp.win.offsetHeight:0;
   const mv=(ev)=>{
     const dx=ev.clientX-sx, dy=ev.clientY-sy;
     let nx=x0, ny=y0, nw=w0, nh=h0;
@@ -2266,11 +2286,20 @@ function startResize(s,dirs,e){
     const a=resizeAlign(s,dirs,nx,ny,nw,nh);   // snap dragged edge to neighbour windows
     if(a.w>=MINW){ nx=a.x; nw=a.w; }
     if(a.h>=MINH){ ny=a.y; nh=a.h; }
+    if(gp){
+      const P={left:px0,top:py0,width:pw0,height:ph0};
+      if(side==="e"&&dirs.indexOf("e")>=0){nw=Math.min(nw,w0+pw0-MINW); P.left=px0+nw-w0; P.width=pw0-(nw-w0);}
+      else if(side==="w"&&dirs.indexOf("w")>=0){nx=Math.max(nx,x0-(pw0-MINW)); nw=x0+w0-nx; P.width=pw0+(nx-x0);}
+      else if(side==="s"&&dirs.indexOf("s")>=0){nh=Math.min(nh,h0+ph0-MINH); P.top=py0+nh-h0; P.height=ph0-(nh-h0);}
+      else if(side==="n"&&dirs.indexOf("n")>=0){ny=Math.max(ny,y0-(ph0-MINH)); nh=y0+h0-ny; P.height=ph0+(ny-y0);}
+      for(const k in P) gp.win.style[k]=P[k]+"px";
+      refitActive(gp);
+    }
     win.style.left=nx+"px"; win.style.top=ny+"px"; win.style.width=nw+"px"; win.style.height=nh+"px";
     refitActive(s);
     if(a.guides.length) showGuides(a.guides); else hideGuides();
   };
-  const up=()=>{document.removeEventListener("pointermove",mv); document.removeEventListener("pointerup",up); hideGuides(); refitActive(s); snapWinHeight(s); scheduleSave();};
+  const up=(ev)=>{document.removeEventListener("pointermove",mv); document.removeEventListener("pointerup",up); hideGuides(); refitActive(s); snapWinHeight(s); if(gp){refitActive(gp); if(!sharedEdge(s,gp)) unglue(s);} scheduleSave(); offerGlue(s,ev);};
   document.addEventListener("pointermove",mv); document.addEventListener("pointerup",up);
 }
 // Per-terminal font zoom (⌘+/⌘-/⌘0). dir>0 in, <0 out, 0 reset.
@@ -2339,7 +2368,8 @@ function showSnap(z){
 }
 function hideSnap(){snapEl.style.display="none";}
 function computeAlign(drag,x,y,w,h,dr){
-  const others=order.map((id)=>sessions.get(id)).filter((o)=>o&&o!==drag&&!o.minimized&&!o.maximized&&o.project===activeProject);
+  const gp=gluePartner(drag);
+  const others=order.map((id)=>sessions.get(id)).filter((o)=>o&&o!==drag&&o!==gp&&!o.minimized&&!o.maximized&&o.project===activeProject);
   let sx=null,sy=null;const guides=[];
   const dX=[x,x+w/2,x+w],dY=[y,y+h/2,y+h];
   for(const o of others){
@@ -2353,7 +2383,8 @@ function computeAlign(drag,x,y,w,h,dr){
 // Resize-time alignment: snap the dragged edge(s) to other windows' left/right/top/bottom
 // edges (within ATHRESH), adjusting size — the resize counterpart of computeAlign.
 function resizeAlign(drag,dirs,x,y,w,h){
-  const others=order.map((id)=>sessions.get(id)).filter((o)=>o&&o!==drag&&!o.minimized&&!o.maximized&&o.project===activeProject);
+  const gp=gluePartner(drag);
+  const others=order.map((id)=>sessions.get(id)).filter((o)=>o&&o!==drag&&o!==gp&&!o.minimized&&!o.maximized&&o.project===activeProject);
   const xL=[],yL=[];
   for(const o of others){const ol=parseFloat(o.win.style.left)||0,ot=parseFloat(o.win.style.top)||0,ow=o.win.offsetWidth,oh=o.win.offsetHeight;xL.push(ol,ol+ow);yL.push(ot,ot+oh);}
   const near=(v,lines)=>{for(const L of lines) if(Math.abs(v-L)<=ATHRESH) return L; return null;};
@@ -3076,9 +3107,90 @@ function pad(n){return String(n).padStart(2,"0");}
 function newId(prefix){return(prefix||"s")+Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
 
 /* ════════════════════════════════════════════════
+   GLUE — lock two touching windows so they move / resize as one (pairs only)
+   ════════════════════════════════════════════════ */
+const GLUE_GAP=10, GLUE_MIN_OVERLAP=40, GLUE_HOT=14;
+const glueBtn=document.getElementById("glue-btn");
+const GLUE_ICON={
+  on:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+  off:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>'};
+let glueHover=null;
+function winBox(s){return{l:parseFloat(s.win.style.left)||0,t:parseFloat(s.win.style.top)||0,w:s.win.offsetWidth,h:s.win.offsetHeight};}
+// Facing edges within GLUE_GAP and overlapping ≥ GLUE_MIN_OVERLAP → {side: where b sits relative to a, v: vertical edge?, pos, from, to}.
+function sharedEdge(a,b){
+  const A=winBox(a),B=winBox(b);
+  const oy0=Math.max(A.t,B.t),oy1=Math.min(A.t+A.h,B.t+B.h),ox0=Math.max(A.l,B.l),ox1=Math.min(A.l+A.w,B.l+B.w);
+  if(oy1-oy0>=GLUE_MIN_OVERLAP){
+    if(Math.abs(A.l+A.w-B.l)<=GLUE_GAP) return{side:"e",v:true,pos:(A.l+A.w+B.l)/2,from:oy0,to:oy1};
+    if(Math.abs(B.l+B.w-A.l)<=GLUE_GAP) return{side:"w",v:true,pos:(B.l+B.w+A.l)/2,from:oy0,to:oy1};
+  }
+  if(ox1-ox0>=GLUE_MIN_OVERLAP){
+    if(Math.abs(A.t+A.h-B.t)<=GLUE_GAP) return{side:"s",v:false,pos:(A.t+A.h+B.t)/2,from:ox0,to:ox1};
+    if(Math.abs(B.t+B.h-A.t)<=GLUE_GAP) return{side:"n",v:false,pos:(B.t+B.h+A.t)/2,from:ox0,to:ox1};
+  }
+  return null;
+}
+// The live partner, or null. Glue is remembered on both sides but only acts while both windows are
+// visible, unmaximized, in one project and still touching.
+function gluePartner(s){
+  const p=s.glue&&sessions.get(s.glue);
+  if(!p||p.glue!==s.id||p.project!==s.project||p.minimized||p.maximized||s.minimized||s.maximized)return null;
+  return sharedEdge(s,p)?p:null;
+}
+function unglue(s){const p=s.glue&&sessions.get(s.glue); if(p&&p.glue===s.id)p.glue=null; s.glue=null;}
+function glueWith(a,b){unglue(a);unglue(b);a.glue=b.id;b.glue=a.id;}
+function updateGlueUI(){sessions.forEach((s)=>s.win.classList.toggle("glued",!!gluePartner(s)));}
+function hideGlueBtn(){glueBtn.style.display="none";glueHover=null;}
+let glueTimer=0;
+function showGlue(a,b,ed,autoHide){
+  const mid=(ed.from+ed.to)/2, on=a.glue===b.id&&b.glue===a.id;
+  glueHover=[a,b];
+  glueBtn.innerHTML=on?GLUE_ICON.on:GLUE_ICON.off; glueBtn.classList.toggle("on",on);
+  glueBtn.title=on?"Unlock — move windows independently":"Lock — move and resize these two together";
+  Object.assign(glueBtn.style,{display:"flex",left:(ed.v?ed.pos:mid)+"px",top:(ed.v?mid:ed.pos)+"px"});
+  clearTimeout(glueTimer); if(autoHide) glueTimer=setTimeout(hideGlueBtn,4000);   // touch has no pointer-leave
+}
+// First touching pair whose shared edge is within `hot` px of desktop point (x,y) — or, with x==null, any pair involving `only`.
+function findGlue(x,y,hot,only){
+  const vis=[...sessions.values()].filter((s)=>s.project===activeProject&&!s.minimized&&!s.maximized);
+  for(let i=0;i<vis.length;i++)for(let j=i+1;j<vis.length;j++){
+    if(only&&vis[i]!==only&&vis[j]!==only)continue;
+    const ed=sharedEdge(vis[i],vis[j]); if(!ed)continue;
+    if(x!=null){const across=ed.v?x:y, along=ed.v?y:x; if(Math.abs(across-ed.pos)>hot||along<ed.from||along>ed.to)continue;}
+    return[vis[i],vis[j],ed];
+  }
+  return null;
+}
+const deskXY=(e)=>{const dr=desktop.getBoundingClientRect();return[e.clientX-dr.left,e.clientY-dr.top];};
+desktop.addEventListener("pointermove",(e)=>{
+  if(e.pointerType!=="mouse"||e.buttons||document.body.classList.contains("win-dragging")||glueBtn.contains(e.target))return;   // over the button itself: keep it up
+  const f=findGlue(...deskXY(e),GLUE_HOT);
+  if(f) showGlue(...f); else hideGlueBtn();
+});
+// Touch: no hover, so tap on a shared edge, or finish dragging a window against another, to bring the lock up.
+desktop.addEventListener("pointerdown",(e)=>{
+  if(e.pointerType==="mouse"||glueBtn.contains(e.target))return;
+  if(e.target.closest(".win-head,.wgrip")){hideGlueBtn();return;}   // a drag/resize is starting
+  const f=findGlue(...deskXY(e),GLUE_HOT*2);
+  if(f) showGlue(...f,true); else hideGlueBtn();
+});
+function offerGlue(s,e){   // called when a touch drag/resize of `s` ends
+  if(!e||e.pointerType==="mouse")return;
+  const f=findGlue(null,null,0,s); if(f) showGlue(...f,true);
+}
+desktop.addEventListener("pointerleave",hideGlueBtn);
+glueBtn.addEventListener("click",(e)=>{
+  e.stopPropagation(); if(!glueHover)return;
+  const[a,b]=glueHover;
+  if(a.glue===b.id&&b.glue===a.id) unglue(a); else glueWith(a,b);
+  glueBtn.innerHTML=a.glue===b.id?GLUE_ICON.on:GLUE_ICON.off; glueBtn.classList.toggle("on",a.glue===b.id);
+  scheduleSave();
+});
+
+/* ════════════════════════════════════════════════
    PERSISTENCE
    ════════════════════════════════════════════════ */
-function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(saveState,300);}
+function scheduleSave(){updateGlueUI();clearTimeout(saveTimer);saveTimer=setTimeout(saveState,300);}
 function saveState(){
   if(!instanceActive) return;   // passive tab: never write — would clobber the active tab's layout
   try{
@@ -3087,7 +3199,7 @@ function saveState(){
       sessions:order.map((id)=>{const s=sessions.get(id);if(!s)return null;const st=s.win.style;
         return{id:s.id,project:s.project,name:s.name,cwd:s.cwd,themeId:s.themeId||null,isLog:s.isLog||false,
                left:st.left,top:st.top,width:st.width,height:st.height,
-               minimized:s.minimized,maximized:s.maximized,prevRect:s.prevRect,
+               minimized:s.minimized,maximized:s.maximized,prevRect:s.prevRect,glue:s.glue||null,
                // agent tag persists (arms the waiting/approval watch after a reload); cmd deliberately does NOT, so it can't re-fire
                tabs:s.tabs.map((t)=>({id:t.id,name:t.name,cwd:t.cwd||"",agent:!!t.agent}))};}).filter(Boolean)};
     localStorage.setItem(STORE,JSON.stringify(data));
@@ -3101,7 +3213,7 @@ function restoreState(){
   activeProject=projects.has(data.activeProject)?data.activeProject:projectOrder[0];
   projects.forEach((p)=>p.tab.classList.toggle("active",p.id===activeProject));
   if(data.sessions?.length) data.sessions.forEach((d)=>createSession(d));
-  updateProjCounts(); updateProjectAttention(); updateAgentOverview();
+  updateProjCounts(); updateProjectAttention(); updateAgentOverview(); updateGlueUI();
   hint.style.display=[...sessions.values()].some((s)=>s.project===activeProject&&!s.minimized)?"none":"";
   return true;
 }

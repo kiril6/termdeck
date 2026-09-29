@@ -10,6 +10,15 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 
 ## Terminals & windows
 - 🖥️ Floating, draggable, resizable terminal windows; minimize, maximize, tile into a grid. Resize from any of the four edges or four corners (dragging the top/left edge keeps the opposite edge anchored); the dragged edge snaps to neighbouring windows' edges (with an alignment guide) and stays within the desktop bounds. Move and resize work with touch as well as mouse (pointer events).
+- 🖥️ **Glue two windows (🔒)** — drag a window against another (the edge-snap already lines them up) and a
+  small lock appears on the shared edge when you hover it. Click to **lock the pair**: they then move together
+  and dragging the shared edge grows one window while shrinking the other; click again to unlock. Pairs only
+  (locking a window re-pairs it), and touching means facing edges within 10px overlapping ≥40px. Glued pairs
+  get an accent outline and don't screen-snap. Glue is remembered while a window is minimized/maximized but only
+  acts when both are visible, unmaximized, in the same project and still touching; resizing another edge until
+  they part unlocks. Saved with the layout (`glue` = partner id in `td.state.v5`). On touch (no hover) the lock
+  appears for 4s when a drag/resize ends against another window, or when you tap on a shared edge; it is
+  larger on coarse pointers.
 - 🖥️ Multiple tabs (shells) per window with a scrollable tab strip. **Double-click a tab name to rename it**; the tab count and custom names persist across reloads (`localStorage`).
 - 🖥️ Read-only **log panels** (`⌘⌥L`) — mirror output with input disabled.
 - 🖥️ Per-terminal **font zoom** — `⌘+` / `⌘-` / `⌘0`; PTY re-fits to the new size.
