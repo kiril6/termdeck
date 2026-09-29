@@ -227,6 +227,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 
 ## Appearance & layout
 - 🖥️ Themes — per-terminal or dashboard-wide, searchable picker (`⌘⇧P`). 24 built-in: 17 dark + 7 light (GitHub Light, Paper, Solarized Light, One Light, Catppuccin Latte, Rose Pine Dawn, Gruvbox Light).
+  Text on accent-filled surfaces (the primary dialog button, hovered menu rows) is picked per theme as near-black or white, whichever contrasts more with that theme's accent (≥4.7:1 across all 24), via the `--on-accent` variable.
 - 🖥️ Dock — bottom session bar with activity/attention indicators, overflow edge hints, and pointer-event drag-and-drop reordering (desktop and touch).
 - 🖥️ Tiling (`⌘⌥⇧T`), fullscreen (`F11`).
 - 🖥️ **Responsive toolbar** — below ~1200px the secondary toolbar buttons (Tree, Search, Tile, Cast,

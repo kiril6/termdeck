@@ -69,7 +69,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);overflow:hid
 .cm-btn:active{transform:translateY(1px);}
 .cm-cancel{background:transparent;color:var(--muted);border:1px solid var(--line);}
 .cm-cancel:hover{border-color:var(--muted);color:var(--text);background:rgba(255,255,255,.05);}
-.cm-ok{border:1px solid var(--accent-dim);box-shadow:0 1px 2px rgba(0,0,0,.25);font-weight:600;color:#08120f;}  /* darker-accent edge + depth — matches the danger button's polish, keeps the theme accent */
+.cm-ok{border:1px solid var(--accent-dim);box-shadow:0 1px 2px rgba(0,0,0,.25);font-weight:600;color:var(--on-accent,#08120f);}  /* darker-accent edge + depth — matches the danger button's polish, keeps the theme accent */
 .cm-ok:hover{filter:brightness(1.1);}
 .cm-ok.danger{background:#c94b46;border:1px solid #9e3a36;box-shadow:0 1px 2px rgba(0,0,0,.25);}  /* deeper restrained red + darker-red edge, not the candy --dead LED tint */
 .cm-ok.danger:hover{filter:brightness(.93);}  /* darken red on hover — brightening pushes it toward pink */
@@ -82,8 +82,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);overflow:hid
 .ctxmenu::-webkit-scrollbar-thumb:hover{background:var(--muted);}
 .ctx-item{display:flex;justify-content:space-between;gap:18px;padding:7px 11px;border-radius:5px;cursor:pointer;}
 .ctx-item .ctx-key{color:var(--muted);font-size:11px;}
-.ctx-item:hover{background:var(--accent);color:#08120f;}
-.ctx-item:hover .ctx-key{color:#08120f;}
+.ctx-item:hover{background:var(--accent);color:var(--on-accent,#08120f);}
+.ctx-item:hover .ctx-key{color:var(--on-accent,#08120f);}
 .ctx-item.disabled{opacity:.36;cursor:default;}
 .ctx-item.disabled:hover{background:transparent;color:var(--text);}
 .ctx-item.disabled:hover .ctx-key{color:var(--muted);}
@@ -94,7 +94,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);overflow:hid
 .ctx-actions{display:inline-flex;gap:2px;margin-left:8px;flex:0 0 auto;}
 .ctx-act{border:0;background:transparent;color:var(--muted);cursor:pointer;width:22px;height:22px;border-radius:4px;display:grid;place-items:center;opacity:0;transition:opacity .12s,background .12s,color .12s;}
 .ctx-act svg{width:13px;height:13px;display:block;}
-.ctx-item:hover .ctx-act{opacity:.75;color:#08120f;}       /* row hover paints accent → dark icons for contrast */
+.ctx-item:hover .ctx-act{opacity:.75;color:var(--on-accent,#08120f);}       /* row hover paints accent → dark icons for contrast */
 .ctx-act:hover{opacity:1;background:rgba(0,0,0,.16);}
 .findbar{position:fixed;top:56px;right:18px;z-index:9992;display:none;align-items:center;gap:6px;
   background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 6px 5px 10px;
@@ -977,7 +977,13 @@ const THEME_ORDER=["console","tokyoNight","dracula","catppuccin","rosePine","nor
 const THEME_STORE="td.theme.v2", STORE="td.state.v5";
 let defaultThemeId="console";
 try{const sv=localStorage.getItem(THEME_STORE);if(sv&&THEMES[sv])defaultThemeId=sv;}catch{}
-function applyUITheme(id){const t=THEMES[id]||THEMES.console;const r=document.documentElement.style;Object.entries(t.ui).forEach(([k,v])=>r.setProperty(k,v));}
+// Readable text for accent-filled surfaces (primary button, hovered menu row): whichever of near-black / white has the higher WCAG contrast on the accent.
+function onAccent(hex){
+  const c=[1,3,5].map((i)=>{const v=parseInt(hex.slice(i,i+2),16)/255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4);});
+  const L=.2126*c[0]+.7152*c[1]+.0722*c[2];
+  return 1.05/(L+.05)>(L+.05)/.05?"#ffffff":"#08120f";   // contrast vs white  >  contrast vs #08120f (L≈.005)
+}
+function applyUITheme(id){const t=THEMES[id]||THEMES.console;const r=document.documentElement.style;Object.entries(t.ui).forEach(([k,v])=>r.setProperty(k,v));r.setProperty("--on-accent",onAccent(t.ui["--accent"]));}
 applyUITheme(defaultThemeId);
 
 /* ════════════════════════════════════════════════
