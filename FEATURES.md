@@ -38,8 +38,15 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   hidden by default), rooted at the **active project's** root and lazy-expanding dirs on click. Per-row actions:
   a dir's **＋** opens a new terminal there (`createSession` at that path); clicking a file's name opens
   the **in-app file viewer** (`/api/read` → overlay showing the text; binary files and >2 MB files are
-  handled gracefully), and its **⤢** reveals it in the OS file manager (`/api/reveal`). Falls back to a
+  handled gracefully; **`.md` files render as formatted Markdown** with a *Raw / Rendered* toggle), and its **⤢** reveals it in the OS file manager (`/api/reveal`). Falls back to a
   static demo tree in `file://` demo mode.
+- 🖥️ **Markdown viewer** — `.md` / `.markdown` files open **rendered** (headings, bold/italic, inline + fenced
+  code, lists, blockquotes, tables, rules, `http(s)`/`mailto` links) in the file-viewer overlay; the header
+  button flips to the raw source and back. Reach it by clicking a file in the tree **or** palette → *Open
+  file…* (path relative to the project root, absolute, or `~/…`; works for any text file). Zero dependencies:
+  a ~40-line renderer inline in `public/index.html`. Input is HTML-escaped first and images are shown as
+  their alt text, so a file can't inject markup or trigger requests. Not full CommonMark (no nested lists /
+  reference links). In the hosted demo the tree's `README.md` and the palette command open a sample document.
 - 🖥️ **Right-click context menu** — right-click a tree row for the full action set: on a folder —
   *New terminal here · Open as new project · Set as project root · Copy path · Reveal in file manager*;
   on a file — *Open file · Copy path · Reveal*. The tree is the primary picker, no path-typing needed.

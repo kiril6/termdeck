@@ -55,6 +55,7 @@ Three things set it apart:
 
 **Productivity**
 - **Command palette** — `⌘K` for fuzzy actions, sessions, and snippets.
+- **Markdown viewer** — click any `.md` file in the tree, or palette → *Open file…*, to read it rendered (headings, code, lists, tables, links) with a one-click Raw toggle. No extra dependencies; other text files open as plain text.
 - **Command snippets** — save reusable commands and run them from the palette; a snippet is *typed* into the focused shell (not auto-run) so you can review before pressing Enter.
 - **Broadcast input** — 📢 Cast (`⌘⇧B`) mirrors your keystrokes to **every live shell in the active project** at once (not other projects); a pulsing red state makes it obvious when it's on, and it auto-disarms when you switch projects.
 - **Find in terminal** — `⌘F` inside a shell searches its scrollback with match highlighting and a result counter.

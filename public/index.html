@@ -288,6 +288,23 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
 .fv-body .d-add{color:#46d17f;} .fv-body .d-del{color:#e0655f;}
 .fv-body .d-hunk{color:var(--accent);} .fv-body .d-meta{color:var(--muted);}
 .fv-body .d-file{color:var(--text);font-weight:600;}
+/* rendered markdown (file viewer) */
+.fv-tog{margin:0 12px 0 auto;font:600 10.5px var(--mono);letter-spacing:0;text-transform:none;color:var(--muted);
+  border:1px solid var(--line);border-radius:5px;padding:2px 8px;cursor:pointer;}
+.fv-tog:hover{color:var(--text);border-color:var(--accent-dim);}
+.fv-body.md{white-space:normal;font-family:system-ui,-apple-system,sans-serif;font-size:13.5px;line-height:1.65;}
+.md h1,.md h2,.md h3,.md h4{margin:1.2em 0 .5em;line-height:1.3;color:var(--text);}
+.md h1{font-size:1.6em;border-bottom:1px solid var(--line);padding-bottom:.25em;} .md h2{font-size:1.3em;border-bottom:1px solid var(--line-soft);padding-bottom:.2em;}
+.md h3{font-size:1.1em;} .md h4{font-size:1em;color:var(--muted);}
+.md>:first-child{margin-top:0;} .md p,.md ul,.md ol,.md pre,.md blockquote,.md table{margin:0 0 .9em;}
+.md ul,.md ol{padding-left:1.5em;} .md li{margin:.15em 0;}
+.md a{color:var(--accent);} .md hr{border:0;border-top:1px solid var(--line);margin:1.2em 0;}
+.md code{font-family:var(--mono);font-size:.9em;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:4px;padding:1px 5px;}
+.md pre{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow:auto;}
+.md pre code{background:none;border:0;padding:0;font-size:12px;line-height:1.5;}
+.md blockquote{margin-left:0;padding:.1em 1em;border-left:3px solid var(--accent-dim);color:var(--muted);}
+.md table{border-collapse:collapse;display:block;overflow:auto;} .md th,.md td{border:1px solid var(--line);padding:5px 10px;text-align:left;}
+.md th{background:var(--panel-2);}
 
 /* ── toast notifications ── */
 .toasts{position:fixed;bottom:70px;right:14px;z-index:9980;
@@ -821,7 +838,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 <!-- ═══ FILE VIEWER ═══ -->
 <div class="sc-overlay" id="file-overlay" tabindex="-1">
   <div class="sc-box file-box">
-    <h2><span class="fv-name" id="fv-name"></span><span class="sc-x" id="fv-close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></span></h2>
+    <h2><span class="fv-name" id="fv-name"></span><button class="fv-tog" id="fv-tog" type="button" hidden>Raw</button><span class="sc-x" id="fv-close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></span></h2>
     <div class="fv-path" id="fv-path"></div>
     <pre class="fv-body msg" id="fv-body"></pre>
   </div>
@@ -1282,6 +1299,7 @@ async function openAgentDiff(){
   closeModals("file");
   fvName.textContent="Changes — "+(p.name||"");
   fvPath.textContent=dir;
+  fvTog.hidden=true;
   fvBody.className="fv-body msg"; fvBody.textContent="Loading…";
   fileOverlay.classList.add("open"); fileOverlay.focus();
   let j;
@@ -2522,6 +2540,7 @@ const PAL_CMDS=[
   {icon:ICON.theme,label:"Change theme",sub:"Open theme picker",kbd:"\u2318\u21e7P",run:()=>{closePalette();openThemePop(null,themeBtn);}},
   {icon:ICON.folderPlus,label:"New project",sub:"Add a project tab",kbd:"\u2318\u21e7M",run:()=>addProject()},
   {icon:ICON.keyboard,label:"Keyboard shortcuts",sub:"Show all shortcuts",kbd:"?",run:openShortcuts},
+  {icon:ICON.log,label:"Open file\u2026",sub:"Peek any text file \u2014 Markdown renders formatted",run:()=>{closePalette();openFilePrompt();}},
   {icon:ICON.folder,label:"Open directory\u2026",sub:"Spawn shell in a specific folder",kbd:"\u2318\u21e7O",run:()=>{closePalette();document.getElementById("folder").click();}},
   {icon:ICON.snippet,label:"Save snippet\u2026",sub:"Store a reusable command",kbd:"\u2318\u2325S",run:()=>{closePalette();addSnippet();}},
   {icon:ICON.terminal,label:"Add SSH host\u2026",sub:"Save an ssh target \u2014 connect in one click from here",run:()=>{closePalette();addSshHost();}},
@@ -2679,23 +2698,94 @@ scOverlay.addEventListener("click",(e)=>{if(e.target===scOverlay)scOverlay.class
 /* ════════════════════════════════════════════════
    FILE VIEWER  (click a file in the tree → peek its text)
    ════════════════════════════════════════════════ */
+const DEMO_MD=`# Terminal Dashboard
+
+A browser cockpit of **floating terminals**, each backed by a real PTY.
+
+## Markdown viewer
+
+Click any \`.md\` file in the tree, or press \u2318K \u2192 *Open file\u2026*.
+
+- Headings, lists, **bold**, *italic*, \`inline code\`
+- Tables, quotes and [links](https://github.com/kiril6/termdeck)
+
+| Key | Action |
+|-----|--------|
+| \u2318K | Command palette |
+| \u2318B | Directory tree |
+
+> No dependencies \u2014 rendered by ~40 lines of inline JS.
+`;
 const fileOverlay=document.getElementById("file-overlay");
-const fvName=document.getElementById("fv-name"),fvPath=document.getElementById("fv-path"),fvBody=document.getElementById("fv-body");
+const fvName=document.getElementById("fv-name"),fvPath=document.getElementById("fv-path"),fvBody=document.getElementById("fv-body"),fvTog=document.getElementById("fv-tog");
 function closeFileViewer(){fileOverlay.classList.remove("open");}
-async function openFileViewer(full,name){
+// Tiny markdown → HTML (headings, emphasis, code, lists, quotes, tables, links, rules). Input is
+// HTML-escaped first, so nothing in the file can inject markup; links are limited to http(s)/mailto.
+function mdToHtml(src){
+  const esc=(t)=>t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const inline=(t)=>esc(t).replace(/`([^`]+)`/g,"<code>$1</code>")
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g,"$1")   // images can't load here → keep alt text (badges become plain links)
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+|mailto:[^\s)]+)\)/g,(m,x,u)=>'<a href="'+u+'" target="_blank" rel="noopener noreferrer">'+x+"</a>")
+    .replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>").replace(/(^|[^*\w])\*([^*\s][^*]*)\*/g,"$1<em>$2</em>").replace(/~~([^~]+)~~/g,"<del>$1</del>");
+  const L=src.replace(/\r\n?/g,"\n").split("\n"); let h="", i=0;
+  const cells=(l)=>l.replace(/^\s*\||\|\s*$/g,"").split("|").map((c)=>c.trim());
+  while(i<L.length){
+    const l=L[i]; let m;
+    if((m=l.match(/^\s*(```|~~~)/))){const f=m[1],buf=[]; i++; while(i<L.length&&!L[i].trim().startsWith(f)) buf.push(L[i++]); i++; h+="<pre><code>"+esc(buf.join("\n"))+"</code></pre>"; continue;}
+    if(!l.trim()){i++;continue;}
+    if((m=l.match(/^(#{1,4})\s+(.*?)\s*#*$/))){h+="<h"+m[1].length+">"+inline(m[2])+"</h"+m[1].length+">";i++;continue;}
+    if(/^\s*([-*_])(\s*\1){2,}\s*$/.test(l)){h+="<hr>";i++;continue;}
+    if(l.startsWith(">")){const buf=[]; while(i<L.length&&L[i].startsWith(">")) buf.push(L[i++].replace(/^>\s?/,"")); h+="<blockquote>"+mdToHtml(buf.join("\n"))+"</blockquote>"; continue;}
+    if(l.includes("|")&&/^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/.test(L[i+1]||"")){
+      h+="<table><thead><tr>"+cells(l).map((c)=>"<th>"+inline(c)+"</th>").join("")+"</tr></thead><tbody>"; i+=2;
+      while(i<L.length&&L[i].includes("|")&&L[i].trim()) h+="<tr>"+cells(L[i++]).map((c)=>"<td>"+inline(c)+"</td>").join("")+"</tr>";
+      h+="</tbody></table>"; continue;
+    }
+    if((m=l.match(/^\s*([-*+]|\d+\.)\s+/))){
+      const tag=/\d/.test(m[1])?"ol":"ul"; h+="<"+tag+">";
+      while(i<L.length&&(m=L[i].match(/^\s*([-*+]|\d+\.)\s+(.*)/))){h+="<li>"+inline(m[2])+"</li>";i++;}
+      h+="</"+tag+">"; continue;
+    }
+    const buf=[]; while(i<L.length&&L[i].trim()&&!/^\s*(```|~~~|#{1,4}\s|>|([-*+]|\d+\.)\s)/.test(L[i])) buf.push(L[i++]);
+    if(!buf.length) buf.push(L[i++]);   // guard: a line no block rule claimed must still advance
+    h+="<p>"+inline(buf.join(" "))+"</p>";
+  }
+  return h;
+}
+let fvText=null, fvRendered=false;   // fvText = markdown source of the open file (null → not markdown)
+function fvShowMd(rendered){
+  fvRendered=rendered; fvTog.textContent=rendered?"Raw":"Rendered";
+  if(rendered){fvBody.className="fv-body md"; fvBody.innerHTML=mdToHtml(fvText);}
+  else{fvBody.className="fv-body"; fvBody.textContent=fvText;}
+}
+fvTog.addEventListener("click",()=>fvShowMd(!fvRendered));
+// text: optional preloaded content (demo mode has no backend to read from)
+async function openFileViewer(full,name,text){
   closeModals("file");
-  fvName.textContent=name; fvPath.textContent=full;
+  fvName.textContent=name; fvPath.textContent=full; fvText=null; fvTog.hidden=true;
   fvBody.className="fv-body msg"; fvBody.textContent="Loading…";
   fileOverlay.classList.add("open");
   fileOverlay.focus();   // pull focus off any terminal textarea so Esc closes the viewer
   try{
-    const r=await fetch("/api/read?path="+encodeURIComponent(full));
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok){fvBody.textContent="⚠ "+(j.error||("HTTP "+r.status));return;}
-    if(j.binary){fvBody.textContent="Binary file — can’t preview.\nUse the reveal button in the tree to open it in your OS.";return;}
-    fvBody.className="fv-body";
-    fvBody.textContent=(j.text||"")+(j.truncated?"\n\n… truncated (file larger than 2 MB) …":"");
+    let j={text};
+    if(text===undefined){
+      const r=await fetch("/api/read?path="+encodeURIComponent(full));
+      j=await r.json().catch(()=>({}));
+      if(!r.ok){fvBody.textContent="⚠ "+(j.error||("HTTP "+r.status));return;}
+      if(j.binary){fvBody.textContent="Binary file — can’t preview.\nUse the reveal button in the tree to open it in your OS.";return;}
+    }
+    const body=(j.text||"")+(j.truncated?"\n\n… truncated (file larger than 2 MB) …":"");
+    if(/\.(md|markdown)$/i.test(name)){fvText=body; fvTog.hidden=false; fvShowMd(true);}
+    else{fvBody.className="fv-body"; fvBody.textContent=body;}
   }catch(e){fvBody.textContent="⚠ "+e.message;}
+}
+// Palette → Open file…: path relative to the project root unless absolute/~.
+async function openFilePrompt(){
+  if(!LIVE){openFileViewer("~/termdeck/README.md","README.md",DEMO_MD);return;}
+  const v=await inputModal("Open file",[{key:"p",label:"Path (relative to the project root, absolute, or ~/…) — .md renders",placeholder:"README.md"}],"Open");
+  if(!v||!v.p||!v.p.trim())return;
+  const raw=v.p.trim(), full=/^([\/~]|[A-Za-z]:)/.test(raw)?raw:joinPath(treeRootPath(),raw);
+  openFileViewer(full,full.split(/[\\/]/).pop());
 }
 document.getElementById("fv-close").addEventListener("click",closeFileViewer);
 fileOverlay.addEventListener("click",(e)=>{if(e.target===fileOverlay)closeFileViewer();});
@@ -2888,7 +2978,7 @@ function renderDemoTree(container,root){
       const ic=el("span","tn-icon");ic.textContent=fIcon(node.n);
       const nm=el("span","tn-name");nm.textContent=node.n;
       row.append(ic,nm);parent.append(row);
-      row.addEventListener("click",()=>toast("\ud83d\udcc4",node.n,"Click to open in your editor",2000));
+      row.addEventListener("click",()=>/\.md$/i.test(node.n)?openFileViewer("~/termdeck/"+node.n,node.n,DEMO_MD):toast("\ud83d\udcc4",node.n,"Click to open in your editor",2000));
     }
   }
   const demoLabel=el("div","tn");demoLabel.style.paddingLeft="8px";demoLabel.style.color="var(--muted)";demoLabel.style.fontSize="10px";demoLabel.textContent=root+" (demo)";container.append(demoLabel);
