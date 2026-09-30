@@ -1,7 +1,7 @@
 {
   "name": "@kiril6/termdeck",
   "version": "1.7.0",
-  "description": "A browser cockpit of floating, draggable terminal windows — each backed by a real shell (PTY) on your machine. Tile, group into projects, theme, reconnect without losing a session.",
+  "description": "Local-first browser cockpit for running AI coding agents (Claude Code, Codex, Gemini) and shells in floating windows backed by real PTYs. Git worktree per agent, approval alerts, sessions that survive restarts.",
   "main": "server.js",
   "bin": {
     "termdeck": "server.js"
@@ -22,7 +22,13 @@
     "web-terminal",
     "cli",
     "node-pty",
-    "localhost"
+    "localhost",
+    "ai-agents",
+    "coding-agents",
+    "claude-code",
+    "codex",
+    "gemini-cli",
+    "git-worktree"
   ],
   "files": [
     "server.js",
