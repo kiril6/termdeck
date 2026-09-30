@@ -6,7 +6,6 @@
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Node ≥18](https://img.shields.io/badge/node-%E2%89%A518-brightgreen)
 ![Platforms: macOS · Windows · Linux](https://img.shields.io/badge/platform-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-blue)
-![No build step](https://img.shields.io/badge/build-none-lightgrey)
 [![smoke](https://github.com/kiril6/termdeck/actions/workflows/smoke.yml/badge.svg)](https://github.com/kiril6/termdeck/actions/workflows/smoke.yml)
 
 **A local-first cockpit for your AI coding agents — private, and running in 30 seconds.** Run Claude Code, Codex, Gemini and plain shells side by side as floating windows in your browser: a git worktree per agent, alerts when one needs your approval, and sessions that survive restarts. No cloud, no accounts, no API keys, no build step.
