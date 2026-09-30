@@ -284,6 +284,7 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
   border-bottom:1px solid var(--line);word-break:break-all;}
 .fv-body{margin:0;padding:16px 20px;font-family:var(--mono);font-size:12px;line-height:1.5;
   color:var(--text);white-space:pre;overflow:auto;max-height:70vh;tab-size:4;}
+.fv-hl{display:block;background:color-mix(in srgb,var(--accent) 22%,transparent);}
 .fv-body.msg{white-space:pre-wrap;color:var(--muted);}
 .fv-body .d-add{color:#46d17f;} .fv-body .d-del{color:#e0655f;}
 .fv-body .d-hunk{color:var(--accent);} .fv-body .d-meta{color:var(--muted);}
@@ -641,7 +642,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
   flex:0 0 auto;padding-right:8px;}
 .chip{flex:0 0 auto;display:flex;align-items:center;gap:7px;height:36px;padding:0 8px 0 10px;
   background:var(--chip-bg);border:1px solid var(--line);border-radius:7px;cursor:pointer;
-  touch-action:none;user-select:none;
+  touch-action:pan-x;user-select:none;   /* swipe scrolls the dock; touch reorder needs a long-press (wireChip) */
   font-size:12px;color:var(--text);transition:border-color .15s,background .15s,opacity .15s;}
 .chip:hover{border-color:var(--accent-dim);}
 .chip.active{border-color:var(--accent-dim);background:var(--chip-active);}
@@ -1716,6 +1717,35 @@ function saveTabOutput(s,tab){
   toast("💾","Saved",name);
 }
 
+// Clickable file paths in output: `src/a.ts:42`, `./x.md`, `~/n.txt`, `/abs/f.js`. A token is linked
+// only if /api/stat says it's a real file (relative paths resolve against the tab's live cwd), so
+// prose and URLs stay plain. Opens in the file viewer, scrolled to :line. Single rows only (no wrapped paths).
+const PATH_RE=/(?<![\w\/.:@~-])((?:~|\.{1,2})?\/?(?:[\w.@+-]+\/)*[\w.@+-]+\.[A-Za-z][A-Za-z0-9]{0,7})(?::(\d+)(?::\d+)?)?/g;
+const statCache=new Map();   // full path → {t, p:Promise<bool>}; 5s TTL so a just-created file becomes linkable
+function isFilePath(full){
+  const c=statCache.get(full);
+  if(c&&Date.now()-c.t<5000) return c.p;
+  if(statCache.size>500) statCache.clear();
+  const p=fetch("/api/stat?path="+encodeURIComponent(full)).then((r)=>r.json()).then((j)=>!!j.file).catch(()=>false);
+  statCache.set(full,{t:Date.now(),p});
+  return p;
+}
+function registerPathLinks(term,tab){
+  term.registerLinkProvider({provideLinks(y,cb){
+    const line=term.buffer.active.getLine(y-1); if(!line) return cb(undefined);
+    const text=line.translateToString(true), hits=[];
+    for(const m of text.matchAll(PATH_RE)){
+      const raw=m[1], full=/^([\/~]|[A-Za-z]:)/.test(raw)?raw:joinPath(tab.cwd||"~",raw);
+      hits.push(isFilePath(full).then((ok)=>ok?{
+        text:m[0],
+        range:{start:{x:m.index+1,y},end:{x:m.index+m[0].length,y}},
+        activate:()=>openFileViewer(full,full.split(/[\\/]/).pop(),undefined,m[2]?+m[2]:0),
+      }:null));
+    }
+    Promise.all(hits).then((ls)=>cb(ls.filter(Boolean)));
+  }});
+}
+
 function addTab(s, opts){
   opts=opts||{};
   const tid=opts.id||newId("t"+(++tabSeq));   // reuse the saved id on restore: the WS id is s.id+"-"+tab.id, so a fresh id here means a fresh shell
@@ -1755,6 +1785,7 @@ function addTab(s, opts){
     reconnecting:false,retries:0,reconnectTimer:null,
     cwd:opts.cwd||s.cwd||"",shellName:"",cmd:opts.cmd||"",agent:!!opts.agent,waiting:false};
   s.tabs.push(tab);
+  if(LIVE) registerPathLinks(term,tab);
 
   wt.addEventListener("click",(e)=>{if(e.target===wtX||wtName.isContentEditable)return; switchTab(s,tid);});
   wtX.addEventListener("click",(e)=>{e.stopPropagation(); requestCloseTab(s,tid);});
@@ -2428,10 +2459,17 @@ function wireChip(s){
     moved=false;
     let dragging=false;
     const startX=e.clientX, startY=e.clientY;
+    // Touch: drag only after a ~250ms hold; moving sooner = a scroll swipe, left to the browser.
+    const isTouch=e.pointerType==="touch";
+    let armed=!isTouch, holdTimer=null;
+    if(isTouch) holdTimer=setTimeout(()=>{armed=true;s.chip.classList.add("dragging");},250);
+    const blockScroll=(ev)=>{if(armed)ev.preventDefault();};   // armed → finger drags the chip, not the dock
 
     const mv=(ev)=>{
       if(!dragging){
-        if(Math.hypot(ev.clientX-startX,ev.clientY-startY)<4)return;
+        const dist=Math.hypot(ev.clientX-startX,ev.clientY-startY);
+        if(!armed){if(dist>8)clearTimeout(holdTimer);return;}
+        if(dist<4)return;
         dragging=true;
         moved=true;
         s.chip.classList.add("dragging");
@@ -2460,11 +2498,13 @@ function wireChip(s){
     };
 
     const up=()=>{
+      clearTimeout(holdTimer);
+      document.removeEventListener("touchmove",blockScroll);
       document.removeEventListener("pointermove",mv);
       document.removeEventListener("pointerup",up);
       document.removeEventListener("pointercancel",up);
+      s.chip.classList.remove("dragging");
       if(dragging){
-        s.chip.classList.remove("dragging");
         dock.querySelectorAll(".chip").forEach((c)=>c.classList.remove("drag-over"));
         syncOrder();
         scheduleSave();
@@ -2472,6 +2512,7 @@ function wireChip(s){
       }
     };
 
+    document.addEventListener("touchmove",blockScroll,{passive:false});
     document.addEventListener("pointermove",mv);
     document.addEventListener("pointerup",up);
     document.addEventListener("pointercancel",up);
@@ -2789,16 +2830,27 @@ function mdToHtml(src){
   }
   return h;
 }
-let fvText=null, fvRendered=false;   // fvText = markdown source of the open file (null → not markdown)
+let fvText=null, fvRendered=false, fvLine=0;   // fvText = markdown source of the open file (null → not markdown)
 function fvShowMd(rendered){
   fvRendered=rendered; fvTog.textContent=rendered?"Raw":"Rendered";
   if(rendered){fvBody.className="fv-body md"; fvBody.innerHTML=mdToHtml(fvText);}
-  else{fvBody.className="fv-body"; fvBody.textContent=fvText;}
+  else fvRaw(fvText);
+}
+// Plain-text body; with fvLine set, that 1-based line is highlighted and scrolled into view.
+function fvRaw(text){
+  fvBody.className="fv-body";
+  let a=0;
+  for(let i=1;fvLine&&i<fvLine;i++){const n=text.indexOf("\n",a); if(n<0){a=-1;break;} a=n+1;}
+  if(!fvLine||a<0){fvBody.textContent=text;return;}
+  let b=text.indexOf("\n",a); if(b<0)b=text.length;
+  const hl=el("span","fv-hl"); hl.textContent=text.slice(a,b)||" ";
+  fvBody.replaceChildren(text.slice(0,a),hl,text.slice(Math.min(b+1,text.length)));
+  hl.scrollIntoView({block:"center"});
 }
 fvTog.addEventListener("click",()=>fvShowMd(!fvRendered));
 // text: optional preloaded content (demo mode has no backend to read from)
-async function openFileViewer(full,name,text){
-  closeModals("file");
+async function openFileViewer(full,name,text,line){
+  closeModals("file"); fvLine=line||0;
   fvName.textContent=name; fvPath.textContent=full; fvText=null; fvTog.hidden=true;
   fvBody.className="fv-body msg"; fvBody.textContent="Loading…";
   fileOverlay.classList.add("open");
@@ -2812,8 +2864,8 @@ async function openFileViewer(full,name,text){
       if(j.binary){fvBody.textContent="Binary file — can’t preview.\nUse the reveal button in the tree to open it in your OS.";return;}
     }
     const body=(j.text||"")+(j.truncated?"\n\n… truncated (file larger than 2 MB) …":"");
-    if(/\.(md|markdown)$/i.test(name)){fvText=body; fvTog.hidden=false; fvShowMd(true);}
-    else{fvBody.className="fv-body"; fvBody.textContent=body;}
+    if(/\.(md|markdown)$/i.test(name)){fvText=body; fvTog.hidden=false; fvShowMd(!fvLine);}   // a :line target shows the raw source
+    else fvRaw(body);
   }catch(e){fvBody.textContent="⚠ "+e.message;}
 }
 // Palette → Open file…: path relative to the project root unless absolute/~.
