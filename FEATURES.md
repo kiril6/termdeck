@@ -104,6 +104,9 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   tmux, leak the old `td_*` session) instead of reattaching.
   `TD_GRACE_MS` and `TD_BUFFER` override those defaults with positive numeric values;
   invalid, zero, and negative values safely fall back to the defaults.
+- 🔌 **Backend terminal cap** — the server refuses a WS upgrade (HTTP 503) once `TD_MAX_PANELS` (default 64)
+  live shells exist, so a client bypassing the UI's per-project limit can't exhaust the host. Only brand-new
+  sessions count; reattaching to an existing `id` is never blocked. Invalid/zero/negative values fall back to 64.
 - 🖥️ **Wake reconnect** — on tab refocus (`visibilitychange`), reconnecting shells retry
   immediately instead of waiting out the backoff (localhost drops on sleep aren't network events).
 - 🖥️ WS auto-reconnect with exponential backoff (caps at 5s).
@@ -228,7 +231,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 ## Appearance & layout
 - 🖥️ Themes — per-terminal or dashboard-wide, searchable picker (`⌘⇧P`). 24 built-in: 17 dark + 7 light (GitHub Light, Paper, Solarized Light, One Light, Catppuccin Latte, Rose Pine Dawn, Gruvbox Light).
   Text on accent-filled surfaces (the primary dialog button, hovered menu rows) is picked per theme as near-black or white, whichever contrasts more with that theme's accent (≥4.7:1 across all 24), via the `--on-accent` variable.
-- 🖥️ Dock — bottom session bar with activity/attention indicators, overflow edge hints, and pointer-event drag-and-drop reordering (desktop and touch).
+- 🖥️ Dock — bottom session bar with activity/attention indicators, overflow edge hints, and pointer-event drag-and-drop reordering (desktop: immediate; touch: long-press ~250ms to drag, so swiping over chips scrolls the dock).
 - 🖥️ Tiling (`⌘⌥⇧T`), fullscreen (`F11`).
 - 🖥️ **Responsive toolbar** — below ~1200px the secondary toolbar buttons (Tree, Search, Tile, Cast,
   Dir, Theme, Fullscreen, Help) collapse into a single **⋯** overflow menu; the brand, connection
@@ -274,9 +277,23 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 ## Backend / security
 - 🔌 Express static server + `ws` WebSocket PTY multiplexer; node-pty (standard or Linux prebuilt fork).
 - 🔌 **Fully offline** — xterm.js + addons are served locally from `node_modules` at `/vendor` (no CDN); after `npm install` the app needs no internet.
+- 📄 **Remote access docs** — `docs/remote-access.md`: Tailscale Serve (recommended), SSH tunnel, LAN bind.
+- 🔌 **`TD_ALLOWED_HOSTS`** — opt-in, comma-separated, exact-match hostnames added to the Origin + Host check so a
+  reverse proxy like `tailscale serve` works while the server stays on loopback. No wildcards; unset = localhost only.
+  Setting it also enables the access token (see above).
+- 🔌 **Session log on exit** — with `TD_LOG_DIR` set, a shell's buffered output (ANSI stripped, last `TD_BUFFER` bytes)
+  is written to `<dir>/<timestamp>_<id>.log` (dir `0700`, file `0600`) when the shell actually ends (kill / process exit).
+  Browser disconnects don't write a log — reattach/replay is unchanged. Off by default (output can contain secrets).
+- 🖥️ **Clickable file paths** — `path/file.ext`, `./x`, `~/x`, `/abs/x`, optional `:line[:col]` in terminal output become links
+  when `/api/stat` confirms a regular file (relative paths resolve against the tab's live cwd). Click opens the file viewer
+  scrolled to and highlighting that line (markdown opens as raw source for a `:line` link). Live mode only; no-op in demo.
+- 📄 **Autostart templates** — `docs/autostart/` ships a launchd plist (macOS) and a systemd user unit (Linux), plus SSH-tunnel/Tailscale remote-access notes.
 - 🔌 **Loopback bind** by default (`127.0.0.1`); `HOST=0.0.0.0` (or an IP) to expose, with a warning.
+- 🔌 **Auth token on non-loopback binds** — when `HOST` isn't loopback, a random token is generated at startup and printed in
+  the URL (`/?t=<token>`). Visiting it sets an `HttpOnly; SameSite=Strict` cookie and redirects; every HTTP request and WS
+  upgrade then requires that cookie (401 otherwise). Restart = new token. Loopback stays token-free.
 - 🔌 **WS Origin + Host validation** — rejects the upgrade unless both resolve to a known localhost
-  name (blocks cross-site / DNS-rebind attacks on the shell socket). No token by design.
+  name (blocks cross-site / DNS-rebind attacks on the shell socket). No token on loopback by design.
 - 🔌 **`/api/git/root` + `/api/git/worktree` + `/api/git/diff`** — git repo detection, worktree creation
   and read-only diff for the agent-worktree flow, behind the **same** `apiGuard` as the rest. Worktree
   creation writes to the repo but grants no capability a shell in that repo doesn't already have

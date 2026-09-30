@@ -55,6 +55,35 @@ if (!pty) {
 
 // ── Express + static files ───────────────────────────────────────────────────
 const app = express();
+const HOST = process.env.HOST || '127.0.0.1';   // set HOST=0.0.0.0 (or a LAN IP) to expose deliberately
+const LOOPBACK = ['127.0.0.1', 'localhost', '::1'].includes(HOST);
+// Non-loopback bind (or extra allowed hosts = proxied remote access) = remote shell for anyone who can reach the port, so require a random
+// per-start token: open /?t=<token> once → HttpOnly cookie → required on every HTTP request
+// and WS upgrade. Loopback stays token-free. Restart = new token (old cookies stop working).
+// Opt-in extra hostnames (exact match, comma-separated) for a reverse proxy such as
+// `tailscale serve` (e.g. TD_ALLOWED_HOSTS=mybox.tail1234.ts.net). No wildcards, empty by default.
+const EXTRA_HOSTS = new Set(String(process.env.TD_ALLOWED_HOSTS || '').split(',')
+  .map((h) => h.trim().toLowerCase()).filter((h) => {
+    if (h.includes('*')) { console.error(`  TD_ALLOWED_HOSTS: ignoring "${h}" — wildcards are not allowed`); return false; }
+    return !!h;
+  }));
+const TOKEN = LOOPBACK && !EXTRA_HOSTS.size ? null : require('crypto').randomBytes(24).toString('hex');
+function tokenEq(a, b) {
+  const x = Buffer.from(String(a)), y = Buffer.from(String(b));
+  return x.length === y.length && require('crypto').timingSafeEqual(x, y);
+}
+function hasAuthCookie(req) {
+  const m = /(?:^|;\s*)td_token=([^;]+)/.exec(req.headers.cookie || '');
+  return !!m && tokenEq(m[1], TOKEN);
+}
+if (TOKEN) app.use((req, res, next) => {
+  if (req.query.t !== undefined && tokenEq(req.query.t, TOKEN)) {
+    res.setHeader('Set-Cookie', `td_token=${TOKEN}; Path=/; HttpOnly; SameSite=Strict`);
+    return res.redirect(req.path);
+  }
+  if (hasAuthCookie(req)) return next();
+  res.status(401).type('text').send('Unauthorized — open the tokenized URL printed at server startup.');
+});
 // Serve ONLY the app dir — never express.static(__dirname), which would expose
 // server.js, package.json, and repo docs at /server.js etc. (info disclosure,
 // esp. when HOST=0.0.0.0). The '/' route below still serves a root-level index.html.
@@ -183,6 +212,10 @@ app.get('/api/reveal', apiGuard, (req, res) => {     // open the OS file manager
   try { spawn(cmd, args, { stdio:'ignore', detached:true }).on('error', () => {}).unref(); } catch {}
   res.json({ ok:true });
 });
+app.get('/api/stat', apiGuard, (req, res) => {       // lightweight "is this a regular file?" for clickable output paths
+  try { res.json({ file: fs.statSync(expandDir(req.query.path)).isFile() }); }
+  catch { res.json({ file: false }); }
+});
 app.get('/api/read', apiGuard, (req, res) => {       // read a text file for the in-app viewer
   // No path jail: the app already hands out real shells (cat reads anything), so a viewer over
   // the same loopback+Origin/Host guard grants no new capability. Same trust model as /api/ls.
@@ -276,20 +309,23 @@ app.get('/api/git/diff', apiGuard, async (req, res) => {
 // web page (CSRF / DNS-rebind). Defense: bind loopback by default, and validate both
 // the Origin (blocks cross-site drive-by) and the Host header (blocks DNS-rebind,
 // where an attacker page resolves its own domain to 127.0.0.1). See listen() + verifyClient.
-const HOST = process.env.HOST || '127.0.0.1';   // set HOST=0.0.0.0 (or a LAN IP) to expose deliberately
-const ALLOWED_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1', HOST.toLowerCase()]);
+const ALLOWED_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1', HOST.toLowerCase(), ...EXTRA_HOSTS]);
 function hostnameOf(v) {                          // pull hostname from an Origin URL or a Host header
   if (!v) return null;
   try { return new URL(v.includes('://') ? v : 'http://' + v).hostname.toLowerCase(); }
   catch { return null; }
 }
 const server = http.createServer(app);
-const wss    = new WebSocketServer({ server, verifyClient: ({ req }) => {
+const wss    = new WebSocketServer({ server, verifyClient: ({ req }, done) => {
   const host   = hostnameOf(req.headers.host);       // always present (HTTP/1.1); rebind sets this to attacker domain
   const origin = hostnameOf(req.headers.origin);     // browsers always send it on WS; non-browser clients omit it
-  if (host && !ALLOWED_HOSTS.has(host)) return false;     // DNS-rebind guard
-  if (origin && !ALLOWED_HOSTS.has(origin)) return false; // cross-site CSRF guard
-  return true;
+  if (host && !ALLOWED_HOSTS.has(host)) return done(false, 403);     // DNS-rebind guard
+  if (origin && !ALLOWED_HOSTS.has(origin)) return done(false, 403); // cross-site CSRF guard
+  if (TOKEN && !hasAuthCookie(req)) return done(false, 401);
+  // Cap only brand-new sessions; reattaching to a live id is never blocked.
+  const id = url.parse(req.url, true).query.id;
+  if (live.size >= MAX_PANELS && !(id && live.has(String(id)))) return done(false, 503, 'Terminal limit reached');
+  done(true);
 }});
 
 const isWindows = os.platform() === 'win32';
@@ -300,6 +336,21 @@ function positiveEnvNumber(name, fallback) {
 }
 const GRACE_MS  = positiveEnvNumber('TD_GRACE_MS', 60_000);
 const BUFFER    = positiveEnvNumber('TD_BUFFER', 1_000_000); // per-session replay ring
+// Opt-in audit trail: with TD_LOG_DIR set, each shell's buffered output (ANSI stripped, last
+// TD_BUFFER bytes) is written there when the shell really ends. Browser disconnects don't count.
+const LOG_DIR = process.env.TD_LOG_DIR ? path.resolve(process.env.TD_LOG_DIR) : null;
+const ANSI_RE = /\x1b\[[0-?]*[ -\/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-Z\\-_]/g;
+function saveLog(sess, id, code) {
+  if (!LOG_DIR || !sess.buffer) return;
+  try {
+    fs.mkdirSync(LOG_DIR, { recursive: true, mode: 0o700 });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const file  = path.join(LOG_DIR, `${stamp}_${String(id).replace(/[^\w.-]/g, '_').slice(0, 60)}.log`);
+    const head  = `# termdeck session ${id} · ${sess.shellName} · cwd ${sess.cwd} · exit ${code} · ended ${new Date().toISOString()}\n\n`;
+    fs.writeFileSync(file, head + sess.buffer.replace(ANSI_RE, '').replace(/\r\n?/g, '\n'), { mode: 0o600 });
+  } catch (e) { console.error('  [log] save failed:', e.message); }
+}
+const MAX_PANELS = Math.floor(positiveEnvNumber('TD_MAX_PANELS', 64)); // live PTY cap across all projects
 
 // ── Durable sessions via tmux ────────────────────────────────────────────────
 // A raw PTY dies with this node process (server restart / crash → every shell
@@ -476,6 +527,7 @@ wss.on('connection', (ws, req) => {
   });
   term.onExit(({ exitCode }) => {
     if (sess.ws) send(sess.ws, { type:'exit', code:exitCode });
+    saveLog(sess, id, exitCode);
     clearTimeout(sess.killTimer);
     live.delete(id);
   });
@@ -595,20 +647,21 @@ function listenOn(port, triesLeft) {
     if (settled) return; settled = true; cleanup();
     const actual = server.address().port;
     const ptyPkg = (() => { for (const p of ptyAttempts) { try { return p+'@'+require(p+'/package.json').version; } catch {} } return '?'; })();
-    const loopback = ['127.0.0.1', 'localhost', '::1'].includes(HOST);
     // We bind 127.0.0.1 (IPv4). Advertise/open that exact host, NOT "localhost" — on macOS
     // localhost can resolve to ::1 (IPv6) first, so a browser could hit a *different* server
     // already on IPv6 :3000 (e.g. a Vite dev server) instead of us. 127.0.0.1 is unambiguous.
-    const host = loopback ? '127.0.0.1' : HOST;
+    const host = LOOPBACK ? '127.0.0.1' : HOST;
     const base = `http://${host}:${actual}`;
-    console.log(`\n  Terminal Dashboard → ${base}`);
+    const open = TOKEN ? `${base}/?t=${TOKEN}` : base;   // tokenized URL: first visit sets the auth cookie
+    console.log(`\n  Terminal Dashboard → ${open}`);
     console.log(`  Debug             → ${base}/debug`);
     console.log(`  ${os.platform()} ${os.arch()}  |  Node ${process.version}  |  ${ptyPkg}`);
     console.log(`  Durable sessions  → ${TMUX_OK ? 'tmux (shells survive server restart)' : 'off — raw shells (install tmux, or NO_TMUX unset, to enable)'}`);
     if (actual !== START_PORT) console.log(`  \x1b[2m(port ${START_PORT} was busy)\x1b[0m`);
-    if (!loopback) console.log(`\n  \x1b[33m⚠ Bound to ${HOST} — shells reachable from the network. Only do this on a trusted LAN.\x1b[0m`);
+    if (EXTRA_HOSTS.size) console.log(`  Extra allowed hosts → ${[...EXTRA_HOSTS].join(', ')}  (token required)`);
+    if (!LOOPBACK) console.log(`\n  \x1b[33m⚠ Bound to ${HOST} — shells reachable from the network, gated by the token in the URL above. Keep it secret.\n    Safer: keep the loopback bind and use a tunnel / tailscale serve — see docs/remote-access.md\x1b[0m`);
     console.log('');
-    openBrowser(base);
+    openBrowser(open);
   };
   server.once('error', onError);
   wss.once('error', onError);

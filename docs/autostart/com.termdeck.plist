@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.termdeck</string>
+  <key>ProgramArguments</key>
+  <array>
+    <!-- Edit both paths: `which node` and your termdeck checkout -->
+    <string>/opt/homebrew/bin/node</string>
+    <string>/Users/YOU/termdeck/server.js</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/YOU/termdeck</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>NO_OPEN</key><string>1</string>
+    <key>PORT</key><string>3000</string>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/tmp/termdeck.log</string>
+  <key>StandardErrorPath</key><string>/tmp/termdeck.log</string>
+</dict>
+</plist>
