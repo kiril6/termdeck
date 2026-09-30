@@ -1,0 +1,14 @@
+[Unit]
+Description=termdeck terminal dashboard
+After=network.target
+
+[Service]
+# Edit both paths: `which node` and your termdeck checkout
+ExecStart=/usr/bin/node /home/YOU/termdeck/server.js
+WorkingDirectory=/home/YOU/termdeck
+Environment=NO_OPEN=1 PORT=3000
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

@@ -131,6 +131,17 @@ HOST=127.0.0.1 TD_GRACE_MS=120000 TD_BUFFER=2000000 npm start
 `TD_GRACE_MS` and `TD_BUFFER` accept positive numbers. Invalid, zero, or negative
 values fall back to 60 seconds and 1,000,000 bytes respectively.
 
+`TD_LOG_DIR=/path` writes each shell's output (ANSI stripped) to a log file when it ends; off by default.
+`TD_ALLOWED_HOSTS=host1,host2` lets a reverse proxy such as `tailscale serve` reach a loopback-bound server
+(exact hostnames, enables the access token) — see [docs/remote-access.md](docs/remote-access.md).
+
+`TD_MAX_PANELS` caps live terminals server-side (default 64); new sessions beyond it are
+rejected with 503, reattaching to an existing one is never blocked.
+
+### Autostart
+
+launchd (macOS) and systemd (Linux) templates: [docs/autostart](docs/autostart/README.md).
+
 ### Updating
 
 The current version shows in the app's **? Help** panel. Check [Releases](https://github.com/kiril6/termdeck/releases) for what's new, then:
@@ -232,7 +243,7 @@ Three files. Backend + frontend, no framework beyond Express.
 
 This server spawns **real shells**, so access is locked down by default:
 
-- **Loopback only** — binds `127.0.0.1`, so nothing on your network can reach it. To expose it deliberately (e.g. a trusted LAN), set `HOST=0.0.0.0` (or a specific IP); the server prints a warning when it does.
+- **Loopback only** — binds `127.0.0.1`, so nothing on your network can reach it. To expose it deliberately (e.g. a trusted LAN), set `HOST=0.0.0.0` (or a specific IP); the server prints a warning and generates a random access token: open the tokenized URL it prints (`/?t=…`) once and a cookie authorizes the browser; everything else gets 401.
 - **Origin + Host validation** — the WebSocket upgrade is rejected unless both headers resolve to a known localhost name. This blocks a malicious web page from opening a socket to your shells (cross-site / DNS-rebind), the main browser attack for a localhost service.
 
 There is intentionally **no login/token**: a non-browser process already running as your user can spawn its own shell anyway, so a token would only be theater. If you ever expose this multi-user or over a tunnel, add real authentication in front of it.
