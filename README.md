@@ -20,7 +20,7 @@ Three things set it apart:
 - ⚡ **Zero setup** — `node install.js && npm start`. No database, no accounts, no keys. Works fully offline (xterm is vendored, no CDN).
 - 🪟 **Actually a GUI** — free-floating draggable/resizable windows, not just fixed grid panes. A real cockpit you arrange the way you think.
 
-![Terminal Dashboard in action](docs/demo.gif)
+![termdeck running three AI coding agents in separate git worktrees, with approval and waiting alerts](docs/demo-agents.gif)
 
 <sub>Floating shells → tile into a grid → theme picker → real filesystem tree → command palette (`⌘K`) → play a game while a command runs.</sub>
 
