@@ -140,6 +140,11 @@
   .more .it b{display:block;color:var(--ink);font-size:.94rem;font-weight:600}
   .more .it span{color:var(--mut);font-size:.85rem}
   .more .it a{color:var(--accent2)}
+  .rel h3{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .rel h3 small{font-family:var(--mono);font-size:.72rem;font-weight:400;color:var(--mut)}
+  .rel ul{margin:8px 0 0;padding-left:18px;color:var(--mut);font-size:.88rem}
+  .rel li{margin:3px 0}
+  .rel a.more{display:inline-block;margin-top:10px;font-family:var(--mono);font-size:.82rem;color:var(--accent2)}
   .morelink{display:flex;width:fit-content;align-items:center;gap:6px;margin-top:8px;font-family:var(--mono);
     font-size:.9rem;color:var(--accent2)}
 </style>
@@ -154,6 +159,7 @@
       <a href="#agents">Agents</a>
       <a href="#why">Why</a>
       <a href="#features">Features</a>
+      <a href="#whatsnew">What's new</a>
       <a href="#start">Quick start</a>
     </div>
     <div class="right">
@@ -275,6 +281,12 @@
   </div>
   <a class="morelink" href="https://github.com/kiril6/termdeck/blob/master/FEATURES.md">See the full feature list →</a>
 
+  <span class="kick">What's new</span>
+  <h2 id="whatsnew">Shipping steadily.</h2>
+  <p class="sub">The latest releases, straight from GitHub.</p>
+  <div class="grid" id="rel-list"></div>
+  <a class="morelink" href="https://github.com/kiril6/termdeck/releases">All releases →</a>
+
   <span class="kick">Get started</span>
   <h2 id="start">Quick start</h2>
   <p class="sub">Requires Node.js 18+. No build step, no Electron.</p>
@@ -330,6 +342,35 @@ fetch("https://api.npmjs.org/downloads/point/last-month/@kiril6/termdeck")
   .then(function(r){ return r.ok ? r.json() : Promise.reject(); })
   .then(function(d){ if(d && d.downloads > 0) document.getElementById("dl-badge").hidden = false; })
   .catch(function(){});
+</script>
+<script>
+// "What's new": latest 3 GitHub releases, built with textContent only (release text is data, never markup).
+// Cached for the session so a reload doesn't spend the 60 req/h anonymous API limit; on any failure the
+// section falls back to the "All releases" link below it.
+(function(){
+  var list = document.getElementById("rel-list"), KEY = "td.releases.v1";
+  var strip = function(t){ return t.replace(/\[([^\]]+)\]\([^)]*\)/g,"$1").replace(/[*`]/g,"").trim(); };
+  var clip = function(t){ return t.length > 110 ? t.slice(0,107).replace(/\s+\S*$/,"") + "…" : t; };
+  function render(rels){
+    rels.slice(0,3).forEach(function(r){
+      var lines = (r.body||"").split(/\r?\n/), items = [];
+      lines.forEach(function(l){ var m = /^\s*[-*]\s+(.*)/.exec(l); if(m && items.length < 4) items.push(clip(strip(m[1]))); });
+      var card = document.createElement("div"); card.className = "card rel";
+      var h = document.createElement("h3"); h.textContent = r.tag_name;
+      var d = document.createElement("small"); d.textContent = new Date(r.published_at).toLocaleDateString("en",{year:"numeric",month:"short",day:"numeric"});
+      h.appendChild(d); card.appendChild(h);
+      if(items.length){ var ul = document.createElement("ul"); items.forEach(function(t){ var li = document.createElement("li"); li.textContent = t; ul.appendChild(li); }); card.appendChild(ul); }
+      var a = document.createElement("a"); a.className = "more"; a.href = r.html_url; a.textContent = "Release notes →"; card.appendChild(a);
+      list.appendChild(card);
+    });
+  }
+  var cached; try { cached = JSON.parse(sessionStorage.getItem(KEY)||"null"); } catch(e) {}
+  if(cached && Date.now()-cached.t < 6e5) return render(cached.d);
+  fetch("https://api.github.com/repos/kiril6/termdeck/releases?per_page=3")
+    .then(function(r){ return r.ok ? r.json() : Promise.reject(); })
+    .then(function(d){ render(d); try { sessionStorage.setItem(KEY, JSON.stringify({t:Date.now(), d:d.map(function(r){ return {tag_name:r.tag_name,published_at:r.published_at,html_url:r.html_url,body:r.body}; })})); } catch(e) {} })
+    .catch(function(){ list.hidden = true; });
+})();
 </script>
 </body>
 </html>
