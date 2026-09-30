@@ -9,7 +9,7 @@
 ![No build step](https://img.shields.io/badge/build-none-lightgrey)
 [![smoke](https://github.com/kiril6/termdeck/actions/workflows/smoke.yml/badge.svg)](https://github.com/kiril6/termdeck/actions/workflows/smoke.yml)
 
-**Your terminals as floating windows — private, and running in 30 seconds.** Drag, resize, tile, and group real shells like app windows, right in your browser. No cloud, no accounts, no API keys, no build step.
+**A local-first cockpit for your AI coding agents — private, and running in 30 seconds.** Run Claude Code, Codex, Gemini and plain shells side by side as floating windows in your browser: a git worktree per agent, alerts when one needs your approval, and sessions that survive restarts. No cloud, no accounts, no API keys, no build step.
 
 **[▶ See it in action](https://kiril6.github.io/termdeck/)** — showcase page with a live demo GIF.
 
