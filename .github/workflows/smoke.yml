@@ -19,4 +19,5 @@ jobs:
       - run: node server.js --version
       - run: node server.js --help
       - run: node scripts/check-hooks-docs.js
+      - run: node server.js autostart install --dry-run
       - run: test "$(node server.js --bogus >/dev/null 2>&1; echo $?)" = 2

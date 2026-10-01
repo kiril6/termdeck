@@ -304,6 +304,18 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   when `/api/stat` confirms a regular file (relative paths resolve against the tab's live cwd). Click opens the file viewer
   scrolled to and highlighting that line (markdown opens as raw source for a `:line` link). Live mode only; no-op in demo.
 - 📄 **Known limits** — a README section stating plainly what termdeck doesn't do (reboots end shells, heuristic agent state without hooks, never auto-answers, remote-access caveats, caps, Windows differences, demo has no backend).
+- 🔌 **`termdeck autostart install|uninstall`** — sets up start-at-login without hand-editing (`scripts/autostart.js`):
+  a launchd agent `~/Library/LaunchAgents/com.termdeck.plist` (macOS; `launchctl bootstrap`/`bootout`) or a systemd
+  **user** unit `~/.config/systemd/user/termdeck.service` (Linux; `daemon-reload` + `enable --now`). No root.
+  Fills the real `node`/`server.js` paths, `NO_OPEN=1`, a pinned `PORT` (`--port`, default 3000) and a `PATH`
+  with node's, tmux's and git's dirs (service managers start with a minimal one); `HOST` only if `--host` is given,
+  with a warning for non-loopback. Previews the whole file and the exact commands first; `--dry-run` writes/runs
+  nothing; confirm unless `--yes` (non-terminal without it refuses). Idempotent (an identical file is left alone),
+  reloads cleanly when it changed, `uninstall` stops the service and removes only a file it recognises (a foreign file
+  is never overwritten). Paths are XML/systemd-escaped; the macOS log is pre-created `0600` because a non-loopback
+  start logs the token URL; the access token is never written to the unit. Refuses to install from the temporary
+  `npx` cache (it can be deleted). Verified on macOS (install → serving → idempotent → uninstall → clean); the
+  systemd path is covered by a rendered-file check only.
 - 📄 **Autostart templates** — `docs/autostart/` ships a launchd plist (macOS) and a systemd user unit (Linux), plus SSH-tunnel/Tailscale remote-access notes.
 - 🔌 **Loopback bind** by default (`127.0.0.1`); `HOST=0.0.0.0` (or an IP) to expose, with a warning.
 - 🔌 **Auth token on non-loopback binds** — when `HOST` isn't loopback, a random token is generated at startup and printed in
