@@ -5,6 +5,9 @@
 // SAFE TO LEAVE INSTALLED: silent no-op outside termdeck (no TD_ID/TD_URL), never prints, never
 // blocks the agent (short timeout) and always exits 0 — a hook must not break the agent's turn.
 const http = require('http');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const { TD_ID, TD_URL, TD_TOKEN } = process.env;
 if (!TD_ID || !TD_URL) process.exit(0);
 setTimeout(() => process.exit(0), 2000).unref();   // hard ceiling
@@ -38,11 +41,19 @@ process.stdin.on('end', () => {
   let ev; try { ev = toEvent(JSON.parse(raw), process.argv[2] || 'agent'); } catch { ev = null; }
   if (!ev) process.exit(0);
   const body = JSON.stringify(ev);
-  const req = http.request(new URL('/api/agent-events', TD_URL), {
-    method: 'POST', timeout: 1500,
-    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body),
-               ...(TD_TOKEN ? { Cookie: 'td_token=' + TD_TOKEN } : {}) },
-  }, (res) => { res.resume(); res.on('end', () => process.exit(0)); });
-  req.on('error', () => process.exit(0)).on('timeout', () => process.exit(0));
-  req.end(body);
+  const post = (url, token, onFail) => {
+    const req = http.request(new URL('/api/agent-events', url), {
+      method: 'POST', timeout: 1500,
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body),
+                 ...(token ? { Cookie: 'td_token=' + token } : {}) },
+    }, (res) => { res.resume(); res.on('end', () => process.exit(0)); });
+    req.on('error', onFail).on('timeout', () => { req.destroy(); onFail(); });
+    req.end(body);
+  };
+  // Unreachable TD_URL = the server restarted elsewhere (tmux shells keep the old env, #47): use the url/token it wrote to ~/.termdeck/server.json.
+  post(TD_URL, TD_TOKEN, () => {
+    let cur; try { cur = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.termdeck', 'server.json'), 'utf8')); } catch {}
+    if (!cur || typeof cur.url !== 'string' || cur.url === TD_URL) process.exit(0);
+    try { post(cur.url, cur.token, () => process.exit(0)); } catch { process.exit(0); }
+  });
 });

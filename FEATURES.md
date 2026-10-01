@@ -194,7 +194,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   glanceable control. Empty state reads *"No active agents / All quiet"*.
 - 🔌 **Agent event bridge** — an agent CLI's lifecycle hooks report real state instead of the idle/regex
   guesses. Every PTY gets `TD_ID`, `TD_URL`, `TD_HOOK` (and `TD_TOKEN` when the access token is on) in its
-  environment (tmux ≥ 3.2 via `-e`); `scripts/td-hook.js` — a dependency-free, silent, never-blocking
+  environment (tmux ≥ 3.2 via `-e`); the server also writes its current URL (and token, if on) to `~/.termdeck/server.json` (0600, removed on exit) and the helper falls back to it when `TD_URL` is unreachable, so tmux-kept shells keep reporting after a restart on another port; `scripts/td-hook.js` — a dependency-free, silent, never-blocking
   no-op outside termdeck — POSTs `{id,agent,type,tool,detail,files}` to `POST /api/agent-events`, where
   `type` ∈ `prompt_submit | tool_start | tool_end | permission_request | stop | error`. The server pushes
   the event only to that terminal's own browser socket (and replays the last one on reattach). In the
