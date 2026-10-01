@@ -41,10 +41,14 @@ async function portFree(port, host) {
   if (pty) add('pass', 'node-pty', `${ptyName}@${require(ptyName + '/package.json').version}`);
   else add('fail', 'node-pty', 'could not be loaded', 'run: node install.js');
 
-  if (pty && process.platform === 'darwin') {   // server.js re-applies +x at start, so this is a heads-up only
+  if (pty && process.platform === 'darwin') {   // npx/global installs skip install.js, so the bit is missing; server.js re-applies it on start — do the same so the shell check below is honest
     const helper = path.join(ptyDir, 'prebuilds', `darwin-${os.arch() === 'arm64' ? 'arm64' : 'x64'}`, 'spawn-helper');
     try { fs.accessSync(helper, fs.constants.X_OK); add('pass', 'spawn-helper', 'executable'); }
-    catch { add(fs.existsSync(helper) ? 'warn' : 'info', 'spawn-helper', fs.existsSync(helper) ? 'not executable (termdeck fixes this on start)' : 'prebuild not present for this arch'); }
+    catch {
+      if (!fs.existsSync(helper)) add('info', 'spawn-helper', 'prebuild not present for this arch');
+      else try { fs.chmodSync(helper, 0o755); add('pass', 'spawn-helper', 'was not executable — fixed (termdeck does this on every start too)'); }
+      catch (e) { add('fail', 'spawn-helper', `not executable and could not be fixed (${e.code})`, `run: chmod +x "${helper}"`); }
+    }
   }
 
   // A shell actually spawns
