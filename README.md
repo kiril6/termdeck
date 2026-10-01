@@ -96,6 +96,13 @@ Requires **Node.js 18+**.
 npx @kiril6/termdeck         # from npm → http://localhost:3000
 ```
 
+`npx` runs it once and leaves nothing installed (npx may reuse a cached copy — see [Updating](#updating)). To **keep** it —
+`termdeck` on your PATH, for daily use — install it globally:
+
+```bash
+npm i -g @kiril6/termdeck    # then just:  termdeck   (also: termdeck doctor, termdeck hooks install, …)
+```
+
 Or straight from GitHub (latest, no npm release needed):
 
 ```bash
@@ -149,12 +156,13 @@ refused (the window says so and stops retrying — close one, then ⟳), reattac
 
 One command: **`termdeck autostart install`** sets up a launchd agent (macOS) or a systemd user unit (Linux) so the
 dashboard is there at login — no root, `--dry-run` previews the file and the commands, `termdeck autostart uninstall`
-removes it. Prefer to do it by hand? The templates are in [docs/autostart](docs/autostart/README.md).
+removes it. It needs a **global install** (`npm i -g @kiril6/termdeck`) or a clone — not a one-off `npx` run, whose cache npm can delete. Prefer to do it by hand? The templates are in [docs/autostart](docs/autostart/README.md).
 
 ### Updating
 
 The current version shows in the app's **? Help** panel. Check [Releases](https://github.com/kiril6/termdeck/releases) for what's new, then:
 
+- **Installed with `npm i -g`?** `npm update -g @kiril6/termdeck`
 - **Ran with `npx`?** Re-run, forcing a fresh fetch (npx caches):
   ```bash
   npx -y @kiril6/termdeck@latest        # npm
