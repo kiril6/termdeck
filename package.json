@@ -1,6 +1,6 @@
 {
   "name": "@kiril6/termdeck",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "Local-first browser cockpit for running AI coding agents (Claude Code, Codex, Gemini) and shells in floating windows backed by real PTYs. Git worktree per agent, approval alerts, sessions that survive restarts.",
   "main": "server.js",
   "bin": {
