@@ -56,9 +56,14 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   a ~40-line renderer inline in `public/index.html`. Input is HTML-escaped first and images are shown as
   their alt text, so a file can't inject markup or trigger requests. Not full CommonMark (no nested lists /
   reference links). In the hosted demo the tree's `README.md` and the palette command open a sample document.
+- 🗂️ **Palette categories** — a chip row under the ⌘K input (*All · Terminals · Agents · Workspace · Saved · Sessions*) narrows the list; click a chip or press **Tab / Shift+Tab** to cycle, and the search text still applies inside the chosen category. Resets to *All* each time the palette opens. A **×** in the input (or **Ctrl+U**) clears the typed text.
+- ⌨️ **Palette shortcut hints** — every palette command that has a shortcut shows it, matching the real binding.
+  Frequent actions get one (*Open file* `⌘⌥O`, *New agent task* `⌘⌥R`, *Review agent changes* `⌘⌥D`); one-off setup
+  dialogs (*Add SSH host*, *Add AI CLI preset*, *Set scrollback*) deliberately stay palette-only. *Maximize / restore*
+  moved to `⌘⌥⇧M` — `⌘⇧M` (New project) was shadowing it.
 - 🖥️ **Right-click context menu** — right-click a tree row for the full action set: on a folder —
-  *New terminal here · Open as new project · Set as project root · Copy path · Reveal in file manager*;
-  on a file — *Open file · Copy path · Reveal*. The tree is the primary picker, no path-typing needed.
+  *New terminal here · Open as new project · Set as project root · Copy path · Open in editor · Reveal in file manager*;
+  on a file — *Open file · Copy path · Open in editor · Reveal*. *Open in editor* (`/api/open-editor`) spawns `TD_EDITOR` (default `code`) on the path with no shell; a missing editor shows a toast. The tree is the primary picker, no path-typing needed.
 - 🖥️ **Header tools** — **↻ Refresh** re-reads the tree (new files/dirs appear) while **keeping expanded
   folders open** (open state tracked by path, restored after any refresh/project-switch), and **👁 Show
   hidden** toggles dotfiles (`/api/ls?all=1`, persisted in `localStorage`).
@@ -246,6 +251,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   A 🎮 icon in each window footer opens the game directly.
 
 ## Notifications
+- 🔔 **Actionable toasts linger** — a toast with a click action (jump to a session, reveal a window…) stays at least 10s, is keyboard-focusable (Tab, Enter/Space to act), and its countdown pauses while the pointer is over it **or** it has focus, re-arming only once both are gone. Sticky (0 ms) toasts stay sticky.
 - 🖥️ In-app toasts, mirrored to native desktop notifications **only when the window is unfocused**
   (opt-in via browser permission). Hovering a toast **pauses its auto-hide** (so you can read or
   click it, e.g. the game offer); moving the pointer away re-arms the countdown. ✕ dismisses now.

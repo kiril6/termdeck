@@ -225,8 +225,18 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
 .pal-header input{flex:1;font-family:var(--mono);font-size:14px;color:var(--text);
   background:transparent;border:0;outline:none;}
 .pal-header input::placeholder{color:var(--muted);}
+.pal-header .ph-clear{display:grid;place-items:center;width:20px;height:20px;padding:0;flex:0 0 auto;
+  color:var(--muted);background:transparent;border:0;border-radius:50%;cursor:pointer;}
+.pal-header .ph-clear:hover{color:var(--text);background:var(--panel-2);}
+.pal-header .ph-clear[hidden]{display:none;}
+.pal-header .ph-clear svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;}
 .pal-header .ph-esc{font-size:10px;color:var(--muted);border:1px solid var(--line);
   border-radius:4px;padding:2px 7px;flex:0 0 auto;}
+.pal-cats{display:flex;gap:6px;padding:8px 16px;border-bottom:1px solid var(--line-soft);overflow-x:auto;scrollbar-width:none;}
+.pal-cat{font:inherit;font-size:11px;color:var(--muted);background:transparent;border:1px solid var(--line);
+  border-radius:999px;padding:3px 11px;cursor:pointer;white-space:nowrap;}
+.pal-cat:hover{color:var(--text);border-color:var(--accent-dim);}
+.pal-cat.on{color:var(--accent);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);}
 .pal-list{max-height:400px;overflow-y:auto;padding:6px;scrollbar-width:thin;scrollbar-color:var(--line) transparent;}
 .pal-group{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);
   padding:8px 10px 4px;}
@@ -329,6 +339,7 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
   padding:0 0 0 4px;line-height:1;}
 .toast .t-close:hover{color:var(--text);}
 .toast.clickable{cursor:pointer;}
+.toast.clickable:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 .toast.clickable:hover{border-color:var(--line);}
 .toast.clickable:hover .t-title{text-decoration:underline;}
 @keyframes winblink{0%,100%{box-shadow:var(--shadow);}25%,75%{box-shadow:0 0 0 2px var(--live),0 0 20px var(--live);}}
@@ -843,8 +854,10 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
   <div class="pal-header">
     <span class="ph-icon">⌘</span>
     <input id="pal-input" placeholder="Type a command or search sessions…" spellcheck="false"/>
+    <button class="ph-clear" id="pal-clear" type="button" tabindex="-1" title="Clear (Ctrl+U)" aria-label="Clear search" hidden></button>
     <span class="ph-esc">ESC</span>
   </div>
+  <div class="pal-cats" id="pal-cats" role="tablist" aria-label="Palette categories"></div>
   <div class="pal-list" id="pal-list"></div>
 </div>
 
@@ -876,11 +889,14 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
       <div class="sc-row"><span>Tile all windows</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>⇧</kbd><kbd>T</kbd></div></div>
       <div class="sc-row"><span>Broadcast input to all shells</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>B</kbd></div></div>
       <div class="sc-row"><span>Play game (Dino runner)</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>G</kbd></div></div>
+      <div class="sc-row"><span>Open file</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>O</kbd></div></div>
+      <div class="sc-row"><span>New agent task</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>R</kbd></div></div>
+      <div class="sc-row"><span>Review agent changes</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>D</kbd></div></div>
       <div class="sc-row"><span>Open directory</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>O</kbd></div></div>
       <div class="sc-row"><span>Theme picker</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>P</kbd></div></div>
       <div class="sc-row"><span>Close focused window</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>W</kbd></div></div>
       <div class="sc-row"><span>Minimize focused</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>M</kbd></div></div>
-      <div class="sc-row"><span>Maximize / restore focused</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>M</kbd></div></div>
+      <div class="sc-row"><span>Maximize / restore focused</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>⇧</kbd><kbd>M</kbd></div></div>
       <div class="sc-row"><span>Toggle fullscreen</span><div class="sc-keys" id="sc-fs"></div></div>
       <div class="sc-row"><span>This help screen</span><div class="sc-keys"><kbd>?</kbd></div></div>
     </div>
@@ -1075,7 +1091,9 @@ let sidebarOpen=false, sessSearchOpen=false;
 /* ════════════════════════════════════════════════
    TOASTS
    ════════════════════════════════════════════════ */
+const TOAST_ACTION_MIN_MS=10000;   // a toast you can act on stays at least this long
 function toast(icon, title, msg, ms=4000, onClick){
+  if(onClick&&ms>0) ms=Math.max(ms,TOAST_ACTION_MIN_MS);
   const key=icon+" "+title+" "+(msg||"");
   // Same matter already on screen → replace it (latest wins, timer resets) instead of stacking.
   const dup=toastsEl.querySelector('.toast[data-key="'+CSS.escape(key)+'"]');
@@ -1090,12 +1108,19 @@ function toast(icon, title, msg, ms=4000, onClick){
   toastsEl.append(t);
   const dismiss=()=>{t.classList.add("tout"); setTimeout(()=>t.remove(),200);};
   tc.addEventListener("click",(e)=>{e.stopPropagation();dismiss();});
-  if(onClick){t.classList.add("clickable"); t.addEventListener("click",()=>{onClick();dismiss();});}
-  // Auto-hide, but pause the countdown while the pointer is over the toast (so you can read/click
-  // the "play a game?" offer); moving away re-arms it.
-  let timer; const arm=()=>{if(ms>0)timer=setTimeout(dismiss,ms);};
-  t.addEventListener("mouseenter",()=>clearTimeout(timer));
-  t.addEventListener("mouseleave",arm);
+  if(onClick){
+    t.classList.add("clickable"); t.tabIndex=0; t.setAttribute("role","button");
+    t.addEventListener("click",()=>{onClick();dismiss();});
+    t.addEventListener("keydown",(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();onClick();dismiss();}});
+  }
+  // Auto-hide, but pause the countdown while the pointer is over the toast or it has keyboard focus
+  // (so you can read/click the "play a game?" offer); the countdown re-arms once both are gone.
+  let timer, hover=false, focus=false;
+  const arm=()=>{clearTimeout(timer); if(ms>0&&!hover&&!focus)timer=setTimeout(dismiss,ms);};
+  t.addEventListener("mouseenter",()=>{hover=true;arm();});
+  t.addEventListener("mouseleave",()=>{hover=false;arm();});
+  t.addEventListener("focusin",()=>{focus=true;arm();});
+  t.addEventListener("focusout",()=>{focus=false;arm();});
   arm();
   osNotify(icon,title,msg,onClick);
 }
@@ -2686,33 +2711,51 @@ function openThemePop(scoped,anchor){
    COMMAND PALETTE
    ════════════════════════════════════════════════ */
 const PAL_CMDS=[
-  {icon:ICON.terminal,label:"New terminal",sub:"Open a shell window",kbd:"\u2318T",run:()=>createSession({cwd:curCwd()})},
-  {icon:ICON.log,label:"New log panel",sub:"Read-only output monitor",kbd:"\u2318L",run:()=>createSession({cwd:curCwd()},true)},
-  {icon:ICON.grid,label:"Tile windows",sub:"Arrange into a grid",kbd:"\u2318\u21e7T",run:tileAll},
+  {icon:ICON.terminal,label:"New terminal",sub:"Open a shell window",kbd:"\u2318\u2325T",run:()=>createSession({cwd:curCwd()})},
+  {icon:ICON.log,label:"New log panel",sub:"Read-only output monitor",kbd:"\u2318\u2325L",run:()=>createSession({cwd:curCwd()},true)},
+  {icon:ICON.grid,label:"Tile windows",sub:"Arrange into a grid",kbd:"\u2318\u2325\u21e7T",run:tileAll},
   {icon:ICON.sidebar,label:"Toggle directory tree",sub:"Show/hide sidebar",kbd:"\u2318B",run:toggleSidebar},
   {icon:ICON.search,label:"Search sessions",sub:"Filter by name or path",kbd:"\u2318F",run:()=>{closePalette();openSessSearch();}},
   {icon:ICON.theme,label:"Change theme",sub:"Open theme picker",kbd:"\u2318\u21e7P",run:()=>{closePalette();openThemePop(null,themeBtn);}},
   {icon:ICON.folderPlus,label:"New project",sub:"Add a project tab",kbd:"\u2318\u21e7M",run:()=>addProject()},
   {icon:ICON.keyboard,label:"Keyboard shortcuts",sub:"Show all shortcuts",kbd:"?",run:openShortcuts},
-  {icon:ICON.log,label:"Open file\u2026",sub:"Peek any text file \u2014 Markdown renders formatted",run:()=>{closePalette();openFilePrompt();}},
+  {icon:ICON.log,label:"Open file\u2026",sub:"Peek any text file \u2014 Markdown renders formatted",kbd:"\u2318\u2325O",run:()=>{closePalette();openFilePrompt();}},
   {icon:ICON.folder,label:"Open directory\u2026",sub:"Spawn shell in a specific folder",kbd:"\u2318\u21e7O",run:()=>{closePalette();document.getElementById("folder").click();}},
   {icon:ICON.snippet,label:"Save snippet\u2026",sub:"Store a reusable command",kbd:"\u2318\u2325S",run:()=>{closePalette();addSnippet();}},
   {icon:ICON.terminal,label:"Add SSH host\u2026",sub:"Save an ssh target \u2014 connect in one click from here",run:()=>{closePalette();addSshHost();}},
-  {icon:ICON.folderPlus,label:"New agent task\u2026",sub:"Cut a git worktree for a branch and launch an agent in it \u2014 isolated from your other agents",run:()=>{closePalette();newAgentTask();}},
-  {icon:ICON.eye,label:"Review agent changes\u2026",sub:"Read-only diff of this project's worktree against the commit it was cut from",run:()=>{closePalette();openAgentDiff();}},
+  {icon:ICON.folderPlus,label:"New agent task\u2026",sub:"Cut a git worktree for a branch and launch an agent in it \u2014 isolated from your other agents",kbd:"\u2318\u2325R",run:()=>{closePalette();newAgentTask();}},
+  {icon:ICON.eye,label:"Review agent changes\u2026",sub:"Read-only diff of this project's worktree against the commit it was cut from",kbd:"\u2318\u2325D",run:()=>{closePalette();openAgentDiff();}},
   {icon:ICON.terminal,label:"Add AI CLI preset\u2026",sub:"Save an agent command \u2014 launch it in one click; pings you when it needs input",run:()=>{closePalette();addAiCli();}},
   {icon:ICON.log,label:"Set scrollback\u2026",sub:"Lines of history each terminal keeps",run:()=>{closePalette();setScrollback();}},
   {icon:ICON.gamepad,label:"Play game",sub:"Dino or Snake while a command runs \u2014 pings when the watched terminal finishes",kbd:"\u2318\u2325G",run:()=>{closePalette();openGame();}},
   {icon:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><ellipse cx="6.5" cy="10" rx="1.7" ry="2.3"/><ellipse cx="10.5" cy="7.5" rx="1.8" ry="2.5"/><ellipse cx="15" cy="8" rx="1.8" ry="2.5"/><ellipse cx="18" cy="11" rx="1.7" ry="2.3"/><path d="M12 12.5c-2.6 0-4.7 1.9-4.7 3.9 0 1.7 1.6 2.6 4.7 2.6s4.7-.9 4.7-2.6c0-2-2.1-3.9-4.7-3.9z"/></svg>',label:"Toggle pixel pets",sub:"Cycle: auto (idle/away) → always on → off",kbd:"⌘⌥P",run:()=>togglePets()},
 ];
 
+// Category of each built-in command; unlisted ones fall under Workspace. Snippets/SSH/AI presets/sessions map to the other tabs.
+const PAL_CATS=["All","Terminals","Agents","Workspace","Saved","Sessions"];
+const PAL_CAT_OF={"New terminal":"Terminals","New log panel":"Terminals","Add SSH host\u2026":"Terminals",
+  "New agent task\u2026":"Agents","Review agent changes\u2026":"Agents","Add AI CLI preset\u2026":"Agents","Save snippet\u2026":"Saved"};
+PAL_CMDS.forEach((c)=>{c.cat=PAL_CAT_OF[c.label]||"Workspace";});
+let palCat="All";
+const inCat=(c)=>palCat==="All"||palCat===c;
+const palCats=document.getElementById("pal-cats");
+function setPalCat(c){palCat=c;renderPalCats();palMatches=buildPalette(palInput.value);palInput.focus();}
+function renderPalCats(){
+  palCats.innerHTML="";
+  for(const c of PAL_CATS){
+    const b=el("button","pal-cat"+(c===palCat?" on":""));b.textContent=c;b.type="button";b.tabIndex=-1;b.setAttribute("role","tab");b.setAttribute("aria-selected",c===palCat);
+    b.addEventListener("mousedown",(e)=>e.preventDefault());   // keep focus in the input
+    b.addEventListener("click",()=>setPalCat(c));
+    palCats.append(b);
+  }
+}
 let palHi=0, palMatches=[];
 function buildPalette(q){
   palList.innerHTML=""; palHi=0;
   q=(q||"").toLowerCase().trim();
   const all=[];
   // commands
-  const cmds=PAL_CMDS.filter((c)=>!q||c.label.toLowerCase().includes(q)||c.sub.toLowerCase().includes(q));
+  const cmds=PAL_CMDS.filter((c)=>inCat(c.cat)&&(!q||c.label.toLowerCase().includes(q)||c.sub.toLowerCase().includes(q)));
   if(cmds.length){
     const g=el("div","pal-group");g.textContent="Commands";palList.append(g);
     cmds.forEach((c,i)=>{
@@ -2728,7 +2771,7 @@ function buildPalette(q){
     });
   }
   // snippets
-  const snips=snippets.filter((sn)=>!q||sn.label.toLowerCase().includes(q)||sn.cmd.toLowerCase().includes(q));
+  const snips=snippets.filter((sn)=>inCat("Saved")&&(!q||sn.label.toLowerCase().includes(q)||sn.cmd.toLowerCase().includes(q)));
   if(snips.length){
     const g=el("div","pal-group");g.textContent="Snippets";palList.append(g);
     snips.forEach((sn)=>{
@@ -2748,7 +2791,7 @@ function buildPalette(q){
     });
   }
   // ssh hosts
-  const hosts=sshHosts.filter((h)=>!q||h.label.toLowerCase().includes(q)||h.target.toLowerCase().includes(q));
+  const hosts=sshHosts.filter((h)=>inCat("Terminals")&&(!q||h.label.toLowerCase().includes(q)||h.target.toLowerCase().includes(q)));
   if(hosts.length){
     const g=el("div","pal-group");g.textContent="SSH";palList.append(g);
     hosts.forEach((h)=>{
@@ -2768,7 +2811,7 @@ function buildPalette(q){
     });
   }
   // ai clis (built-ins + user presets) — one-click agent launch
-  const ai=[...AICLI_BUILTIN,...aiClis].filter((p)=>!q||p.label.toLowerCase().includes(q)||p.cmd.toLowerCase().includes(q));
+  const ai=[...AICLI_BUILTIN,...aiClis].filter((p)=>inCat("Agents")&&(!q||p.label.toLowerCase().includes(q)||p.cmd.toLowerCase().includes(q)));
   if(ai.length){
     const g=el("div","pal-group");g.textContent="AI CLI";palList.append(g);
     ai.forEach((p)=>{
@@ -2791,7 +2834,7 @@ function buildPalette(q){
     });
   }
   // sessions
-  const sess=[...sessions.values()].filter((s)=>!q||(s.name.toLowerCase().includes(q)||(s.cwd||"").toLowerCase().includes(q)));
+  const sess=[...sessions.values()].filter((s)=>inCat("Sessions")&&(!q||(s.name.toLowerCase().includes(q)||(s.cwd||"").toLowerCase().includes(q))));
   if(sess.length){
     const g=el("div","pal-group");g.textContent="Sessions";palList.append(g);
     sess.forEach((s)=>{
@@ -2826,18 +2869,24 @@ function closeModals(except){
   if(except!=="agent"&&agentPop&&agentPop.classList.contains("open")) agentPop.classList.remove("open");
 }
 function openShortcuts(){closeModals("sc");scOverlay.classList.add("open");}
-function openPalette(){closeModals("palette");palOverlay.classList.add("open");palette.classList.add("open");palInput.value="";palInput.placeholder=snippets.length?"Type a command, snippet, or search sessions…":"Type a command or search sessions…";palMatches=buildPalette("");palInput.focus();}
+function openPalette(){closeModals("palette");palOverlay.classList.add("open");palette.classList.add("open");palCat="All";renderPalCats();palInput.value="";palClear.hidden=true;palInput.placeholder=snippets.length?"Type a command, snippet, or search sessions…":"Type a command or search sessions…";palMatches=buildPalette("");palInput.focus();}
 function closePalette(){palOverlay.classList.remove("open");palette.classList.remove("open");}
 function palMove(d){
   palMatches.forEach((m)=>m.classList.remove("hi"));
   palHi=clamp(palHi+d,0,palMatches.length-1);
   if(palMatches[palHi]){palMatches[palHi].classList.add("hi");palMatches[palHi].scrollIntoView({block:"nearest"});}
 }
-palInput.addEventListener("input",()=>{palMatches=buildPalette(palInput.value);palHi=0;});
+const palClear=document.getElementById("pal-clear");
+palClear.innerHTML=ICON.x;
+palClear.addEventListener("mousedown",(e)=>e.preventDefault());   // keep focus in the input
+palClear.addEventListener("click",()=>{palInput.value="";palInput.dispatchEvent(new Event("input"));});
+palInput.addEventListener("input",()=>{palClear.hidden=!palInput.value;palMatches=buildPalette(palInput.value);palHi=0;});
 palInput.addEventListener("keydown",(e)=>{
   if(e.key==="ArrowDown"){e.preventDefault();palMove(1);}
   else if(e.key==="ArrowUp"){e.preventDefault();palMove(-1);}
   else if(e.key==="Enter"){e.preventDefault();if(palMatches[palHi])palMatches[palHi].click();}
+  else if(e.key==="u"&&e.ctrlKey){e.preventDefault();palClear.click();}
+  else if(e.key==="Tab"){e.preventDefault();setPalCat(PAL_CATS[(PAL_CATS.indexOf(palCat)+(e.shiftKey?-1:1)+PAL_CATS.length)%PAL_CATS.length]);}   // Tab / Shift+Tab cycle categories
   else if(e.key==="Escape") closePalette();
 });
 palOverlay.addEventListener("click",closePalette);
@@ -3074,6 +3123,9 @@ function treeNode(en,full,depth){
   const row=el("div","tn"+(en.dir?" dir-node":""));
   row.style.paddingLeft=(8+depth*14)+"px";
   const reveal=()=>fetch("/api/reveal?path="+encodeURIComponent(full)).catch(()=>{});
+  const openEditor=()=>fetch("/api/open-editor?path="+encodeURIComponent(full)).then(async(r)=>{
+    if(!r.ok){const j=await r.json().catch(()=>({}));toast("\u26a0\ufe0f","Open in editor",j.error||"failed",3500);}
+  }).catch(()=>toast("\u26a0\ufe0f","Open in editor","request failed",3500));
   const copyPath=()=>{try{navigator.clipboard.writeText(full);toast(ICON.copy,"Path copied",full,1600);}catch{}};
   if(en.dir){
     const car=el("span","tn-caret");car.innerHTML=ICON.caret;
@@ -3095,6 +3147,7 @@ function treeNode(en,full,depth){
       {label:"Set as project root",run:()=>setProjectRoot(full)},
       {sep:true},
       {label:"Copy path",run:copyPath},
+      {label:"Open in editor",run:openEditor},
       {label:"Reveal in file manager",run:reveal},
     ]);});
     wrap.append(row,kids);
@@ -3108,6 +3161,7 @@ function treeNode(en,full,depth){
     row.addEventListener("contextmenu",(e)=>{e.preventDefault();e.stopPropagation(); showCtxMenu(e.clientX,e.clientY,[
       {label:"Open file",run:()=>openFileViewer(full,en.name)},
       {label:"Copy path",run:copyPath},
+      {label:"Open in editor",run:openEditor},
       {label:"Reveal in file manager",run:reveal},
     ]);});
     wrap.append(row);
@@ -3183,12 +3237,15 @@ document.addEventListener("keydown",(e)=>{
   if(mod&&e.altKey&&e.code==="KeyG"){e.preventDefault(); gameOv.classList.contains("open")?closeGame():openGame(); return;}  // play game (⌘G = browser find-next)
   if(mod&&e.altKey&&e.code==="KeyP"){e.preventDefault(); togglePets(); return;}                                       // toggle pixel pets (⌘⇧P = theme picker)
   if(mod&&e.altKey&&e.code==="KeyS"){e.preventDefault(); addSnippet(); return;}                                     // save snippet (⌘S = browser save-page)
+  if(mod&&e.altKey&&e.code==="KeyO"){e.preventDefault(); openFilePrompt(); return;}                                 // open file (⌘O = browser open-file)
+  if(mod&&e.altKey&&e.code==="KeyR"){e.preventDefault(); newAgentTask(); return;}                                   // new agent task (⌘R = reload)
+  if(mod&&e.altKey&&e.code==="KeyD"){e.preventDefault(); openAgentDiff(); return;}                                  // review agent diff (⌘D = bookmark)
   if(mod&&e.shiftKey&&e.key==="O"){e.preventDefault(); folderBtn.click(); return;}
   if(mod&&e.shiftKey&&e.key==="P"){e.preventDefault(); themeBtn.click(); return;}
   if(mod&&e.shiftKey&&e.key==="M"){e.preventDefault(); addProject(); return;}
   if(mod&&e.altKey&&e.code==="KeyW"&&focusedId&&sessions.has(focusedId)){e.preventDefault(); requestCloseSession(sessions.get(focusedId)); return;}          // close window (⌘W = browser close-tab)
   if(mod&&e.altKey&&!e.shiftKey&&e.code==="KeyM"&&focusedId&&sessions.has(focusedId)){e.preventDefault(); minimize(sessions.get(focusedId)); return;}         // minimize (⌘M = macOS minimize)
-  if(mod&&e.shiftKey&&e.key==="M"&&focusedId&&sessions.has(focusedId)){e.preventDefault(); toggleMax(sessions.get(focusedId)); return;}
+  if(mod&&e.altKey&&e.shiftKey&&e.code==="KeyM"&&focusedId&&sessions.has(focusedId)){e.preventDefault(); toggleMax(sessions.get(focusedId)); return;}
   if(mod&&e.altKey&&!e.shiftKey&&e.code==="KeyA"&&focusedId&&sessions.has(focusedId)){e.preventDefault(); addTab(sessions.get(focusedId)); return;}           // new tab / Add (⌘⌥N is macOS Notification Center; ⌘T/⌘⇧N owned by browser)
   if(mod&&e.shiftKey&&(e.key==="}"||e.key==="{"||e.key==="]"||e.key==="[")){  // cycle projects (⇧ = shift of tab-cycle)
     e.preventDefault();

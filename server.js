@@ -214,6 +214,15 @@ app.get('/api/reveal', apiGuard, (req, res) => {     // open the OS file manager
   try { spawn(cmd, args, { stdio:'ignore', detached:true }).on('error', () => {}).unref(); } catch {}
   res.json({ ok:true });
 });
+const EDITOR = process.env.TD_EDITOR || 'code';     // fixed by config, never by the request; no shell → a path can't inject a command
+app.get('/api/open-editor', apiGuard, (req, res) => {  // open a path in the configured editor
+  const target = expandDir(req.query.path);
+  if (!fs.existsSync(target)) return res.status(404).json({ error:'path not found' });
+  const child = spawn(EDITOR, [target], { stdio:'ignore', detached:true });
+  child.once('error', (e) => res.status(e.code === 'ENOENT' ? 404 : 500)
+    .json({ error: e.code === 'ENOENT' ? `editor "${EDITOR}" not found — set TD_EDITOR` : (e.code || 'launch failed') }));
+  child.once('spawn', () => { child.unref(); res.json({ ok:true }); });
+});
 app.get('/api/stat', apiGuard, (req, res) => {       // lightweight "is this a regular file?" for clickable output paths
   try { res.json({ file: fs.statSync(expandDir(req.query.path)).isFile() }); }
   catch { res.json({ file: false }); }
