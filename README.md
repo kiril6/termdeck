@@ -186,7 +186,7 @@ The intended deployment is: clone, `npm start`, use it on `localhost`.
 
 ### Shells won't start?
 
-Open **http://localhost:3000/debug** — it dumps your environment and tries each shell candidate, telling you exactly what failed.
+Run **`termdeck doctor`** (offline; also works as `npx @kiril6/termdeck doctor`), or open **http://localhost:3000/debug** while the server runs — both try each shell candidate and tell you exactly what failed.
 
 ### Known limits
 
