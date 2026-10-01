@@ -331,6 +331,17 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🔌 **Command line** — `termdeck --help`, `--version`, `--port <n>`, `--host <addr>`, `--no-open` (flags are applied
   as the equivalent env vars *before* the server boots and win over existing ones; a bad value or unknown flag prints
   help and exits 2; works through `npm start -- --port 4000` too). No argument-parsing dependency (`scripts/cli.js`).
+- 🔌 **`termdeck hooks install|uninstall`** — sets up the agent hooks without hand-editing JSON (`scripts/hooks.js`).
+  Detects Claude Code (`~/.claude/settings.json`), Gemini CLI (`~/.gemini/settings.json`) and Codex
+  (`~/.codex/hooks.json`) by their config dir (`--agent` forces one and creates its file). **Merges** the
+  `node "$TD_HOOK" <agent>` entries into each event's list — your existing hooks and every other key are kept, a
+  second run is a no-op, `uninstall` removes only our entries. Shows **only our entries** (never other settings,
+  which may hold secrets), asks to confirm (`--yes` skips, `--dry-run` writes nothing, a non-terminal without
+  `--yes` refuses), writes a timestamped `.termdeck-bak-…` backup, then writes atomically through symlinks (dotfile
+  managers) keeping the file's mode, indent and trailing newline. A file that isn't valid JSON, or has a
+  wrongly-shaped `hooks`, is reported and left untouched while the other CLIs still proceed (exit 1). The
+  event table lives in one place and `scripts/check-hooks-docs.js` (run in CI) fails if
+  [docs/agent-hooks.md](docs/agent-hooks.md) drifts from it. Only runs on this explicit command, never on start.
 - 🔌 **`termdeck doctor`** — offline self-check (`scripts/doctor.js`), run in a child process so the server never starts:
   Node version, node-pty (and the macOS `spawn-helper` bit), a shell actually spawns, tmux present and ≥ 3.2 (needed
   for the agent-hook env), git, whether the port is free (a pinned `PORT` that's busy is a failure; otherwise a note
