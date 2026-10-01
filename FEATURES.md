@@ -163,6 +163,15 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   Deliberately **view-only** — no accept, merge, discard or reset buttons: you already have a real shell
   in that worktree, and git is one typed command away. The base commit is persisted with the project, so
   the baseline survives reloads.
+- ⚠️ **Conflict radar** — warns when two agents' worktrees of the same repo change the **same file**, before
+  you hit it at merge time. While ≥2 worktree projects have a live agent, the browser asks
+  `POST /api/git/overlaps` every 10 s (paused while the tab is hidden); the server diffs each worktree against its
+  base (committed + uncommitted + untracked), intersects per repo and, for shared files with the same base,
+  compares the changed **line ranges** (`git diff -U0`) — *"(same lines)"* means real hunk collision, no suffix
+  means same file, different regions. Shown as an **orange dot** on the affected project tabs (hover for the
+  list) and a `⚠ overlaps with <project>: <files>` line in the agent queue. Informational only — nothing is
+  ever merged, blocked or changed. Bounded: ≤16 worktrees, ≤500 files each, ≤50 shared files, 4 git
+  processes at a time, read-only `git` via `execFile`, behind `apiGuard`; idle with a single worktree.
 - 🔌 **"Waiting on you" agent watch** — an agent tab that streams output and then goes quiet (idle ~8s)
   flips to a **waiting** state: an amber pulse on its tab + dock chip so the dock reads as a who-needs-me
   queue, plus a toast + OS notification (naming the session, click to jump) **only when you're not already
