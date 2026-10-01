@@ -180,6 +180,7 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
 .agent-row.working .agent-row-dot{background:var(--muted);opacity:.7;}
 .agent-row-info{display:flex;flex-direction:column;min-width:0;flex:1;}
 .agent-row-path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;}
+.agent-row-evt{text-transform:none;letter-spacing:0;opacity:.85;}
 .agent-row-state{font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-top:1px;}
 .agent-row.approval .agent-row-state{color:#ff9b93;}
 .agent-row.waiting .agent-row-state{color:#e6a23c;}
@@ -1954,11 +1955,34 @@ function tildePath(p){return (p||"~").replace(/^\/(?:home|Users)\/[^/]+/,"~");}
 // are watched, so normal shells never trip it. Heuristic by design — the point is a
 // glanceable "who needs me" queue, not perfect turn detection.
 const AGENT_IDLE_MS=8000;
+const EVT_STALE_MS=120000;   // tabs fed by hook events (#40): idle is only a safety net (e.g. Esc-interrupt fires no Stop hook)
 const agentIdle=new Map();   // s.id+tab.id -> {timer, notified}
-function armAgentIdle(s,tab){
+function armAgentIdle(s,tab,keepState){
   const k=s.id+tab.id, cur=agentIdle.get(k); if(cur)clearTimeout(cur.timer);
-  if(tab.waiting&&!tab.approval) setWaiting(s,tab,false);   // fresh output = working again — but a pending approval stays flagged (repaint ≠ progress) until you look at it
-  agentIdle.set(k,{notified:false,timer:setTimeout(()=>agentWaiting(s,tab),AGENT_IDLE_MS)});
+  if(!keepState&&tab.waiting&&!tab.approval) setWaiting(s,tab,false);   // fresh output = working again — but a pending approval stays flagged (repaint ≠ progress) until you look at it
+  agentIdle.set(k,{notified:false,timer:setTimeout(()=>agentWaiting(s,tab),tab.evt?EVT_STALE_MS:AGENT_IDLE_MS)});
+}
+// Hook events (server → m.type "agent") are the source of truth for a tab once any arrive; the output
+// heuristics (idle timer, APPROVAL_RE) then stand down for that tab. Receiving one also tags the tab as an agent.
+function agentEvent(s,tab,ev){
+  if(tab.exited||!ev||typeof ev!=="object")return;
+  tab.agent=true;
+  tab.evt=ev;
+  armAgentIdle(s,tab,true);
+  if(ev.type==="stop"||ev.type==="error") agentWaiting(s,tab);
+  else if(ev.type==="permission_request") agentApproval(s,tab);
+  else setWaiting(s,tab,false);   // prompt/tool activity = working (also clears a red approval once you answered)
+  updateAgentOverview();
+}
+function evtSummary(tab){
+  const e=tab.evt; if(!e)return "";
+  const bits=[];
+  if(e.type==="tool_start"||e.type==="permission_request"){
+    bits.push([e.tool,e.files?.[0]?e.files[0].split(/[\\/]/).pop():e.detail].filter(Boolean).join(" "));
+  }
+  if(Number.isFinite(e.tokens)) bits.push((e.tokens>=1000?(e.tokens/1000).toFixed(1)+"k":e.tokens)+" tok");
+  if(Number.isFinite(e.cost)) bits.push("$"+e.cost.toFixed(2));
+  return bits.filter(Boolean).join(" · ").slice(0,80);
 }
 function stopAgentIdle(s,tab){const k=s.id+tab.id,cur=agentIdle.get(k);if(cur){clearTimeout(cur.timer);agentIdle.delete(k);}}
 function agentWaiting(s,tab){
@@ -2041,6 +2065,8 @@ function renderAgentList(queue){
     path.title=path.textContent;
     const st=el("div","agent-row-state");
     st.textContent=state==="approval"?"needs approval":state;
+    const extra=evtSummary(tab);
+    if(extra){const x=el("span","agent-row-evt"); x.textContent=" · "+extra; st.append(x);}   // textContent only — event data is untrusted
     info.append(path,st);
     row.append(dot,info);
     row.addEventListener("click",()=>{
@@ -2100,13 +2126,15 @@ function openTabWS(s,tab){
       if(m.resumed){tab.term.reset(); tab.replay=true;}   // next output chunk is the replayed ring buffer, not live output
       if(m.cwd){tab.cwd=m.cwd; if(s.activeTabId===tab.id) s.badgeCwd.textContent=tildePath(m.cwd);}
       if(m.shell){tab.shellName=m.shell; if(s.activeTabId===tab.id) s.badgeShell.textContent=m.shell;}
+    }else if(m.type==="agent"){
+      agentEvent(s,tab,m.event);
     }else if(m.type==="output"){
       tab.term.write(m.data);
       // On reattach the server replays the whole ring buffer in one chunk. Scanning all of it
       // would re-match an approval prompt you ALREADY answered and fire a false red. The tail is
       // the current screen, so that's the only part that reflects live state.
       const scan=tab.replay?m.data.slice(-REPLAY_SCAN):m.data; tab.replay=false;
-      if(tab.agent){ armAgentIdle(s,tab); if(APPROVAL_RE.test(scan)) agentApproval(s,tab); }   // (re)arm idle watch; a tool-approval prompt jumps straight to the louder red state
+      if(tab.agent&&!tab.evt){ armAgentIdle(s,tab); if(APPROVAL_RE.test(scan)) agentApproval(s,tab); }   // heuristics only until hook events take over   // (re)arm idle watch; a tool-approval prompt jumps straight to the louder red state
       // "command finished" heuristic: OSC 133;D (shell integration, reliable if configured),
       // a bell, or the prompt returning \u2014 trailing $ # % > covers bash/zsh/fish/PowerShell.
       const key=s.id+tab.id;
