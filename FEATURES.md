@@ -328,6 +328,15 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   (OS opener: `open`/`start`/`xdg-open`). `NO_OPEN=1` skips it; `BROWSER=<name|path>` picks a
   specific browser (e.g. `BROWSER="Google Chrome"` on macOS, `BROWSER=firefox` on Linux).
 - 🔌 `/debug` page — dumps env and tries each shell candidate when shells won't start.
+- 🔌 **Command line** — `termdeck --help`, `--version`, `--port <n>`, `--host <addr>`, `--no-open` (flags are applied
+  as the equivalent env vars *before* the server boots and win over existing ones; a bad value or unknown flag prints
+  help and exits 2; works through `npm start -- --port 4000` too). No argument-parsing dependency (`scripts/cli.js`).
+- 🔌 **`termdeck doctor`** — offline self-check (`scripts/doctor.js`), run in a child process so the server never starts:
+  Node version, node-pty (and the macOS `spawn-helper` bit), a shell actually spawns, tmux present and ≥ 3.2 (needed
+  for the agent-hook env), git, whether the port is free (a pinned `PORT` that's busy is a failure; otherwise a note
+  that the server will move), network exposure / token state, wildcard `TD_ALLOWED_HOSTS`, `TD_*` numbers that would
+  silently fall back to defaults, and `TD_LOG_DIR` writability. Each problem prints its fix. Exit 0 = all good,
+  1 = any warning/failure. No network calls; plain text when piped or `NO_COLOR` is set.
 - 🔌 **`npx` runnable** — `npx github:kiril6/termdeck` fetches deps and launches the server with no clone (`bin: termdeck`, shebang on `server.js`). Runs correctly as an installed dependency (npx / `npm i -g`), not just from a repo clone: `/vendor/*` assets resolve xterm via `require.resolve` (deps get hoisted to a parent `node_modules`, so `__dirname/node_modules` would 404), and node-pty's `spawn-helper` is `chmod +x`'d at startup on macOS (installs that skip `install.js` leave it non-executable → `posix_spawnp failed`). tmux/durable-session support only if `tmux` is on the host (offered for install on first interactive run — see Durable sessions).
 - 🔌 **Auto port fallback** — default port is 3000. If it's busy and `PORT` wasn't set, the server walks up to the next free port automatically (3001, 3002, … up to 20 tries) and prints which one it landed on — so `npx` still works when 3000 is taken. If you **explicitly** set `PORT`, it's respected: a clash fails loudly with a `PORT=<n+1>` hint rather than silently moving. `HOST=0.0.0.0` (or a LAN IP) still binds where you ask.
 

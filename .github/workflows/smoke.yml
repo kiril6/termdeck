@@ -16,3 +16,6 @@ jobs:
           node-version: '20'
       - run: node install.js
       - run: node -c server.js
+      - run: node server.js --version
+      - run: node server.js --help
+      - run: test "$(node server.js --bogus >/dev/null 2>&1; echo $?)" = 2
