@@ -146,6 +146,7 @@ HOST=127.0.0.1 TD_GRACE_MS=120000 TD_BUFFER=2000000 npm start
 `TD_GRACE_MS` and `TD_BUFFER` accept positive numbers. Invalid, zero, or negative
 values fall back to 60 seconds and 1,000,000 bytes respectively.
 
+`TD_EDITOR=cursor` sets the command the tree's *Open in editor* runs on a path (default `code`; a single executable, no arguments).
 `TD_LOG_DIR=/path` writes each shell's output (ANSI stripped) to a log file when it ends; off by default.
 `TD_ALLOWED_HOSTS=host1,host2` lets a reverse proxy such as `tailscale serve` reach a loopback-bound server
 (exact hostnames, enables the access token) — see [docs/remote-access.md](docs/remote-access.md).
@@ -235,16 +236,20 @@ On Windows/Linux, `⌘` = `Ctrl` and `⌥` = `Alt`.
 | Tile all windows | `⌘⌥⇧T` |
 | Broadcast input to all shells | `⌘⌥B` |
 | Open directory | `⌘⇧O` |
+| Open file | `⌘⌥O` |
+| New agent task | `⌘⌥R` |
+| Review agent changes | `⌘⌥D` |
 | Theme picker | `⌘⇧P` |
 | Close focused window | `⌘⌥W` |
 | Minimize focused | `⌘⌥M` |
+| Maximize / restore focused | `⌘⌥⇧M` |
 | Toggle fullscreen | `F11` |
 | This help screen | `?` |
 
 ### Tabs (in the focused window)
 | Action | Shortcut |
 |---|---|
-| New tab | `⌘⌥N` |
+| New tab | `⌘⌥A` |
 | Next tab | `⌘]` |
 | Previous tab | `⌘[` |
 
