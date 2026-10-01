@@ -104,9 +104,12 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   tmux, leak the old `td_*` session) instead of reattaching.
   `TD_GRACE_MS` and `TD_BUFFER` override those defaults with positive numeric values;
   invalid, zero, and negative values safely fall back to the defaults.
-- 🔌 **Backend terminal cap** — the server refuses a WS upgrade (HTTP 503) once `TD_MAX_PANELS` (default 64)
-  live shells exist, so a client bypassing the UI's per-project limit can't exhaust the host. Only brand-new
-  sessions count; reattaching to an existing `id` is never blocked. Invalid/zero/negative values fall back to 64.
+- 🔌 **Backend terminal cap** — once `TD_MAX_PANELS` (default 64) live shells exist, the server spawns no
+  more, so a client bypassing the UI's per-project limit can't exhaust the host. Only brand-new sessions
+  count; reattaching to an existing `id` is never blocked. Invalid/zero/negative values fall back to 64.
+  The refusal carries a reason: the server sends `{type:'error', code:'panel_cap_reached', limit, current}`
+  and closes, and the window **stops reconnecting**, parks as dead with *"terminal limit reached (N) — close a
+  window or raise TD_MAX_PANELS, then click ⟳ to retry"* in the terminal, and one toast per burst. ⟳ retries.
 - 🖥️ **Wake reconnect** — on tab refocus (`visibilitychange`), reconnecting shells retry
   immediately instead of waiting out the backoff (localhost drops on sleep aren't network events).
 - 🖥️ WS auto-reconnect with exponential backoff (caps at 5s).
@@ -300,6 +303,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🖥️ **Clickable file paths** — `path/file.ext`, `./x`, `~/x`, `/abs/x`, optional `:line[:col]` in terminal output become links
   when `/api/stat` confirms a regular file (relative paths resolve against the tab's live cwd). Click opens the file viewer
   scrolled to and highlighting that line (markdown opens as raw source for a `:line` link). Live mode only; no-op in demo.
+- 📄 **Known limits** — a README section stating plainly what termdeck doesn't do (reboots end shells, heuristic agent state without hooks, never auto-answers, remote-access caveats, caps, Windows differences, demo has no backend).
 - 📄 **Autostart templates** — `docs/autostart/` ships a launchd plist (macOS) and a systemd user unit (Linux), plus SSH-tunnel/Tailscale remote-access notes.
 - 🔌 **Loopback bind** by default (`127.0.0.1`); `HOST=0.0.0.0` (or an IP) to expose, with a warning.
 - 🔌 **Auth token on non-loopback binds** — when `HOST` isn't loopback, a random token is generated at startup and printed in

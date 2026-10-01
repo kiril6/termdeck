@@ -348,10 +348,7 @@ const wss    = new WebSocketServer({ server, verifyClient: ({ req }, done) => {
   if (host && !ALLOWED_HOSTS.has(host)) return done(false, 403);     // DNS-rebind guard
   if (origin && !ALLOWED_HOSTS.has(origin)) return done(false, 403); // cross-site CSRF guard
   if (TOKEN && !hasAuthCookie(req)) return done(false, 401);
-  // Cap only brand-new sessions; reattaching to a live id is never blocked.
-  const id = url.parse(req.url, true).query.id;
-  if (live.size >= MAX_PANELS && !(id && live.has(String(id)))) return done(false, 503, 'Terminal limit reached');
-  done(true);
+  done(true);   // the terminal cap is enforced in the connection handler, so the client can be told WHY
 }});
 
 const isWindows = os.platform() === 'win32';
@@ -499,6 +496,12 @@ wss.on('connection', (ws, req) => {
   }
 
   // ── new shell ──
+  // Cap only brand-new sessions (reattach returned above). A refused HTTP upgrade can't carry a reason the
+  // browser can read, so accept, say why, and close — the client then stops retrying and shows the limit.
+  if (live.size >= MAX_PANELS) {
+    send(ws, { type:'error', code:'panel_cap_reached', limit:MAX_PANELS, current:live.size });
+    return ws.close();
+  }
   let cwd = q.cwd ? String(q.cwd) : HOME;
   if (!safeDir(cwd)) cwd = HOME;
   const cmd = q.cmd ? String(q.cmd) : null;   // optional command to run once, on a freshly-created shell (e.g. `ssh host`, `npm run dev`)
