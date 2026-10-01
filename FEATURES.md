@@ -355,7 +355,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   event table lives in one place and `scripts/check-hooks-docs.js` (run in CI) fails if
   [docs/agent-hooks.md](docs/agent-hooks.md) drifts from it. Only runs on this explicit command, never on start.
 - 🔌 **`termdeck doctor`** — offline self-check (`scripts/doctor.js`), run in a child process so the server never starts:
-  Node version, node-pty (and the macOS `spawn-helper` bit), a shell actually spawns, tmux present and ≥ 3.2 (needed
+  Node version, node-pty (and the macOS `spawn-helper` execute bit — missing after `npx`/global installs; doctor restores it, as the server does on start, so the shell check below is honest), a shell actually spawns, tmux present and ≥ 3.2 (needed
   for the agent-hook env), git, whether the port is free (a pinned `PORT` that's busy is a failure; otherwise a note
   that the server will move), network exposure / token state, wildcard `TD_ALLOWED_HOSTS`, `TD_*` numbers that would
   silently fall back to defaults, and `TD_LOG_DIR` writability. Each problem prints its fix. Exit 0 = all good,
