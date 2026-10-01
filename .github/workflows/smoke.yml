@@ -18,4 +18,5 @@ jobs:
       - run: node -c server.js
       - run: node server.js --version
       - run: node server.js --help
+      - run: node scripts/check-hooks-docs.js
       - run: test "$(node server.js --bogus >/dev/null 2>&1; echo $?)" = 2

@@ -10,6 +10,7 @@ const HELP = `termdeck ${VERSION} — browser cockpit for terminals and AI codin
 Usage:
   termdeck [options]       start the server
   termdeck doctor          check this machine (offline) and exit; 0 = all good, 1 = warnings/failures
+  termdeck hooks install   set up agent hooks for Claude Code / Gemini CLI / Codex (also: uninstall, --dry-run, --yes)
 
 Options:
   --port <n>     port to listen on (same as PORT; if set, never moves to a free one)
@@ -24,6 +25,10 @@ Environment: see the README (TD_GRACE_MS, TD_BUFFER, TD_MAX_PANELS, TD_LOG_DIR, 
 function fail(msg) { process.stderr.write(`termdeck: ${msg}\n\n${HELP}`); process.exit(2); }
 
 function applyArgs(argv) {
+  if (argv[0] === 'hooks') {   // `termdeck hooks install|uninstall …` — its own flags, run synchronously so the server never starts
+    const r = spawnSync(process.execPath, [path.join(__dirname, 'hooks.js'), ...argv.slice(1)], { stdio: 'inherit' });
+    process.exit(r.status ?? 1);
+  }
   let doctor = false;
   for (let i = 0; i < argv.length; i++) {
     const [flag, inline] = argv[i].startsWith('--') ? argv[i].split(/=(.*)/s) : [argv[i]];

@@ -126,6 +126,9 @@ Command-line options (flags win over env vars): `--port <n>`, `--host <addr>`, `
 spawns, tmux (≥ 3.2 for agent hooks), git, port free, network exposure and any invalid `TD_*` value — with the
 fix next to each problem. It is fully offline; exit code 0 means all good, 1 means warnings or failures.
 
+**`termdeck hooks install`** wires up [agent hooks](docs/agent-hooks.md) for Claude Code, Gemini CLI and Codex in one
+command — it merges into your existing config, backs the file up first, and `--dry-run` shows what it would do.
+
 The bind address, reattach grace period, and replay-buffer size are configurable too:
 
 ```bash

@@ -18,6 +18,19 @@ The helper is **safe to leave installed**: outside termdeck (no `TD_ID`) it does
 nothing, never blocks the agent for more than ~2s, and always exits 0. Events are display-only —
 termdeck never answers a prompt for you.
 
+## Quick setup
+
+```bash
+termdeck hooks install --dry-run     # preview: shows only the entries it would add
+termdeck hooks install               # asks, backs up, then merges   (--yes to skip the question)
+termdeck hooks uninstall             # removes only termdeck's entries
+```
+
+It detects Claude Code, Gemini CLI and Codex (`--agent claude|gemini|codex|all`), **merges** into their existing
+config without touching your other hooks or settings, is idempotent, writes a timestamped
+`<file>.termdeck-bak-…` backup first, and refuses (changing nothing) on a file it can't parse. Prefer to edit by
+hand? The snippets below are exactly what it writes.
+
 > Shells that were already running when you upgraded don't have `TD_ID`; open a new terminal.
 > After a server restart on a different port, shells kept alive by tmux still hold the old `TD_URL`.
 
