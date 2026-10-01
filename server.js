@@ -332,6 +332,57 @@ app.get('/api/git/diff', apiGuard, async (req, res) => {
   } catch (e) { res.status(400).json({ error: gitFail(e) }); }
 });
 
+// Conflict radar (#43): which files are changed in more than one agent worktree of the same repo? Read-only,
+// informational. The client posts its agent worktrees {dir, base}; we diff each against its base (committed +
+// uncommitted + untracked), intersect per repo, and for shared files compare the changed line ranges (-U0).
+// Bounded: <=16 trees, <=500 files per tree, <=50 shared files, 4 git processes at a time.
+const OVERLAP_TREES = 16, OVERLAP_FILES = 500, OVERLAP_SHARED = 50, BASE_RE = /^[A-Za-z0-9._/-]{1,100}$/;
+async function inBatches(items, n, fn) {
+  const out = [];
+  for (let i = 0; i < items.length; i += n) out.push(...await Promise.all(items.slice(i, i + n).map(fn)));
+  return out;
+}
+const hunkRanges = (diff) => [...diff.matchAll(/^@@ -(\d+)(?:,(\d+))? /gm)]   // old-side lines; a pure insertion (count 0) is the point after line a
+  .map(([, a, b]) => [+a, +a + Math.max(b === undefined ? 1 : +b, 1) - 1]);
+const rangesCollide = (A, B) => A.some(([a1, a2]) => B.some(([b1, b2]) => a1 <= b2 && b1 <= a2));
+app.post('/api/git/overlaps', apiGuard, async (req, res) => {
+  const trees = (Array.isArray(req.body?.trees) ? req.body.trees : []).slice(0, OVERLAP_TREES)
+    .map((t, idx) => ({ idx, dir: expandDir(t?.dir), base: String(t?.base || 'HEAD').trim() }))
+    .filter((t) => safeDir(t.dir) && BASE_RE.test(t.base));
+  try {
+    await inBatches(trees, 4, async (t) => {
+      try {
+        const common = fs.realpathSync(path.resolve(t.dir, (await gitP(['rev-parse', '--git-common-dir'], t.dir)).trim()));   // relative to t.dir; realpath = same key for all worktrees
+        const [changed, untracked] = await Promise.all([
+          gitP(['diff', '--name-only', t.base], t.dir), gitP(['ls-files', '--others', '--exclude-standard'], t.dir)]);
+        t.common = common;
+        t.untracked = new Set(untracked.split('\n').filter(Boolean));
+        t.files = new Set([...changed.split('\n'), ...t.untracked].filter(Boolean).slice(0, OVERLAP_FILES));
+      } catch { t.files = null; }   // not a repo / bad base / git missing: skip this tree
+    });
+    const byRepo = new Map();
+    trees.filter((t) => t.files).forEach((t) => byRepo.set(t.common, [...(byRepo.get(t.common) || []), t]));
+    const overlaps = [];
+    for (const group of byRepo.values()) {
+      if (group.length < 2) continue;
+      const owners = new Map();
+      group.forEach((t) => t.files.forEach((f) => owners.set(f, [...(owners.get(f) || []), t])));
+      const shared = [...owners].filter(([, ts]) => ts.length > 1).slice(0, OVERLAP_SHARED);
+      await inBatches(shared, 4, async ([file, ts]) => {
+        let collide = null;                                          // null = can't tell (different bases / unreadable)
+        if (new Set(ts.map((t) => t.base)).size === 1 && !ts.some((t) => t.untracked.has(file))) {
+          try {
+            const rs = await Promise.all(ts.map(async (t) => hunkRanges(await gitP(['diff', '-U0', t.base, '--', file], t.dir))));
+            collide = rs.some((a, i) => rs.slice(i + 1).some((b) => rangesCollide(a, b)));
+          } catch {}
+        } else if (ts.every((t) => t.untracked.has(file))) collide = true;   // both created the same new file
+        overlaps.push({ path: file, trees: ts.map((t) => t.idx), collide });
+      });
+    }
+    res.json({ overlaps });
+  } catch (e) { res.status(400).json({ error: gitFail(e) }); }
+});
+
 // ── WebSocket / pty server ───────────────────────────────────────────────────
 // SECURITY: this WS spawns real shells. Unauthenticated + open would be RCE for any
 // web page (CSRF / DNS-rebind). Defense: bind loopback by default, and validate both

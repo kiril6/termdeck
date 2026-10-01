@@ -181,6 +181,7 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
 .agent-row-info{display:flex;flex-direction:column;min-width:0;flex:1;}
 .agent-row-path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;}
 .agent-row-evt{text-transform:none;letter-spacing:0;opacity:.85;}
+.agent-row-warn{font-size:10.5px;color:#d9822b;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .agent-row-state{font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-top:1px;}
 .agent-row.approval .agent-row-state{color:#ff9b93;}
 .agent-row.waiting .agent-row-state{color:#e6a23c;}
@@ -467,6 +468,7 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
   border-radius:4px;cursor:pointer;display:grid;place-items:center;font-size:11px;}
 .ptab .pdel:hover{background:#3a1a1c;color:#ff9b93;}
 .ptab .pdot{width:6px;height:6px;border-radius:50%;flex:0 0 auto;display:none;}
+.ptab.conflict .pdot{display:inline-block;background:#d9822b;box-shadow:0 0 6px #d9822b;}
 .ptab.waiting .pdot{display:inline-block;background:#e6a23c;box-shadow:0 0 6px #e6a23c;}
 .ptab.approval .pdot{display:inline-block;background:#e5484d;box-shadow:0 0 7px #e5484d;}
 .paddbtn{flex:0 0 auto;width:26px;height:26px;border-radius:6px;
@@ -1342,6 +1344,39 @@ async function openAgentDiff(){
 }
 
 
+// ── Conflict radar (#43): warn when two agent worktrees of one repo change the same file ─────────────────
+// Informational only. Polls the server every 10s while >=2 worktree projects have a live agent.
+const overlapByProject=new Map();   // project id -> [{path, with:[project names], collide}]
+const overlapText=(ov)=>{
+  const names=[...new Set(ov.flatMap((o)=>o.with))].join(", ");
+  const files=ov.slice(0,3).map((o)=>o.path.split("/").pop()+(o.collide?" (same lines)":"")).join(", ")+(ov.length>3?" +"+(ov.length-3)+" more":"");
+  return "overlaps with "+names+": "+files;
+};
+let overlapSig="";
+async function pollOverlaps(){
+  if(!LIVE||document.hidden) return;
+  const live=new Set(getAgentQueue().map((x)=>x.s.project));
+  const trees=[...projects].filter(([id,p])=>live.has(id)&&p.root&&p.base).map(([id,p])=>({id,name:p.name,dir:p.root,base:p.base}));
+  const next=new Map();
+  if(trees.length>=2){
+    try{
+      const r=await fetch("/api/git/overlaps",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({trees:trees.map((t)=>({dir:t.dir,base:t.base}))})});
+      if(!r.ok) return;
+      for(const o of (await r.json()).overlaps||[]) for(const i of o.trees){
+        const t=trees[i]; if(!t) continue;
+        if(!next.has(t.id)) next.set(t.id,[]);
+        next.get(t.id).push({path:o.path,collide:o.collide===true,with:o.trees.filter((j)=>j!==i&&trees[j]).map((j)=>trees[j].name)});
+      }
+    }catch{return;}
+  }
+  const sig=JSON.stringify([...next]);
+  if(sig===overlapSig) return;
+  overlapSig=sig; overlapByProject.clear(); next.forEach((v,k)=>overlapByProject.set(k,v));
+  updateProjectAttention(); updateAgentOverview();
+}
+setInterval(pollOverlaps,10000);
+
 // ── Scrollback: lines of history each terminal keeps. Global default, applied to new terminals at
 // creation and live to open ones. Big = long logs survive; small = less RAM across many terminals. ──
 const SCROLLBACK_STORE="td.scrollback.v1", SCROLLBACK_DEFAULT=8000;
@@ -1529,6 +1564,9 @@ function updateProjectAttention(pid){
   }
   p.tab.classList.toggle("approval",hasAppr);
   p.tab.classList.toggle("waiting",!hasAppr&&hasWait);
+  const ov=overlapByProject.get(pid);
+  p.tab.classList.toggle("conflict",!!ov);
+  p.tab.title=ov?"\u26a0 "+overlapText(ov):"";
 }
 function moveSessionToProject(s,pid){
   if(!projects.has(pid)||s.project===pid)return;
@@ -2068,6 +2106,8 @@ function renderAgentList(queue){
     const extra=evtSummary(tab);
     if(extra){const x=el("span","agent-row-evt"); x.textContent=" · "+extra; st.append(x);}   // textContent only — event data is untrusted
     info.append(path,st);
+    const ov=overlapByProject.get(s.project);
+    if(ov){const w=el("div","agent-row-warn"); w.textContent="\u26a0 "+overlapText(ov); w.title=w.textContent; info.append(w);}   // textContent: file names are untrusted
     row.append(dot,info);
     row.addEventListener("click",()=>{
       revealWindow(s);
