@@ -147,7 +147,9 @@ refused (the window says so and stops retrying — close one, then ⟳), reattac
 
 ### Autostart
 
-launchd (macOS) and systemd (Linux) templates: [docs/autostart](docs/autostart/README.md).
+One command: **`termdeck autostart install`** sets up a launchd agent (macOS) or a systemd user unit (Linux) so the
+dashboard is there at login — no root, `--dry-run` previews the file and the commands, `termdeck autostart uninstall`
+removes it. Prefer to do it by hand? The templates are in [docs/autostart](docs/autostart/README.md).
 
 ### Updating
 
