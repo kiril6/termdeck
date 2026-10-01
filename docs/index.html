@@ -145,6 +145,9 @@
   .rel ul{margin:8px 0 0;padding-left:18px;color:var(--mut);font-size:.88rem}
   .rel li{margin:3px 0}
   .rel a.more{display:inline-block;margin-top:10px;font-family:var(--mono);font-size:.82rem;color:var(--accent2)}
+  .hooks-cta{margin-top:22px;max-width:680px}
+  .hooks-cta .label{color:var(--ink);margin:0 0 10px;font-size:.98rem}
+  .hooks-cta .label .c{color:var(--mut);font-size:.88rem}
   .morelink{display:flex;width:fit-content;align-items:center;gap:6px;margin-top:8px;font-family:var(--mono);
     font-size:.9rem;color:var(--accent2)}
 </style>
@@ -227,6 +230,11 @@
     <div class="card"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h12"/></svg></span><h3>One queue for the fleet</h3><p>A single popover lists every agent tab across all projects, ranked needs approval → waiting → working. Click a row to jump to it.</p></div>
     <div class="card"><span class="ico"><svg viewBox="0 0 24 24"><path d="M7 4h7l5 5v11H7z"/><path d="M14 4v5h5"/><path d="M10 14h6M10 17h4"/></svg></span><h3>Review what the agent did</h3><p>Read-only diff of a worktree against the commit it was cut from — committed and uncommitted work, plus untracked files, in one view.</p></div>
     <div class="card"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><h3>Private by default</h3><p>Runs on your machine. No cloud, no telemetry, no API keys — your agents’ output never leaves localhost. Optional session logs for an audit trail.</p></div>
+  </div>
+
+  <div class="hooks-cta">
+    <div class="label">Optional: exact agent state <span class="c">— wires up Claude Code, Gemini CLI and Codex hooks. It shows what it will change and asks first; add <code>--dry-run</code> to only preview.</span></div>
+    <div class="copybox"><code>npx @kiril6/termdeck hooks install</code><button class="copybtn" data-copy="npx @kiril6/termdeck hooks install">Copy</button></div>
   </div>
 
   <span class="kick">Why termdeck</span>
