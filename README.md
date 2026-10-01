@@ -118,8 +118,13 @@ It **opens in your browser automatically**. If it didn't (or you're on a headles
 Override the port:
 
 ```bash
-PORT=4000 npm start
+PORT=4000 npm start        # or:  npx @kiril6/termdeck --port 4000
 ```
+
+Command-line options (flags win over env vars): `--port <n>`, `--host <addr>`, `--no-open`, `--version`, `--help`.
+**`termdeck doctor`** checks the machine and exits without starting anything — Node version, node-pty, a shell
+spawns, tmux (≥ 3.2 for agent hooks), git, port free, network exposure and any invalid `TD_*` value — with the
+fix next to each problem. It is fully offline; exit code 0 means all good, 1 means warnings or failures.
 
 The bind address, reattach grace period, and replay-buffer size are configurable too:
 

@@ -12,6 +12,8 @@
  *   http://localhost:3000/debug
  */
 
+require('./scripts/cli').applyArgs(process.argv.slice(2));   // --help / --version / --port / doctor (#59) — before anything boots
+
 const express = require('express');
 const { spawn, execFile } = require('child_process');
 const http    = require('http');
