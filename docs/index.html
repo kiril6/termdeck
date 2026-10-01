@@ -284,7 +284,7 @@
     <div class="it"><b>Local-first &amp; offline</b><span>Loopback bind, WS Origin/Host validation, xterm served locally — no CDN.</span></div>
     <div class="it"><b>Safe remote access</b><span>Random access token whenever it’s reachable off-loopback; <code>TD_ALLOWED_HOSTS</code> for <code>tailscale serve</code>. <a href="https://github.com/kiril6/termdeck/blob/master/docs/remote-access.md">Setup guide</a></span></div>
     <div class="it"><b>Session logs</b><span>Set <code>TD_LOG_DIR</code> and each shell’s output is saved when it exits — an audit trail for long agent runs.</span></div>
-    <div class="it"><b>Autostart</b><span>One command, <code>termdeck autostart install</code>, sets up a launchd agent or systemd user unit — preview with <code>--dry-run</code>. <a href="https://github.com/kiril6/termdeck/tree/master/docs/autostart">Details</a></span></div>
+    <div class="it"><b>Autostart</b><span>One command, <code>termdeck autostart install</code>, sets up a launchd agent or systemd user unit — preview with <code>--dry-run</code>. Needs a global install (<code>npm i -g</code>) or a clone. <a href="https://github.com/kiril6/termdeck/tree/master/docs/autostart">Details</a></span></div>
     <div class="it"><b>Doctor</b><span><code>termdeck doctor</code> checks Node, node-pty, tmux, git and the port — offline, with the fix next to each problem.</span></div>
     <div class="it"><b>Clickable file paths</b><span>Paths in output (<code>src/a.ts:42</code>) open in the viewer at that line.</span></div>
   </div>
@@ -310,19 +310,26 @@
     <div class="step">
       <div class="n">2</div>
       <div>
+        <div class="label">Keep it installed <span class="c">— puts <code>termdeck</code> on your PATH for daily use; <code>npx</code> above runs once and leaves nothing behind</span></div>
+        <div class="copybox"><code>npm i -g @kiril6/termdeck</code><button class="copybtn" data-copy="npm i -g @kiril6/termdeck">Copy</button></div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="n">3</div>
+      <div>
         <div class="label">Or clone it <span class="c">— setup picks the right node-pty prebuilt for your OS, then serves on localhost:3000</span></div>
         <div class="copybox"><code>node install.js &amp;&amp; npm start</code><button class="copybtn" data-copy="node install.js && npm start">Copy</button></div>
       </div>
     </div>
     <div class="step">
-      <div class="n">3</div>
+      <div class="n">4</div>
       <div>
         <div class="label">Optional: install tmux first <span class="c">— shells then survive a server restart, not just a browser refresh</span></div>
         <div class="copybox"><code>brew install tmux</code><button class="copybtn" data-copy="brew install tmux">Copy</button></div>
       </div>
     </div>
     <div class="step">
-      <div class="n">4</div>
+      <div class="n">5</div>
       <div>
         <div class="label">Optional: exact agent state <span class="c">— hooks for Claude Code, Gemini CLI and Codex; shows what it changes and asks first (<code>--dry-run</code> to preview)</span></div>
         <div class="copybox"><code>npx @kiril6/termdeck hooks install</code><button class="copybtn" data-copy="npx @kiril6/termdeck hooks install">Copy</button></div>
