@@ -147,7 +147,8 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   the new checkout — so the tree, the cwd and every shell in it are scoped to that branch — and the agent
   CLI launches there with the prompt as its first argument (shell-quoted, so apostrophes and shell
   metacharacters are passed literally, never executed). Worktrees live in a sibling
-  `<repo>-worktrees/<branch>` folder, keeping the repo itself clean. **Nothing is ever removed
+  `<main-repo>-worktrees/<branch>` folder, keeping the repo itself clean — always cut from the **main**
+  working tree, even when started from another agent's worktree tab (never nested). **Nothing is ever removed
   automatically:** a finished task leaves its worktree and branch on disk to merge or delete yourself.
   Requires the project root to be inside a git repo. Failures name their **real** cause rather than
   a plausible-sounding wrong one: a non-repo says so, a host without git installed says *that*, and in
@@ -188,6 +189,18 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   popover. The button's badge mirrors the highest-priority state in the queue (**red** approval beats
   **amber** waiting beats working), and its tooltip carries the count, so the whole fleet collapses to one
   glanceable control. Empty state reads *"No active agents / All quiet"*.
+- 🔌 **Agent event bridge** — an agent CLI's lifecycle hooks report real state instead of the idle/regex
+  guesses. Every PTY gets `TD_ID`, `TD_URL`, `TD_HOOK` (and `TD_TOKEN` when the access token is on) in its
+  environment (tmux ≥ 3.2 via `-e`); `scripts/td-hook.js` — a dependency-free, silent, never-blocking
+  no-op outside termdeck — POSTs `{id,agent,type,tool,detail,files}` to `POST /api/agent-events`, where
+  `type` ∈ `prompt_submit | tool_start | tool_end | permission_request | stop | error`. The server pushes
+  the event only to that terminal's own browser socket (and replays the last one on reattach). In the
+  browser: `permission_request` → red *needs approval* instantly, `stop` → amber *waiting*, anything else
+  → *working* (also clears a red flag once you answered). The queue row shows the current tool and file
+  (and tokens/cost if the agent supplies them). A tab that receives events is auto-tagged as an agent and
+  its output heuristics stand down; the 8s idle watch becomes a 120s safety net (an Esc-interrupt fires
+  no Stop hook). **Without hooks nothing changes.** Setup for Claude Code, Gemini CLI and Codex:
+  [docs/agent-hooks.md](docs/agent-hooks.md).
 - 🖥️ **Broadcast input** — 📢 Cast toolbar toggle / `⌘⌥B`: keystrokes **and inserted snippets** mirror to
   every live shell **in the active project** (not other projects — a cast can't hit shells you can't see).
   Pulsing red state signals ON (destructive — one command hits all of the project's shells).
@@ -294,6 +307,10 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   upgrade then requires that cookie (401 otherwise). Restart = new token. Loopback stays token-free.
 - 🔌 **WS Origin + Host validation** — rejects the upgrade unless both resolve to a known localhost
   name (blocks cross-site / DNS-rebind attacks on the shell socket). No token on loopback by design.
+- 🔌 **`/api/agent-events` hardening** — same `apiGuard` Origin/Host check (and access token when on) as
+  every `/api/*` route; JSON only, 64KB body cap, `type` whitelist, unknown/log-only terminal ids → 404,
+  fields whitelisted and length-capped, 30 events/s per terminal (429), shown via `textContent`. An event
+  can never write to a PTY — it only changes what the UI displays; termdeck still never auto-answers.
 - 🔌 **`/api/git/root` + `/api/git/worktree` + `/api/git/diff`** — git repo detection, worktree creation
   and read-only diff for the agent-worktree flow, behind the **same** `apiGuard` as the rest. Worktree
   creation writes to the repo but grants no capability a shell in that repo doesn't already have

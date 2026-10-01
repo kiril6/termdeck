@@ -236,6 +236,28 @@ app.get('/api/read', apiGuard, (req, res) => {       // read a text file for the
   finally { if (fd !== undefined) fs.closeSync(fd); }
 });
 
+// ── /api/agent-events — structured agent state from CLI hooks (#40) ───────────
+// Events are UNTRUSTED data: whitelisted fields, length caps, per-terminal rate limit, unknown ids
+// ignored. They only ever flow to that terminal's own browser socket — nothing here writes to a PTY.
+const AGENT_EVT_TYPES = new Set(['prompt_submit', 'tool_start', 'tool_end', 'permission_request', 'stop', 'error']);
+const cap = (v, n) => typeof v === 'string' && v ? v.slice(0, n) : undefined;
+app.post('/api/agent-events', apiGuard, (req, res) => {
+  const b = req.body;
+  if (!b || typeof b !== 'object' || typeof b.id !== 'string' || !AGENT_EVT_TYPES.has(b.type)) return res.status(400).end();
+  const s = live.get(b.id);
+  if (!s || s.isLog) return res.status(404).end();
+  const now = Date.now();
+  if (now - (s.evtWin || 0) > 1000) { s.evtWin = now; s.evtCount = 0; }
+  if (++s.evtCount > 30) return res.status(429).end();           // 30 events/s per terminal
+  const ev = { type: b.type, agent: cap(b.agent, 32), tool: cap(b.tool, 64), detail: cap(b.detail, 200), ts: now };
+  if (Array.isArray(b.files)) ev.files = b.files.slice(0, 10).map((f) => cap(f, 300)).filter(Boolean);
+  if (Number.isFinite(b.tokens)) ev.tokens = b.tokens;
+  if (Number.isFinite(b.cost))   ev.cost = b.cost;
+  s.agentEvt = ev;                                                // replayed to a reattaching browser
+  if (s.ws) send(s.ws, { type: 'agent', event: ev });
+  res.status(204).end();
+});
+
 // ── /api/git — worktree-per-agent + read-only diff review ────────────────────
 // Same Origin+Host guard as /api/ls. Worktree creation writes to the user's repo,
 // but grants no capability a shell in that repo doesn't already have (`git worktree
@@ -262,7 +284,7 @@ app.get('/api/git/root', apiGuard, async (req, res) => {         // is this dir 
   } catch (e) { res.status(404).json({ error: e.code === 'ENOENT' ? GIT_MISSING : 'not a git repository' }); }
 });
 
-// POST: creates a sibling worktree `<repo>-worktrees/<branch>` off the repo's current HEAD,
+// POST: creates a sibling worktree `<main-repo>-worktrees/<branch>` off the given dir's current HEAD,
 // so each agent gets an isolated checkout instead of three agents racing on one tree.
 app.post('/api/git/worktree', apiGuard, async (req, res) => {
   const dir    = expandDir(req.body?.dir);
@@ -270,8 +292,12 @@ app.post('/api/git/worktree', apiGuard, async (req, res) => {
   if (!safeDir(dir))              return res.status(400).json({ error: 'not a directory' });
   if (!GIT_BRANCH_RE.test(branch))return res.status(400).json({ error: 'invalid branch name' });
   try {
-    const root   = (await gitP(['rev-parse', '--show-toplevel'], dir)).trim();
-    const base   = (await gitP(['rev-parse', 'HEAD'], root)).trim();
+    const top    = (await gitP(['rev-parse', '--show-toplevel'], dir)).trim();
+    const base   = (await gitP(['rev-parse', 'HEAD'], top)).trim();
+    // First `worktree list` entry is always the MAIN tree, so tasks started from inside an
+    // agent worktree still land in <main>-worktrees/ instead of nesting (#39).
+    const root   = (await gitP(['worktree', 'list', '--porcelain'], top)).split('\n')
+                     .find((l) => l.startsWith('worktree '))?.slice(9).trim() || top;
     const wtHome = path.join(path.dirname(root), path.basename(root) + '-worktrees');
     const wtPath = path.join(wtHome, branch.replace(/\//g, '-'));
     if (fs.existsSync(wtPath))    return res.status(409).json({ error: 'worktree path already exists', path: wtPath });
@@ -439,6 +465,18 @@ function shellCandidates() {
 /** id -> { term, buffer, ws, killTimer, cwd, shellName, isLog } */
 const live = new Map();
 
+// ── Agent event bridge (#40) ─────────────────────────────────────────────────
+// Each PTY gets TD_ID/TD_URL(/TD_TOKEN)/TD_HOOK so an agent CLI's hook, running inside that
+// shell, can POST its lifecycle events back (scripts/td-hook.js). TD_URL is fixed at listen().
+let AGENT_URL = '';
+const AGENT_HOOK = path.join(__dirname, 'scripts', 'td-hook.js');
+const agentEnv = (id, base) => ({ ...base, TD_ID: id, TD_URL: AGENT_URL, TD_HOOK: AGENT_HOOK, ...(TOKEN ? { TD_TOKEN: TOKEN } : {}) });
+// tmux builds the session env from its server, not from our client, so pass it with -e (tmux >= 3.2).
+const tmuxEnvFlags = (() => {
+  try { const [, a, b] = /(\d+)\.(\d+)/.exec(execFileSync('tmux', ['-V']).toString()) || []; return +a > 3 || (+a === 3 && +b >= 2); }
+  catch { return false; }
+})();
+
 wss.on('connection', (ws, req) => {
   const q     = url.parse(req.url, true).query;
   const id    = String(q.id || genId());
@@ -454,6 +492,7 @@ wss.on('connection', (ws, req) => {
     existing.ws = ws;
     send(ws, { type:'attach', id, shell:existing.shellName, cwd:existing.cwd, resumed:true });
     if (existing.buffer) send(ws, { type:'output', data:existing.buffer });
+    if (existing.agentEvt) send(ws, { type:'agent', event:existing.agentEvt });
     try { existing.term.resize(cols, rows); } catch {}
     bindWsEvents(ws, id);
     return;
@@ -470,13 +509,14 @@ wss.on('connection', (ws, req) => {
   // Durable path: hand the PTY to tmux (attach-or-create) so it survives restarts.
   if (TMUX_OK) {
     const name = tmuxSessionName(id);
-    const env  = { ...process.env }; delete env.TMUX;   // avoid nested-session warning if server runs inside tmux
+    const env  = agentEnv(id, process.env); delete env.TMUX;   // avoid nested-session warning if server runs inside tmux
     // Whether the session already exists decides if `cmd` should run: only on a fresh create,
     // never on a reattach (else the startup command re-fires every server restart).
     let existed = false;
     try { execFileSync('tmux', ['has-session', '-t', name], { stdio:'ignore' }); existed = true; } catch {}
     try {
-      term = pty.spawn('tmux', ['new-session', '-A', '-D', '-s', name, '-c', cwd],
+      term = pty.spawn('tmux', ['new-session', '-A', '-D', '-s', name, '-c', cwd,
+                                   ...(tmuxEnvFlags ? ['-e', 'TD_ID=' + id, '-e', 'TD_URL=' + AGENT_URL, '-e', 'TD_HOOK=' + AGENT_HOOK, ...(TOKEN ? ['-e', 'TD_TOKEN=' + TOKEN] : [])] : [])],
                        { name:'xterm-256color', cols, rows, cwd, env });
       usedShell = process.env.SHELL || 'sh';            // tmux runs the login shell inside; badge shows it
       tmuxName  = name;
@@ -492,7 +532,7 @@ wss.on('connection', (ws, req) => {
   if (!term) for (const sh of shellCandidates()) {
     runCmd = !!cmd;
     try {
-      term = pty.spawn(sh, [], { name:'xterm-256color', cols, rows, cwd, env:process.env });
+      term = pty.spawn(sh, [], { name:'xterm-256color', cols, rows, cwd, env:agentEnv(id, process.env) });
       usedShell = sh;
       break;
     } catch (e) {
@@ -652,6 +692,7 @@ function listenOn(port, triesLeft) {
     // already on IPv6 :3000 (e.g. a Vite dev server) instead of us. 127.0.0.1 is unambiguous.
     const host = LOOPBACK ? '127.0.0.1' : HOST;
     const base = `http://${host}:${actual}`;
+    AGENT_URL = base;
     const open = TOKEN ? `${base}/?t=${TOKEN}` : base;   // tokenized URL: first visit sets the auth cookie
     console.log(`\n  Terminal Dashboard → ${open}`);
     console.log(`  Debug             → ${base}/debug`);
