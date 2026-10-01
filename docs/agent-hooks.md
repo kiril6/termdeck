@@ -32,7 +32,8 @@ config without touching your other hooks or settings, is idempotent, writes a ti
 hand? The snippets below are exactly what it writes.
 
 > Shells that were already running when you upgraded don't have `TD_ID`; open a new terminal.
-> After a server restart on a different port, shells kept alive by tmux still hold the old `TD_URL`.
+> After a server restart on a different port, tmux-kept shells still hold the old `TD_URL`; the helper then falls back to
+> `~/.termdeck/server.json` (current URL, plus the token when it is on; mode 0600), so events still arrive.
 
 ## Claude Code
 

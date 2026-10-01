@@ -698,6 +698,14 @@ function listenOn(port, triesLeft) {
     const host = LOOPBACK ? '127.0.0.1' : HOST;
     const base = `http://${host}:${actual}`;
     AGENT_URL = base;
+    // Shells kept alive by tmux across a restart still hold the OLD TD_URL/TD_TOKEN; td-hook.js falls back to this file (#47).
+    try {
+      const dir = path.join(os.homedir(), '.termdeck'), f = path.join(dir, 'server.json');
+      fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+      fs.writeFileSync(f, JSON.stringify({ url: base, pid: process.pid, ...(TOKEN ? { token: TOKEN } : {}) }), { mode: 0o600 });
+      fs.chmodSync(f, 0o600);
+      process.on('exit', () => { try { if (JSON.parse(fs.readFileSync(f, 'utf8')).pid === process.pid) fs.unlinkSync(f); } catch {} });
+    } catch {}   // best effort: without it only the restart-on-another-port case degrades
     const open = TOKEN ? `${base}/?t=${TOKEN}` : base;   // tokenized URL: first visit sets the auth cookie
     console.log(`\n  Terminal Dashboard → ${open}`);
     console.log(`  Debug             → ${base}/debug`);
