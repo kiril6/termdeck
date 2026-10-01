@@ -135,7 +135,7 @@ values fall back to 60 seconds and 1,000,000 bytes respectively.
 (exact hostnames, enables the access token) — see [docs/remote-access.md](docs/remote-access.md).
 
 `TD_MAX_PANELS` caps live terminals server-side (default 64); new sessions beyond it are
-rejected with 503, reattaching to an existing one is never blocked.
+refused (the window says so and stops retrying — close one, then ⟳), reattaching to an existing one is never blocked.
 
 ### Autostart
 
@@ -177,6 +177,20 @@ The intended deployment is: clone, `npm start`, use it on `localhost`.
 ### Shells won't start?
 
 Open **http://localhost:3000/debug** — it dumps your environment and tries each shell candidate, telling you exactly what failed.
+
+### Known limits
+
+What termdeck does *not* do, so none of it is a surprise:
+
+- **Reboots end shells.** tmux keeps shells alive across a server restart or crash, not across a machine reboot. Layout and projects come back; the processes don't.
+- **Agent state is a guess unless you install the hooks.** Without [agent hooks](docs/agent-hooks.md) "waiting" and "needs approval" come from output heuristics (idle time, a prompt regex). The hooks are checked against each CLI's documented payloads, not yet against every real CLI version.
+- **It never answers a prompt for you.** Approval prompts are surfaced and jumped to, never approved.
+- **Remote access exposes a real shell.** The access token is a per-start secret, not multi-user auth. Keep the loopback bind, or use a tunnel — see [docs/remote-access.md](docs/remote-access.md).
+- **Limits:** 12 terminals per project, 10 projects, 64 live terminals server-wide (`TD_MAX_PANELS`).
+- **Windows:** works through ConPTY, but there is no tmux, so shells don't outlive the server, and the live working-directory badge falls back to the spawn directory.
+- **The hosted demo has no backend** — a fake shell, no real PTYs or files.
+- **Viewer:** the Markdown viewer is not full CommonMark (no nested lists or reference links); clickable paths only link files that exist on disk, and only in live mode.
+- **Worktrees are never cleaned up for you.** A finished agent task leaves its worktree and branch to merge or delete yourself.
 
 ---
 
@@ -245,7 +259,7 @@ This server spawns **real shells**, so access is locked down by default:
 - **Loopback only** — binds `127.0.0.1`, so nothing on your network can reach it. To expose it deliberately (e.g. a trusted LAN), set `HOST=0.0.0.0` (or a specific IP); the server prints a warning and generates a random access token: open the tokenized URL it prints (`/?t=…`) once and a cookie authorizes the browser; everything else gets 401.
 - **Origin + Host validation** — the WebSocket upgrade is rejected unless both headers resolve to a known localhost name. This blocks a malicious web page from opening a socket to your shells (cross-site / DNS-rebind), the main browser attack for a localhost service.
 
-There is intentionally **no login/token**: a non-browser process already running as your user can spawn its own shell anyway, so a token would only be theater. If you ever expose this multi-user or over a tunnel, add real authentication in front of it.
+On the loopback bind there is intentionally **no login/token**: a non-browser process already running as your user can spawn its own shell anyway, so a token would only be theater. If you ever expose this multi-user or over a tunnel, add real authentication in front of it.
 
 ### Demo vs. live mode
 

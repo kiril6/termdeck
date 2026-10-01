@@ -2155,6 +2155,13 @@ function openTabWS(s,tab){
       }
     }else if(m.type==="cwd"){          // live cwd: shell cd'd — backend polled the new dir
       if(m.cwd){tab.cwd=m.cwd; if(s.activeTabId===tab.id) s.badgeCwd.textContent=tildePath(m.cwd);}
+    }else if(m.type==="error"&&m.code==="panel_cap_reached"){
+      // Backend terminal cap (TD_MAX_PANELS): retrying can't help until something closes, so park the tab
+      // as dead (no auto-reconnect; the window's \u27f3 restarts it) and say why instead of looping forever.
+      tab.exited=true; setTabStatus(s,tab,"dead");
+      const lim=Number.isFinite(m.limit)?m.limit:"?";
+      tab.term.write("\r\n\x1b[31m[terminal limit reached ("+lim+") \u2014 close a window or raise TD_MAX_PANELS, then click \u27f3 to retry]\x1b[0m\r\n");
+      if(Date.now()-capToastAt>3000){capToastAt=Date.now(); toast("\u26d4","Terminal limit reached","The server allows "+lim+" live terminals. Close one, then click \u27f3 on this window.",6000,()=>revealWindow(s));}
     }else if(m.type==="exit"){
       tab.exited=true; setTabStatus(s,tab,"dead");
       if(tab.agent) updateAgentOverview();
@@ -2173,6 +2180,7 @@ function openTabWS(s,tab){
 }
 // Coalesce "shell exited" toasts: on mass reattach after a long absence every dead PTY fires exit
 // near-simultaneously — collapse a burst into a single toast instead of N stacked ones.
+let capToastAt=0;   // one "terminal limit" toast per burst, not one per refused tab
 const DEAD_DOT='<span class="led dead"></span>';
 let exitBatch=[], exitTimer=null;
 function announceExit(s,tab){
