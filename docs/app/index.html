@@ -970,6 +970,7 @@ const ICON={
   snippet:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',
   gamepad:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h4M8 10v4M15 11h.01M18 13h.01M17 5H7a5 5 0 0 0-5 5l1.5 7a2.5 2.5 0 0 0 4.6.8L9 15h6l.9 2.8a2.5 2.5 0 0 0 4.6-.8L22 10a5 5 0 0 0-5-5z"/></svg>',
   refresh:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v5h-5"/></svg>',
+  bot:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>',
   eye:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
   eyeOff:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 8 10 8a17 17 0 0 1-2.6 3.4M6.6 6.6A17 17 0 0 0 2 12s3.5 8 10 8a9 9 0 0 0 5.4-1.6M2 2l20 20M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>',
   copy:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h11v11H9zM5 15H4V4h11v1"/></svg>',
@@ -2873,7 +2874,7 @@ function buildPalette(q){
     rows.forEach((p)=>{
       const custom=!AICLI_BUILTIN.includes(p);
       const item=el("div","pal-item");
-      const ic=el("div","pi-icon");ic.textContent="🤖";
+      const ic=el("div","pi-icon");ic.innerHTML=ICON.bot;
       const body=el("div","pi-body");
       const lb=el("div","pi-label");lb.innerHTML=q?hlMatch(p.label,q):p.label;
       const sb=el("div","pi-sub");sb.textContent=p.cmd;
