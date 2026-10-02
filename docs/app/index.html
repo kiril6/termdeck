@@ -502,6 +502,20 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
 @media (prefers-reduced-motion:reduce){.hint .k span{animation:none;opacity:.5;}}
 .hint p{margin:0;font-size:12px;letter-spacing:.06em;}
 .hint b{color:var(--accent);font-weight:600;}
+.tour{position:fixed;inset:0;z-index:9995;}
+.tour.nospot{background:rgba(0,0,0,.6);}
+.tour-spot{position:absolute;border-radius:8px;border:1px solid var(--accent);box-shadow:0 0 0 9999px rgba(0,0,0,.6);pointer-events:none;}
+.tour.nospot .tour-spot{display:none;}
+@media (prefers-reduced-motion:no-preference){.tour-spot,.tour-card{transition:top .2s ease,left .2s ease,width .2s ease,height .2s ease;}}
+.tour-card{position:absolute;width:min(320px,calc(100vw - 24px));box-sizing:border-box;padding:16px 18px;
+  background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:10px;
+  box-shadow:0 12px 40px rgba(0,0,0,.5);font-size:12px;line-height:1.55;}
+.tour-card .tour-n{font-size:10px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;}
+.tour-card h3{margin:4px 0 6px;font-size:14px;color:var(--accent);}
+.tour-card p{margin:0 0 14px;color:var(--text);}
+.tour-foot{display:flex;align-items:center;gap:8px;}
+.tour-foot .tour-skip{margin-right:auto;background:none;border:0;color:var(--muted);font:inherit;cursor:pointer;padding:4px 0;}
+.tour-foot .tour-skip:hover{color:var(--text);text-decoration:underline;}
 .hint-link{color:var(--muted);cursor:pointer;font-size:11px;opacity:.55;pointer-events:auto;
   border-bottom:1px dotted var(--line);padding-bottom:1px;}
 .hint-link:hover{opacity:1;color:var(--text);border-bottom-color:var(--muted);}
@@ -794,7 +808,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
     <div class="k"><span>▚</span> <span>▚</span> <span>▚</span></div>
     <p>No sessions yet</p>
     <p>Press <b class="hint-kbd">⌘K</b> or click <b>New terminal</b> <span class="hint-kbd" id="hint-newkbd"></span></p>
-    <p><a class="hint-link" id="about-link">What is this?</a></p>
+    <p><a class="hint-link" id="about-link">What is this?</a> &nbsp;·&nbsp; <a class="hint-link" id="hint-tour" tabindex="0" role="button">Take the tour</a></p>
     <div class="copyr">© 2026 <a href="https://github.com/kiril6" target="_blank" rel="noopener" class="sc-credit">kiril6</a> · MIT</div>
   </div>
   <div class="petfield" id="petfield"></div>
@@ -879,6 +893,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
       shell on this machine. Refresh or drop the connection without losing a session, group shells
       into <b>projects</b>, and drive it all from <b class="kbd-inline">⌘K</b>. <span style="opacity:.85"><span id="app-ver"></span><a href="https://github.com/kiril6/termdeck" target="_blank" rel="noopener" class="sc-credit">GitHub</a> · © 2026 <a href="https://github.com/kiril6" target="_blank" rel="noopener" class="sc-credit">kiril6</a> · MIT</span>
     </div>
+    <div class="sc-about" style="padding-top:0;border-top:0"><a class="hint-link" id="tour-link" tabindex="0" role="button" style="opacity:.85">Take the tour</a> — a 5-step walkthrough of the main features.</div>
     <div class="sc-section">
       <div class="sc-section-label">Global</div>
       <div class="sc-row"><span>Command palette</span><div class="sc-keys"><kbd>⌘</kbd><kbd>K</kbd></div></div>
@@ -2719,6 +2734,7 @@ const PAL_CMDS=[
   {icon:ICON.theme,label:"Change theme",sub:"Open theme picker",kbd:"\u2318\u21e7P",run:()=>{closePalette();openThemePop(null,themeBtn);}},
   {icon:ICON.folderPlus,label:"New project",sub:"Add a project tab",kbd:"\u2318\u21e7M",run:()=>addProject()},
   {icon:ICON.keyboard,label:"Keyboard shortcuts",sub:"Show all shortcuts",kbd:"?",run:openShortcuts},
+{icon:ICON.eye,label:"Take the tour",sub:"A 5-step walkthrough of the main features",run:()=>{closePalette();takeTour();}},
   {icon:ICON.log,label:"Open file\u2026",sub:"Peek any text file \u2014 Markdown renders formatted",kbd:"\u2318\u2325O",run:()=>{closePalette();openFilePrompt();}},
   {icon:ICON.folder,label:"Open directory\u2026",sub:"Spawn shell in a specific folder",kbd:"\u2318\u21e7O",run:()=>{closePalette();document.getElementById("folder").click();}},
   {icon:ICON.snippet,label:"Save snippet\u2026",sub:"Store a reusable command",kbd:"\u2318\u2325S",run:()=>{closePalette();addSnippet();}},
@@ -3919,6 +3935,81 @@ let petResizeT;
 window.addEventListener("resize",()=>{clearTimeout(petResizeT);petResizeT=setTimeout(()=>{if(petsShown)petReflow();},200);});
 petAway=document.hidden; petEval();
 
+/* ════════════════════════════════════════════════
+   FIRST-RUN TOUR — spotlight + card, no deps, no network. Auto-shows once; replay: palette / Help.
+   ════════════════════════════════════════════════ */
+const TOUR_KEY="td-tour-done";
+const TOUR_STEPS=[
+  {sel:"#pal-btn",title:"Command palette",body:"Press "+kbd("⌘","K")+" for everything: new terminals, agent tasks, themes, snippets, sessions. Tab switches categories."},
+  {sel:null,title:"One worktree per agent",body:"Palette → New agent task cuts a git worktree for a branch and launches an agent in it, isolated from your other agents."},
+  {sel:"#agent-btn",title:"Agent queue",body:"Every agent across all projects in one list. See which is working, waiting or blocked, and jump straight to it."},
+  {sel:"#projects",title:"Projects & dock",body:"Group shells into projects with these tabs. Minimized windows wait in the dock at the bottom."},
+  {sel:"#sc-btn",title:"Help",body:"All shortcuts live here. Replay this tour any time from the palette (Take the tour)."},
+];
+let tourEl=null;
+function takeTour(){
+  if(tourEl) return;
+  closeModals("tour");
+  const prev=document.activeElement;
+  let i=0;
+  const root=el("div","tour"); root.append(el("div","tour-spot"));
+  const card=el("div","tour-card"); card.setAttribute("role","dialog"); card.setAttribute("aria-modal","true");
+  card.setAttribute("aria-labelledby","tour-t"); card.setAttribute("aria-describedby","tour-b");
+  root.append(card); document.body.append(root); tourEl=root;
+  const spot=root.firstChild;
+  const close=()=>{
+    try{localStorage.setItem(TOUR_KEY,"1");}catch{}
+    document.removeEventListener("keydown",onKey,true); window.removeEventListener("resize",place);
+    root.remove(); tourEl=null; if(prev&&prev.focus) prev.focus();
+  };
+  const go=(d)=>{ if(i+d>=TOUR_STEPS.length) return close(); i=Math.max(0,i+d); render(); };
+  function place(){
+    const st=TOUR_STEPS[i], t=st.sel&&document.querySelector(st.sel), r=t&&t.getBoundingClientRect();
+    const has=!!(r&&r.width&&r.height);
+    root.classList.toggle("nospot",!has);
+    const vw=innerWidth, vh=innerHeight, cw=card.offsetWidth, ch=card.offsetHeight;
+    if(has){
+      const pad=6; Object.assign(spot.style,{left:r.left-pad+"px",top:r.top-pad+"px",width:r.width+2*pad+"px",height:r.height+2*pad+"px"});
+      const below=r.bottom+pad+12+ch<=vh;
+      card.style.top=Math.max(12,below?r.bottom+pad+12:r.top-pad-12-ch)+"px";
+      card.style.left=clamp(r.left,12,Math.max(12,vw-cw-12))+"px";
+    }else{ card.style.top=Math.max(12,(vh-ch)/2)+"px"; card.style.left=Math.max(12,(vw-cw)/2)+"px"; }
+  }
+  function render(){
+    const st=TOUR_STEPS[i], last=i===TOUR_STEPS.length-1;
+    card.innerHTML='<div class="tour-n">'+(i+1)+' / '+TOUR_STEPS.length+'</div><h3 id="tour-t"></h3><p id="tour-b"></p>'+
+      '<div class="tour-foot"><button class="tour-skip" type="button">Skip tour</button>'+
+      '<button class="btn" type="button" data-back'+(i?"":" hidden")+'>Back</button>'+
+      '<button class="btn primary" type="button" data-next>'+(last?"Done":"Next")+'</button></div>';
+    card.querySelector("#tour-t").textContent=st.title; card.querySelector("#tour-b").textContent=st.body;
+    card.querySelector(".tour-skip").onclick=close;
+    card.querySelector("[data-back]").onclick=()=>go(-1);
+    const nx=card.querySelector("[data-next]"); nx.onclick=()=>go(1); nx.focus();
+    place();
+  }
+  function onKey(e){
+    if(e.key==="Escape"){e.preventDefault();e.stopPropagation();close();return;}
+    if(e.key==="ArrowRight"){e.preventDefault();e.stopPropagation();go(1);return;}
+    if(e.key==="ArrowLeft"){e.preventDefault();e.stopPropagation();go(-1);return;}
+    if(e.key==="Tab"){   // keep focus inside the card
+      const b=[...card.querySelectorAll("button:not([hidden])")], k=b.indexOf(document.activeElement);
+      e.preventDefault(); b[(k+(e.shiftKey?-1:1)+b.length)%b.length].focus(); return;
+    }
+    if(e.key!=="Enter"&&e.key!==" ") e.stopPropagation();   // swallow app shortcuts behind the overlay
+  }
+  document.addEventListener("keydown",onKey,true); window.addEventListener("resize",place);
+  render();
+}
+for(const id of ["hint-tour","tour-link"]){
+  const a=document.getElementById(id);
+  a.addEventListener("click",()=>{scOverlay.classList.remove("open");takeTour();});
+  a.addEventListener("keydown",(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();a.click();}});
+}
+// First visit only; skipped on narrow/touch screens where the anchors don't fit (replay still works).
+setTimeout(()=>{
+  let done=false; try{done=localStorage.getItem(TOUR_KEY)==="1";}catch{}
+  if(!done&&innerWidth>=720&&!matchMedia("(pointer:coarse)").matches&&!document.querySelector(".palette.open,.sc-overlay.open")) takeTour();
+},1200);
 })();
 </script>
 </body>

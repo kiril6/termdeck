@@ -56,6 +56,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   a ~40-line renderer inline in `public/index.html`. Input is HTML-escaped first and images are shown as
   their alt text, so a file can't inject markup or trigger requests. Not full CommonMark (no nested lists /
   reference links). In the hosted demo the tree's `README.md` and the palette command open a sample document.
+- 🧭 **First-run tour** — a 5-step spotlight walkthrough (⌘K palette → New agent task → agent queue → projects & dock → Help) that auto-shows once on a first visit (not on narrow/touch screens) and never again once closed (`td-tour-done` in `localStorage`). Replay: palette → *Take the tour*, the Help sheet, or the empty-desktop link. Esc closes, ←/→ step, focus stays in the card; no layout shift, no network, animation off under `prefers-reduced-motion`. Works in the hosted demo.
 - 🗂️ **Palette categories** — a chip row under the ⌘K input (*All · Terminals · Agents · Workspace · Saved · Sessions*) narrows the list; click a chip or press **Tab / Shift+Tab** to cycle, and the search text still applies inside the chosen category. Resets to *All* each time the palette opens. A **×** in the input (or **Ctrl+U**) clears the typed text.
 - ⌨️ **Palette shortcut hints** — every palette command that has a shortcut shows it, matching the real binding.
   Frequent actions get one (*Open file* `⌘⌥O`, *New agent task* `⌘⌥R`, *Review agent changes* `⌘⌥D`); one-off setup
