@@ -1302,7 +1302,7 @@ async function addAiCli(){
   ]);
   if(!v||!v.cmd)return;
   aiClis.push({id:newId("ai"),label:v.label||v.cmd,cmd:v.cmd}); saveAiClis();
-  toast("🤖","AI CLI preset saved",v.label||v.cmd,2200);
+  toast(ICON.bot,"AI CLI preset saved",v.label||v.cmd,2200);
 }
 async function editAiCli(p){
   const v=await inputModal("Edit AI CLI preset",[
@@ -2107,7 +2107,7 @@ function agentWaiting(s,tab){
   const watching=focusedId===s.id&&s.activeTabId===tab.id&&!s.minimized&&s.project===activeProject&&document.hasFocus();
   setWaiting(s,tab,true,tab.approval);   // dock/tab pulse marks the queue even while you watch; preserve a red approval flag, never downgrade it
   if(watching)return;              // looking right at it → the pulse is enough, skip the toast
-  toast("🤖","Waiting on you","\""+s.name+"\" is waiting for input",6000,()=>{revealWindow(s);switchTab(s,tab.id);});
+  toast(ICON.bot,"Waiting on you","\""+s.name+"\" is waiting for input",6000,()=>{revealWindow(s);switchTab(s,tab.id);});
 }
 // #3 approval-prompt routing: a tool-approval prompt blocks ALL progress, so it fires a
 // louder, STICKY toast (ms=0) distinct from the plain idle "waiting", and flags the tab/chip
