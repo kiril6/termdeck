@@ -253,9 +253,7 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
 .pal-item .pi-kbd{font-family:var(--mono);font-size:12px;color:var(--text);border:1px solid var(--line);
   background:var(--panel-2);border-radius:5px;padding:3px 8px;flex:0 0 auto;white-space:nowrap;}
 .pal-item .pi-keys{display:flex;gap:4px;flex:0 0 auto;}
-.pal-item .pi-dots{color:var(--muted);}
-.pal-item .pi-dots svg{width:18px;height:18px;display:block;}
-.pal-item.hi .pi-dots,.pal-item:hover .pi-dots{color:var(--text);}
+.pal-more .pi-icon svg{width:18px;height:18px;display:block;}
 .pal-item .pi-keys kbd{font-family:var(--mono);font-size:12px;color:var(--text);border:1px solid var(--line);
   background:var(--panel-2);border-radius:5px;padding:3px 0;min-width:24px;text-align:center;line-height:1.2;}
 .pal-item .pi-del{flex:0 0 auto;width:22px;height:22px;border:0;background:transparent;color:var(--muted);
@@ -2896,8 +2894,9 @@ function buildPalette(q){
       const body=el("div","pi-body");
       const lb=el("div","pi-label");lb.textContent=aiMore?"Fewer agents":"More agents ("+extra.length+")";
       body.append(lb);
-      const ch=el("div","pi-keys pi-dots");ch.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
-      item.append(el("div","pi-icon"),body,ch);
+      const ch=el("div","pi-keys");ch.textContent=aiMore?"▴":"▾";
+      const mi=el("div","pi-icon");mi.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
+      item.append(mi,body,ch);
       item.addEventListener("click",()=>{
         aiMore=!aiMore; palMatches=buildPalette(palInput.value);
         const k=palMatches.findIndex((m)=>m.classList.contains("pal-more"));   // keep the highlight on the toggle
