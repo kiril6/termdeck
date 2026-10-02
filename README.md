@@ -45,7 +45,7 @@ Three things set it apart:
 - **Persistent layout** — windows, projects, and themes saved to `localStorage`; a single-instance guard keeps two dashboard tabs from clobbering each other's state.
 
 **AI agents**
-- **AI CLI presets** — launch Claude Code, Codex, Gemini or Copilot in a fresh shell in one click from the palette, or save your own (label + command). On agent exit you drop back to the local shell.
+- **AI CLI presets** — launch Claude Code, Codex, Gemini, Copilot, Cursor Agent, OpenCode, Qwen Code or Aider (most-used first) in a fresh shell in one click from the palette, or save your own (label + command). On agent exit you drop back to the local shell.
 - **Agent worktrees** — palette → *New agent task…*: pick a branch, an agent CLI and a prompt, and termdeck cuts a **git worktree** off your repo and opens it as its own project tab, rooted at that checkout. *(Needs `git` on the host — it's the only feature that does, and everything else works without it.)* Three agents can work at once without overwriting each other. Worktrees live in a sibling `<repo>-worktrees/<branch>` folder; nothing is ever deleted for you.
 - **Review agent changes** — palette → *Review agent changes…*: a read-only diff of a worktree against the commit it was cut from, so **committed and uncommitted work both show in one view**, with a file summary and untracked files listed. View-only by design — you already have a shell in that worktree.
 - **Conflict radar** — when two agent worktrees of the same repo change the **same file**, the project tabs get an orange dot and the agent queue shows `⚠ overlaps with <agent>: <files>` — *(same lines)* if the edits actually collide. Informational only; checked every 10 s, read-only, idle with a single worktree.

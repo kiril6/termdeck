@@ -253,6 +253,7 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
 .pal-item .pi-kbd{font-family:var(--mono);font-size:12px;color:var(--text);border:1px solid var(--line);
   background:var(--panel-2);border-radius:5px;padding:3px 8px;flex:0 0 auto;white-space:nowrap;}
 .pal-item .pi-keys{display:flex;gap:4px;flex:0 0 auto;}
+.pal-more .pi-icon svg{width:18px;height:18px;display:block;}
 .pal-item .pi-keys kbd{font-family:var(--mono);font-size:12px;color:var(--text);border:1px solid var(--line);
   background:var(--panel-2);border-radius:5px;padding:3px 0;min-width:24px;text-align:center;line-height:1.2;}
 .pal-item .pi-del{flex:0 0 auto;width:22px;height:22px;border:0;background:transparent;color:var(--muted);
@@ -969,6 +970,7 @@ const ICON={
   snippet:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',
   gamepad:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h4M8 10v4M15 11h.01M18 13h.01M17 5H7a5 5 0 0 0-5 5l1.5 7a2.5 2.5 0 0 0 4.6.8L9 15h6l.9 2.8a2.5 2.5 0 0 0 4.6-.8L22 10a5 5 0 0 0-5-5z"/></svg>',
   refresh:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v5h-5"/></svg>',
+  bot:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>',
   eye:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
   eyeOff:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 8 10 8a17 17 0 0 1-2.6 3.4M6.6 6.6A17 17 0 0 0 2 12s3.5 8 10 8a9 9 0 0 0 5.4-1.6M2 2l20 20M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>',
   copy:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h11v11H9zM5 15H4V4h11v1"/></svg>',
@@ -1282,7 +1284,14 @@ const AICLI_BUILTIN=[
   {id:"codex",   label:"Codex",       cmd:"codex"},
   {id:"gemini",  label:"Gemini",      cmd:"gemini"},
   {id:"copilot", label:"Copilot",     cmd:"copilot"},
+  // Extras (shown under "More agents"). pflag = flag that pre-fills the prompt in interactive mode
+  // (verified against each CLI's docs); noPrompt = no way to pre-fill, so the task prompt can't be passed.
+  {id:"cursor",   label:"Cursor Agent", cmd:"cursor-agent"},
+  {id:"opencode", label:"OpenCode",     cmd:"opencode", pflag:"--prompt"},
+  {id:"qwen",     label:"Qwen Code",    cmd:"qwen",     pflag:"-i"},
+  {id:"aider",    label:"Aider",        cmd:"aider",    noPrompt:true},
 ];
+const AICLI_SLOTS=4;   // built-in agents shown before "More agents"; custom presets always show
 const AICLI_STORE="td.aicli.v1";
 let aiClis=(()=>{try{return JSON.parse(localStorage.getItem(AICLI_STORE)||"[]");}catch{return [];}})();
 function saveAiClis(){try{localStorage.setItem(AICLI_STORE,JSON.stringify(aiClis));}catch{}}
@@ -1293,7 +1302,7 @@ async function addAiCli(){
   ]);
   if(!v||!v.cmd)return;
   aiClis.push({id:newId("ai"),label:v.label||v.cmd,cmd:v.cmd}); saveAiClis();
-  toast("🤖","AI CLI preset saved",v.label||v.cmd,2200);
+  toast(ICON.bot,"AI CLI preset saved",v.label||v.cmd,2200);
 }
 async function editAiCli(p){
   const v=await inputModal("Edit AI CLI preset",[
@@ -1304,7 +1313,32 @@ async function editAiCli(p){
   p.label=v.label||v.cmd; p.cmd=v.cmd; saveAiClis();
 }
 function deleteAiCli(id){aiClis=aiClis.filter((x)=>x.id!==id);saveAiClis();}
-function launchAiCli(p){createSession({cwd:curCwd()||"~",cmd:p.cmd,name:p.label,agent:true});}
+// Usage ranking: launches bump a decayed score (half-life 14 days), so what you actually use floats up
+// and drops back as habits change. Order only starts changing after a few launches.
+const AICLI_USE="td.aicli.use.v1", AI_HALF_MS=14*864e5, AI_MIN_LAUNCHES=3;
+let aiUse=(()=>{try{return JSON.parse(localStorage.getItem(AICLI_USE)||"{}");}catch{return {};}})();
+const aiScore=(id,now)=>{const u=aiUse[id];return u?u.s*Math.pow(.5,(now-u.t)/AI_HALF_MS):0;};
+function bumpAiUse(p){
+  const now=Date.now(); aiUse[p.id]={s:aiScore(p.id,now)+1,t:now}; aiUse._n=(aiUse._n||0)+1;
+  try{localStorage.setItem(AICLI_USE,JSON.stringify(aiUse));}catch{}
+}
+function resetAiOrder(){aiUse={};try{localStorage.removeItem(AICLI_USE);}catch{}toast("↺","Agent order reset","Back to the default order",2200);}
+function aiRanked(){   // all presets, most-used first (stable: ties and the cold start keep the default order)
+  const all=[...AICLI_BUILTIN,...aiClis], now=Date.now();
+  if((aiUse._n||0)<AI_MIN_LAUNCHES) return all;
+  return all.map((p,i)=>({p,i,sc:aiScore(p.id,now)})).sort((a,b)=>b.sc-a.sc||a.i-b.i).map((x)=>x.p);
+}
+function aiSplit(list){   // -> {main, extra}: custom presets + top AICLI_SLOTS built-ins vs the rest
+  let n=0; const main=[],extra=[];
+  for(const p of list){ if(!AICLI_BUILTIN.includes(p)||n++<AICLI_SLOTS) main.push(p); else extra.push(p); }
+  return {main,extra};
+}
+// Interactive command with the task prompt pre-filled — each CLI has its own convention.
+function agentCmd(p,prompt){
+  if(!prompt||p.noPrompt) return p.cmd;
+  return p.cmd+" "+(p.pflag?p.pflag+" ":"")+shQuote(prompt);
+}
+function launchAiCli(p){bumpAiUse(p);createSession({cwd:curCwd()||"~",cmd:p.cmd,name:p.label,agent:true});}
 // ── Agent worktrees: one isolated checkout per agent task ────────────────────
 // Three agents loose in one repo overwrite each other. "New agent task" cuts a git
 // worktree off the project's repo, opens it as its OWN project (so the tree, cwd and
@@ -1325,11 +1359,11 @@ async function newAgentTask(){
   const g=await gitRootOf(dir);
   if(!g.root){toast(ICON.warn,"Can\u2019t create a worktree",(g.error||"not a git repository")+" \u2014 "+dir,6000);return;}
   const root=g.root;
-  const presets=[...AICLI_BUILTIN,...aiClis];
+  const presets=aiRanked();
   const v=await inputModal("New agent task",[
     {key:"branch",label:"Branch name",placeholder:"agent/fix-login"},
     {key:"cli",label:"Agent CLI",type:"select",options:presets.map((p)=>({value:p.cmd,label:p.label}))},
-    {key:"prompt",label:"Prompt (optional) — passed to the CLI as its first argument",placeholder:"Fix the login redirect bug"},
+    {key:"prompt",label:"Prompt (optional) — pre-filled into the agent (not supported by Aider)",placeholder:"Fix the login redirect bug"},
   ],"Create");
   if(!v||!v.branch)return;
   let j;
@@ -1343,7 +1377,10 @@ async function newAgentTask(){
   if(!p){toast(ICON.warn,"Worktree created, no project slot",j.path,6000);return;}
   p.root=j.path; p.base=j.base;                    // base = commit the branch was cut from; the diff baseline
   treeRoot=null; treeLastRoot=null; refreshTree();
-  createSession({cwd:j.path,cmd:v.prompt?v.cli+" "+shQuote(v.prompt):v.cli,name:v.branch,agent:true});
+  const preset=presets.find((x)=>x.cmd===v.cli)||{cmd:v.cli};
+  if(preset.id) bumpAiUse(preset);
+  createSession({cwd:j.path,cmd:agentCmd(preset,v.prompt),name:v.branch,agent:true});
+  if(v.prompt&&preset.noPrompt) toast(ICON.warn,preset.label+" can’t take a starting prompt","Type it in the terminal: "+v.prompt.slice(0,80),8000);
   scheduleSave();
   toast("🌿","Worktree ready",v.branch+" → "+j.path,6000);
 }
@@ -2070,7 +2107,7 @@ function agentWaiting(s,tab){
   const watching=focusedId===s.id&&s.activeTabId===tab.id&&!s.minimized&&s.project===activeProject&&document.hasFocus();
   setWaiting(s,tab,true,tab.approval);   // dock/tab pulse marks the queue even while you watch; preserve a red approval flag, never downgrade it
   if(watching)return;              // looking right at it → the pulse is enough, skip the toast
-  toast("🤖","Waiting on you","\""+s.name+"\" is waiting for input",6000,()=>{revealWindow(s);switchTab(s,tab.id);});
+  toast(ICON.bot,"Waiting on you","\""+s.name+"\" is waiting for input",6000,()=>{revealWindow(s);switchTab(s,tab.id);});
 }
 // #3 approval-prompt routing: a tool-approval prompt blocks ALL progress, so it fires a
 // louder, STICKY toast (ms=0) distinct from the plain idle "waiting", and flags the tab/chip
@@ -2742,7 +2779,8 @@ const PAL_CMDS=[
   {icon:ICON.folderPlus,label:"New agent task\u2026",sub:"Cut a git worktree for a branch and launch an agent in it \u2014 isolated from your other agents",kbd:"\u2318\u2325R",run:()=>{closePalette();newAgentTask();}},
   {icon:ICON.eye,label:"Review agent changes\u2026",sub:"Read-only diff of this project's worktree against the commit it was cut from",kbd:"\u2318\u2325D",run:()=>{closePalette();openAgentDiff();}},
   {icon:ICON.terminal,label:"Add AI CLI preset\u2026",sub:"Save an agent command \u2014 launch it in one click; pings you when it needs input",run:()=>{closePalette();addAiCli();}},
-  {icon:ICON.log,label:"Set scrollback\u2026",sub:"Lines of history each terminal keeps",run:()=>{closePalette();setScrollback();}},
+  {icon:ICON.terminal,label:"Reset agent order",sub:"Forget which agents you use most — back to the default order",run:()=>{closePalette();resetAiOrder();}},
+{icon:ICON.log,label:"Set scrollback\u2026",sub:"Lines of history each terminal keeps",run:()=>{closePalette();setScrollback();}},
   {icon:ICON.gamepad,label:"Play game",sub:"Dino or Snake while a command runs \u2014 pings when the watched terminal finishes",kbd:"\u2318\u2325G",run:()=>{closePalette();openGame();}},
   {icon:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><ellipse cx="6.5" cy="10" rx="1.7" ry="2.3"/><ellipse cx="10.5" cy="7.5" rx="1.8" ry="2.5"/><ellipse cx="15" cy="8" rx="1.8" ry="2.5"/><ellipse cx="18" cy="11" rx="1.7" ry="2.3"/><path d="M12 12.5c-2.6 0-4.7 1.9-4.7 3.9 0 1.7 1.6 2.6 4.7 2.6s4.7-.9 4.7-2.6c0-2-2.1-3.9-4.7-3.9z"/></svg>',label:"Toggle pixel pets",sub:"Cycle: auto (idle/away) → always on → off",kbd:"⌘⌥P",run:()=>togglePets()},
 ];
@@ -2750,9 +2788,9 @@ const PAL_CMDS=[
 // Category of each built-in command; unlisted ones fall under Workspace. Snippets/SSH/AI presets/sessions map to the other tabs.
 const PAL_CATS=["All","Terminals","Agents","Workspace","Saved","Sessions"];
 const PAL_CAT_OF={"New terminal":"Terminals","New log panel":"Terminals","Add SSH host\u2026":"Terminals",
-  "New agent task\u2026":"Agents","Review agent changes\u2026":"Agents","Add AI CLI preset\u2026":"Agents","Save snippet\u2026":"Saved"};
+  "New agent task\u2026":"Agents","Review agent changes\u2026":"Agents","Add AI CLI preset\u2026":"Agents","Reset agent order":"Agents","Save snippet\u2026":"Saved"};
 PAL_CMDS.forEach((c)=>{c.cat=PAL_CAT_OF[c.label]||"Workspace";});
-let palCat="All";
+let palCat="All", aiMore=false;   // aiMore: "More agents" expanded
 const inCat=(c)=>palCat==="All"||palCat===c;
 const palCats=document.getElementById("pal-cats");
 function setPalCat(c){palCat=c;renderPalCats();palMatches=buildPalette(palInput.value);palInput.focus();}
@@ -2826,14 +2864,17 @@ function buildPalette(q){
       palList.append(item);all.push(item);
     });
   }
-  // ai clis (built-ins + user presets) — one-click agent launch
-  const ai=[...AICLI_BUILTIN,...aiClis].filter((p)=>inCat("Agents")&&(!q||p.label.toLowerCase().includes(q)||p.cmd.toLowerCase().includes(q)));
-  if(ai.length){
+  // ai clis (built-ins + user presets) — one-click agent launch, most-used first
+  const aiAllRanked=aiRanked().filter((p)=>inCat("Agents")&&(!q||p.label.toLowerCase().includes(q)||p.cmd.toLowerCase().includes(q)));
+  if(aiAllRanked.length){
     const g=el("div","pal-group");g.textContent="AI CLI";palList.append(g);
-    ai.forEach((p)=>{
+    const {main,extra}=aiSplit(aiAllRanked);
+    const expanded=!!q||aiMore;                 // searching shows every match; otherwise only on demand
+    const rows=expanded?[...main,...extra]:main;
+    rows.forEach((p)=>{
       const custom=!AICLI_BUILTIN.includes(p);
       const item=el("div","pal-item");
-      const ic=el("div","pi-icon");ic.textContent="🤖";
+      const ic=el("div","pi-icon");ic.innerHTML=ICON.bot;
       const body=el("div","pi-body");
       const lb=el("div","pi-label");lb.innerHTML=q?hlMatch(p.label,q):p.label;
       const sb=el("div","pi-sub");sb.textContent=p.cmd;
@@ -2848,6 +2889,23 @@ function buildPalette(q){
       item.addEventListener("click",()=>{closePalette();launchAiCli(p);});
       palList.append(item);all.push(item);
     });
+    if(!q&&extra.length){   // toggle row: a normal list item, so arrow keys + Enter reach it
+      const item=el("div","pal-item pal-more");
+      item.setAttribute("role","button"); item.setAttribute("aria-expanded",aiMore);
+      const body=el("div","pi-body");
+      const lb=el("div","pi-label");lb.textContent=aiMore?"Fewer agents":"More agents ("+extra.length+")";
+      body.append(lb);
+      const ch=el("div","pi-keys");ch.textContent=aiMore?"▴":"▾";
+      const mi=el("div","pi-icon");mi.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
+      item.append(mi,body,ch);
+      item.addEventListener("click",()=>{
+        aiMore=!aiMore; palMatches=buildPalette(palInput.value);
+        const k=palMatches.findIndex((m)=>m.classList.contains("pal-more"));   // keep the highlight on the toggle
+        if(k>=0){palMatches.forEach((m)=>m.classList.remove("hi")); palHi=k; palMatches[k].classList.add("hi");}
+        palInput.focus();
+      });
+      palList.append(item);all.push(item);
+    }
   }
   // sessions
   const sess=[...sessions.values()].filter((s)=>inCat("Sessions")&&(!q||(s.name.toLowerCase().includes(q)||(s.cwd||"").toLowerCase().includes(q))));
@@ -2885,7 +2943,7 @@ function closeModals(except){
   if(except!=="agent"&&agentPop&&agentPop.classList.contains("open")) agentPop.classList.remove("open");
 }
 function openShortcuts(){closeModals("sc");scOverlay.classList.add("open");}
-function openPalette(){closeModals("palette");palOverlay.classList.add("open");palette.classList.add("open");palCat="All";renderPalCats();palInput.value="";palClear.hidden=true;palInput.placeholder=snippets.length?"Type a command, snippet, or search sessions…":"Type a command or search sessions…";palMatches=buildPalette("");palInput.focus();}
+function openPalette(){closeModals("palette");palOverlay.classList.add("open");palette.classList.add("open");palCat="All";aiMore=false;renderPalCats();palInput.value="";palClear.hidden=true;palInput.placeholder=snippets.length?"Type a command, snippet, or search sessions…":"Type a command or search sessions…";palMatches=buildPalette("");palInput.focus();}
 function closePalette(){palOverlay.classList.remove("open");palette.classList.remove("open");}
 function palMove(d){
   palMatches.forEach((m)=>m.classList.remove("hi"));
