@@ -54,7 +54,8 @@ Three things set it apart:
 - **Cross-project agent queue** — a toolbar button opens one popover listing **every agent tab across all projects**, ranked *needs approval → waiting → working*; clicking a row jumps straight to that tab. The state also shows as a dot on each project tab, so the escalation reads tab pulse → project dot → one queue for the whole fleet.
 
 **Productivity**
-- **Command palette** — `⌘K` for fuzzy actions, sessions, and snippets.
+- **Command palette** — `⌘K` for fuzzy actions, sessions, and snippets. Category chips (Terminals, Agents, Workspace, Saved, Sessions) narrow the list; `Tab` cycles them.
+- **First-run tour** — a 5-step walkthrough on your first visit; replay it from the palette (*Take the tour*) or the Help sheet.
 - **Markdown viewer** — click any `.md` file in the tree, or palette → *Open file…*, to read it rendered (headings, code, lists, tables, links) with a one-click Raw toggle. No extra dependencies; other text files open as plain text.
 - **Command snippets** — save reusable commands and run them from the palette; a snippet is *typed* into the focused shell (not auto-run) so you can review before pressing Enter.
 - **Broadcast input** — 📢 Cast (`⌘⇧B`) mirrors your keystrokes to **every live shell in the active project** at once (not other projects); a pulsing red state makes it obvious when it's on, and it auto-disarms when you switch projects.
