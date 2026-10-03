@@ -21,6 +21,9 @@ Options:
   -h, --help     print this help
 
 Environment: see the README (TD_GRACE_MS, TD_BUFFER, TD_MAX_PANELS, TD_LOG_DIR, TD_ALLOWED_HOSTS, NO_TMUX…).
+
+Feedback, ideas, bugs: https://github.com/kiril6/termdeck/discussions
+                       https://github.com/kiril6/termdeck/issues
 `;
 
 function fail(msg) { process.stderr.write(`termdeck: ${msg}\n\n${HELP}`); process.exit(2); }

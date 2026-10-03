@@ -285,6 +285,8 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   *What is this?* link that opens the same overlay, so a first-timer has an entry point. The intro
   line shows the running **app version** (`v1.0.0 · …`), fetched from `GET /api/version` which the
   backend reads from `package.json` — one source of truth, no hardcoded string. Silent in demo/no-backend.
+  A **Feedback** line links to GitHub Discussions and the issue form (also at the end of `termdeck --help`
+  and in the README). Plain links only — no telemetry, no prompts. Shown in the hosted demo too.
 - 🖥️ **Shortcut labels are OS-aware everywhere** — `navigator.platform` picks mac (`⌘`/`⌥`) vs
   Windows/Linux (`Ctrl`/`Alt`). Dynamic labels use the `kbd()` helper; command-palette key hints
   use `osKeys()` (glyph combo → per-OS `<kbd>` tokens); static help-panel/top-bar/hint labels **and
