@@ -92,8 +92,8 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   Applies to new shells only (also under tmux); it is remembered per tab across reloads. Hidden in demo mode.
   **Footer shell badge is clickable** (live, non-log terminals, host has >1 shell) — opens a menu above it:
   *New tab in this folder* with any shell (current one ticked; non-destructive, safe with a running agent) and
-  *Restart this tab as…* (swaps the shell in place: new tab with the same name/cwd, old one closed, confirm
-  first). Restart is **disabled while an agent is running in the tab** (`tab.agent`) since it would kill it.
+  *Restart this tab as…* (swaps the shell: a new tab with the same name/cwd takes the old tab's slot and the old one
+  is closed, confirm first). Restart is **disabled while an agent is running in the tab** (`tab.agent`) since it would kill it.
 
 ## Sessions & reattach
 - 🔌 **Durable sessions (tmux)** — when `tmux` is on the host, each shell is spawned inside
