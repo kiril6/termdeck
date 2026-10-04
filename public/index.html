@@ -1333,7 +1333,7 @@ function bumpAiUse(p){
   const now=Date.now(); aiUse[p.id]={s:aiScore(p.id,now)+1,t:now}; aiUse._n=(aiUse._n||0)+1;
   try{localStorage.setItem(AICLI_USE,JSON.stringify(aiUse));}catch{}
 }
-function resetAiOrder(){aiUse={};try{localStorage.removeItem(AICLI_USE);}catch{}toast("↺","Agent order reset","Back to the default order",2200);}
+function resetAiOrder(){aiUse={};try{localStorage.removeItem(AICLI_USE);}catch{}toast(ICON.bot,"Agent order reset","Back to the default order",2200);}
 function aiRanked(){   // all presets, most-used first (stable: ties and the cold start keep the default order)
   const all=[...AICLI_BUILTIN,...aiClis], now=Date.now();
   if((aiUse._n||0)<AI_MIN_LAUNCHES) return all;
@@ -2161,7 +2161,7 @@ function agentApproval(s,tab){
   setWaiting(s,tab,true,true);
   const watching=focusedId===s.id&&s.activeTabId===tab.id&&!s.minimized&&s.project===activeProject&&document.hasFocus();
   if(watching)return;
-  toast("⛔","Needs approval","\""+s.name+"\" is blocked on a permission prompt",0,()=>{revealWindow(s);switchTab(s,tab.id);});
+  toast('<span style="color:#e5484d">'+ICON.bot+"</span>","Needs approval","\""+s.name+"\" is blocked on a permission prompt",0,()=>{revealWindow(s);switchTab(s,tab.id);});
 }
 function setWaiting(s,tab,on,approval){
   const ap=on&&!!approval;
