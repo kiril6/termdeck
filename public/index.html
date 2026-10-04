@@ -635,6 +635,8 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 .win-foot .badge{display:inline-flex;align-items:center;gap:4px;padding:1px 7px;
   border-radius:10px;border:1px solid var(--line);font-size:9.5px;white-space:nowrap;}
 .win-foot .badge.shell{color:var(--accent);border-color:var(--accent-dim);}
+.win-foot .badge.shell.pick{cursor:pointer;}
+.win-foot .badge.shell.pick:hover{background:var(--accent-dim);}
 .win-foot .badge.cwd{color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;}
 .win-foot .badge.log{color:var(--demo);border-color:var(--demo);}
 .win-foot .uptime{color:var(--muted);flex:0 0 auto;}
@@ -1494,6 +1496,34 @@ function openSnippetMenu(sx,anchor){
   items.push({sep:true},{label:"＋ New snippet…",sticky:true,run:async()=>{await addSnippet(); openSnippetMenu(sx,anchor);}});
   showCtxMenu(r.left,r.top,items);
 }
+// Shell allowlist from the server (cached). Shared by the Dir popover and the footer shell badge.
+let shellList=null;
+async function getShells(){
+  if(shellList) return shellList;
+  try{ shellList=(await (await fetch("/api/shells")).json()).shells||[]; }catch{ return []; }
+  return shellList;
+}
+// Footer shell badge menu. Safe default = open a NEW tab in this tab's folder with the chosen shell.
+// "Restart as" swaps the shell in place (new tab + close old), so it is blocked while an agent runs in the tab — it would kill it.
+async function openShellMenu(s,anchor){
+  const tab=activeTab(s); if(!tab||s.isLog) return;
+  const shells=await getShells(); if(shells.length<2) return;
+  const r=anchor.getBoundingClientRect();
+  const agent=!!tab.agent, other=shells.filter((x)=>x.name!==tab.shellName);
+  const items=[{label:"New tab in this folder",disabled:true},
+    ...shells.map((x)=>({label:x.name+(x.name===tab.shellName?"  ✓":""),run:()=>addTab(s,{cwd:tab.cwd,shell:x.path})})),
+    {sep:true},{label:"Restart this tab as…",disabled:true},
+    ...other.map((x)=>({label:x.name,key:agent?"agent running":"",disabled:agent,run:()=>restartTabAs(s,tab,x)}))];
+  showCtxMenu(r.left,r.top,items);
+  ctxMenuEl.style.top=Math.max(6,r.top-ctxMenuEl.offsetHeight-4)+"px";   // open upward from the footer
+}
+async function restartTabAs(s,tab,shell){
+  if(tab.agent||!s.tabs.includes(tab)) return;
+  if(!(await confirmModal("Restart this tab as "+shell.name+"? Its shell state and history will be lost"+(running.has(s.id+tab.id)?", and the running command will stop":"")+".","Restart",true))) return;
+  if(tab.agent||!s.tabs.includes(tab)) return;   // an agent may have started while the dialog was open
+  addTab(s,{cwd:tab.cwd,shell:shell.path,name:tab.name});   // add first: closing a window's only tab would close the window
+  closeTab(s,tab.id);
+}
 // Send a snippet's text to the focused terminal WITHOUT a trailing newline, so the user reviews then hits Enter.
 function runSnippet(sn){
   const s=focusedId&&sessions.get(focusedId); const t=s&&activeTab(s);
@@ -1717,6 +1747,7 @@ function createSession(desc, isLog){
   const panes=el("div","win-panes");
   const foot=el("div","win-foot");
   const badgeShell=el("span","badge shell"); badgeShell.textContent=isLog?"\u25b6 log":"\u2013";
+  if(LIVE&&!isLog){badgeShell.classList.add("pick"); badgeShell.title="Change shell"; badgeShell.onclick=(e)=>{e.stopPropagation(); const sx=sessions.get(id); if(sx) openShellMenu(sx,badgeShell);};}
   const badgeCwd=el("span","badge cwd"); badgeCwd.textContent=desc.cwd||"~";
   if(isLog){const bl=el("span","badge log"); bl.textContent="read-only"; foot.append(bl);}
   const uptimeEl=el("span","uptime"); uptimeEl.textContent="00:00";
@@ -2018,7 +2049,7 @@ function switchTab(s,tid){
   const tab=s.tabs.find((t)=>t.id===tid);
   if(tab){
     clearTabAttn(s,tab);
-    s.badgeCwd.textContent=tildePath(tab.cwd);
+    setCwdBadge(s,tab.cwd);
     if(tab.shellName) s.badgeShell.textContent=tab.shellName;
   }
 }
@@ -2069,6 +2100,8 @@ function maybeNudge(s,tab){
     ()=>{revealWindow(s);switchTab(s,tab.id);openGame();});   // toast() mirrors to an OS notification itself
 }
 function fmtDur(ms){const s=Math.round(ms/1000);return s<60?s+"s":Math.floor(s/60)+"m"+String(s%60).padStart(2,"0")+"s";}
+// cwd badge text is ~-collapsed and CSS-truncated, so keep the full path in the hover title.
+function setCwdBadge(s,cwd){s.badgeCwd.textContent=tildePath(cwd); s.badgeCwd.title=cwd||"";}
 // Collapse the home dir to ~ for the cwd badge (Linux /home/<user>, macOS /Users/<user>).
 function tildePath(p){return (p||"~").replace(/^\/(?:home|Users)\/[^/]+/,"~");}
 
@@ -2251,7 +2284,7 @@ function openTabWS(s,tab){
     let m; try{m=JSON.parse(ev.data);}catch{return;}
     if(m.type==="attach"){
       if(m.resumed){tab.term.reset(); tab.replay=true;}   // next output chunk is the replayed ring buffer, not live output
-      if(m.cwd){tab.cwd=m.cwd; if(s.activeTabId===tab.id) s.badgeCwd.textContent=tildePath(m.cwd);}
+      if(m.cwd){tab.cwd=m.cwd; if(s.activeTabId===tab.id) setCwdBadge(s,m.cwd);}
       if(m.shell){tab.shellName=m.shell; if(s.activeTabId===tab.id) s.badgeShell.textContent=m.shell;}
     }else if(m.type==="agent"){
       agentEvent(s,tab,m.event);
@@ -2281,7 +2314,7 @@ function openTabWS(s,tab){
         markAttn(s,tab);
       }
     }else if(m.type==="cwd"){          // live cwd: shell cd'd — backend polled the new dir
-      if(m.cwd){tab.cwd=m.cwd; if(s.activeTabId===tab.id) s.badgeCwd.textContent=tildePath(m.cwd);}
+      if(m.cwd){tab.cwd=m.cwd; if(s.activeTabId===tab.id) setCwdBadge(s,m.cwd);}
     }else if(m.type==="error"&&m.code==="panel_cap_reached"){
       // Backend terminal cap (TD_MAX_PANELS): retrying can't help until something closes, so park the tab
       // as dead (no auto-reconnect; the window's \u27f3 restarts it) and say why instead of looping forever.
@@ -3625,7 +3658,7 @@ let shellsLoaded=false;
 async function loadShells(){
   if(!LIVE||shellsLoaded) return;
   try{
-    const {shells}=await (await fetch("/api/shells")).json();
+    const shells=await getShells(); if(!shells.length) return;
     shellsLoaded=true;
     cwdShell.replaceChildren(new Option("Default ("+shells[0].name+")",""),...shells.map((x)=>new Option(x.name+"  "+x.path,x.path)));
     document.getElementById("cwd-shell-wrap").style.display=shells.length>1?"":"none";

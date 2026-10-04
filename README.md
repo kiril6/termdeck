@@ -44,6 +44,7 @@ Three things set it apart:
 - **Session reattach** — refresh the browser or drop your connection and the shell keeps running. A 60s grace timer holds the PTY; reconnecting replays the last 1 MB of output. Waking from sleep reconnects instantly instead of waiting on backoff.
 - **Durable sessions (tmux)** — with `tmux` installed, shells run *inside* tmux, so they **survive a server restart or crash** (not just a browser refresh): restart `npm start` and reconnecting reattaches the still-living session. Auto-off where tmux is missing (incl. Windows). *(Nothing survives a full reboot — process memory is gone.)*
 - **Run command on start / SSH** — spawn a shell that immediately runs a command (Dir popover → *Run command on start*, e.g. `npm run dev`). Save `ssh` targets (palette → *Add SSH host…*) and reconnect to a host in one click.
+- **Shell picker** — with more than one shell on the host, the Dir popover lets you choose which to spawn (only shells the server allows, never an arbitrary executable). The footer shell badge is clickable: open a **new tab in the same folder** with any shell, or **restart the tab as** another one in place — blocked while an agent is running in it, since that would kill the agent.
 - **Live working directory** — each window's cwd badge follows the shell as it `cd`s. The backend polls each shell's real working dir from the OS (~1.5s), so it needs no shell config or `OSC 7`.
 - **Persistent layout** — windows, projects, and themes saved to `localStorage`; a single-instance guard keeps two dashboard tabs from clobbering each other's state.
 
@@ -279,7 +280,7 @@ Three files. Backend + frontend, no framework beyond Express.
 
 | File | Role |
 |---|---|
-| **`server.js`** | Express static server + `ws` WebSocket PTY multiplexer. One WebSocket per terminal, keyed by a client-supplied `id`. On disconnect the PTY is **not** killed — a 60s timer holds it so reconnecting replays the buffer. Shell chosen from `$SHELL` → PowerShell (Windows) → zsh/bash/sh. |
+| **`server.js`** | Express static server + `ws` WebSocket PTY multiplexer. One WebSocket per terminal, keyed by a client-supplied `id`. On disconnect the PTY is **not** killed — a 60s timer holds it so reconnecting replays the buffer. Shell chosen from `$SHELL` → PowerShell (Windows) → zsh/bash/sh, or per terminal from the allowlist (`GET /api/shells`). |
 | **`public/index.html`** | The entire frontend in one file (HTML + CSS + JS, no bundler). xterm.js + addons served locally from `node_modules` at `/vendor` (no CDN — works offline). Floating panes, tiling, projects, themes, command palette, search. State persisted to `localStorage`. |
 | **`install.js`** | One-shot dependency installer. Picks the `node-pty` variant for your platform and installs prebuilt binaries. |
 
