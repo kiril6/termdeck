@@ -6,7 +6,7 @@ Contributions welcome. To keep the project simple and dependable, a few ground r
 
 - **Keep the backend dependency-light.** It intentionally uses only `express`, `ws`, and `node-pty`. Don't add dependencies for what a few lines can do.
 - **No build step.** The frontend is a single hand-edited `public/index.html`. Please keep it that way — no bundler, no framework.
-- **Preserve the reattach invariant** (see [Architecture](README.md#architecture)). Test that a browser refresh doesn't kill or lose a shell.
+- **Preserve the reattach invariant** (see [Architecture](README.md#-architecture)). Test that a browser refresh doesn't kill or lose a shell.
 - **Test on more than one OS** when touching shell spawning or paths (`server.js`, `install.js`).
 - **Keep `FEATURES.md` current.** Any change that adds, removes, or alters user-facing behavior must update `FEATURES.md` in the same change.
 
