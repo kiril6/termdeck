@@ -315,7 +315,7 @@ Contributions welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the groun
 
 ## 💛 Supporting the Project
 
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/K3K2X0ERJ)
+If this project saves you time, you can [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/K3K2X0ERJ)
 
 ## 📄 License
 
