@@ -133,6 +133,8 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
 .popover input{flex:1;font-family:var(--mono);font-size:12px;color:var(--text);
   background:var(--win-body);border:1px solid var(--line);border-radius:6px;padding:8px 10px;outline:none;}
 .popover input:focus{border-color:var(--accent-dim);}
+.popover select{width:100%;font-family:var(--mono);font-size:12px;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;outline:none;}
+.popover select:focus{border-color:var(--accent-dim);}
 .in-wrap{position:relative;flex:1;display:flex;}
 #cwd-input{padding-right:28px;}
 .in-clear{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:18px;height:18px;
@@ -752,6 +754,10 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
     <label style="margin-top:10px;">Run command on start <span style="opacity:.6;">(optional)</span></label>
     <div class="in-wrap">
       <input id="cwd-cmd" spellcheck="false" placeholder="npm run dev   or   ssh user@host"/>
+    </div>
+    <div id="cwd-shell-wrap" style="display:none;">
+      <label style="margin-top:10px;">Shell</label>
+      <select id="cwd-shell"><option value="">Default</option></select>
     </div>
     <div class="row" style="margin-top:8px;">
       <button class="btn primary" id="cwd-go" style="flex:1;">Spawn here</button>
@@ -1771,8 +1777,8 @@ function createSession(desc, isLog){
   else{hint.style.display="none"; focus(s);}
 
   // spawn tabs — restore saved ones (names + cwd + agent tag), else one fresh tab
-  if(desc.tabs?.length) desc.tabs.forEach((t)=>addTab(s,{id:t.id,name:t.name,cwd:t.cwd,agent:t.agent}));
-  else addTab(s,{cmd:desc.cmd,agent:desc.agent});   // desc.cmd = one-shot startup command (Dir popover / SSH / AI CLI); not persisted, so it won't re-fire on reload. agent=arm idle "waiting" watch.
+  if(desc.tabs?.length) desc.tabs.forEach((t)=>addTab(s,{id:t.id,name:t.name,cwd:t.cwd,agent:t.agent,shell:t.shell}));
+  else addTab(s,{cmd:desc.cmd,agent:desc.agent,shell:desc.shell});   // desc.cmd = one-shot startup command (Dir popover / SSH / AI CLI); not persisted, so it won't re-fire on reload. agent=arm idle "waiting" watch.
 
   if(desc.minimized) minimize(s);
   updateProjCounts(); scheduleSave();
@@ -1902,7 +1908,7 @@ function addTab(s, opts){
   const tab={id:tid,pane,term,fit,search,ser,wt,wtDot,wtName,name:wtName.textContent,
     conn:null,status:"pending",exited:false,closedByUser:false,
     reconnecting:false,retries:0,reconnectTimer:null,
-    cwd:opts.cwd||s.cwd||"",shellName:"",cmd:opts.cmd||"",agent:!!opts.agent,waiting:false};
+    cwd:opts.cwd||s.cwd||"",shellName:"",cmd:opts.cmd||"",shell:opts.shell||"",agent:!!opts.agent,waiting:false};
   s.tabs.push(tab);
   if(LIVE) registerPathLinks(term,tab);
 
@@ -2233,6 +2239,7 @@ function openTabWS(s,tab){
   const proto=location.protocol==="https:"?"wss":"ws";
   const p=new URLSearchParams({id:s.id+"-"+tab.id, cols:tab.term.cols||80, rows:tab.term.rows||24});
   if(tab.cwd) p.set("cwd",tab.cwd);
+  if(tab.shell) p.set("shell",tab.shell);   // server honours it only if it is in its shell allowlist
   if(tab.cmd) p.set("cmd",tab.cmd);   // startup command; backend runs it only on a fresh shell
   if(s.isLog)  p.set("log","1");
   const ws=new WebSocket(proto+"://"+location.host+"/?"+p.toString());
@@ -3469,7 +3476,7 @@ function saveState(){
                left:st.left,top:st.top,width:st.width,height:st.height,
                minimized:s.minimized,maximized:s.maximized,prevRect:s.prevRect,glue:s.glue||null,
                // agent tag persists (arms the waiting/approval watch after a reload); cmd deliberately does NOT, so it can't re-fire
-               tabs:s.tabs.map((t)=>({id:t.id,name:t.name,cwd:t.cwd||"",agent:!!t.agent}))};}).filter(Boolean)};
+               tabs:s.tabs.map((t)=>({id:t.id,name:t.name,cwd:t.cwd||"",agent:!!t.agent,shell:t.shell||""}))};}).filter(Boolean)};
     localStorage.setItem(STORE,JSON.stringify(data));
   }catch{}
 }
@@ -3570,7 +3577,7 @@ folderBtn.addEventListener("click",(e)=>{
     const r=folderBtn.getBoundingClientRect();
     cwdPop.style.top=(r.bottom+6)+"px"; cwdPop.style.left=Math.max(12,r.right-320)+"px";
     cwdInput.value=curCwd(); syncCwdClear(); cwdInput.focus(); cwdInput.select(); // select-on-open: keeps memory, one keystroke overwrites
-    acUpdate();
+    acUpdate(); loadShells();
   } else acClose();
 });
 const cwdClear=document.getElementById("cwd-clear");
@@ -3612,6 +3619,18 @@ function acPick(full){cwdInput.value=full+"/";syncCwdClear();cwdInput.focus();ac
 function acMove(d){if(!acItems.length)return;acSel=(acSel+d+acItems.length)%acItems.length;acItems.forEach((it,i)=>it.classList.toggle("sel",i===acSel));acItems[acSel].scrollIntoView({block:"nearest"});}
 cwdInput.addEventListener("input",()=>{clearTimeout(acTimer);acTimer=setTimeout(acUpdate,160);});
 const cwdCmd=document.getElementById("cwd-cmd");
+// Shell picker: options come from the server allowlist (/api/shells); hidden when there's no backend or only one shell.
+const cwdShell=document.getElementById("cwd-shell");
+let shellsLoaded=false;
+async function loadShells(){
+  if(!LIVE||shellsLoaded) return;
+  try{
+    const {shells}=await (await fetch("/api/shells")).json();
+    shellsLoaded=true;
+    cwdShell.replaceChildren(new Option("Default ("+shells[0].name+")",""),...shells.map((x)=>new Option(x.name+"  "+x.path,x.path)));
+    document.getElementById("cwd-shell-wrap").style.display=shells.length>1?"":"none";
+  }catch{}
+}
 // validate a typed path before spawning — else the server silently drops a bad cwd to $HOME (server.js safeDir)
 async function badDir(p){ if(!LIVE||!p) return false; try{ return !(await fetch("/api/ls?dir="+encodeURIComponent(p))).ok; }catch{ return false; } }
 function popErr(p){ toast(ICON.warn,"No such folder",p); cwdPop.classList.add("open"); cwdInput.focus(); cwdInput.select(); }
@@ -3623,7 +3642,7 @@ async function spawnFromPopover(){const p=cwdInput.value.trim();const c=cwdCmd.v
   if(p&&firstTerm&&/^project \d+$/.test(proj.name||"")){ // first shell into a fresh project → name it after the folder, like "New project"
     proj.name=p.replace(/[\\/]+$/,"").split(/[\\/]/).pop()||proj.name; proj.nameEl.textContent=proj.name;
   }
-  createSession({cwd:p,cmd:c||undefined});cwdCmd.value="";scheduleSave();}
+  createSession({cwd:p,cmd:c||undefined,shell:cwdShell.value||undefined});cwdCmd.value="";scheduleSave();}
 async function spawnAsProject(){
   const p=cwdInput.value.trim();const c=cwdCmd.value.trim();
   if(!p){toast(ICON.warn,"Need a path","“New project” needs a directory"); return;}
@@ -3632,7 +3651,7 @@ async function spawnAsProject(){
   const base=p.replace(/[\\/]+$/,"").split(/[\\/]/).pop()||p;
   const proj=addProject(base); if(!proj) return;   // addProject switches to it; null if at limit
   setCwd(p);   // remember path on the NEW project (now active), not the one we came from
-  createSession({cwd:p,project:proj.id,cmd:c||undefined}); cwdCmd.value="";  // tree follows focused cwd, no extra work
+  createSession({cwd:p,project:proj.id,cmd:c||undefined,shell:cwdShell.value||undefined}); cwdCmd.value="";  // tree follows focused cwd, no extra work
   scheduleSave();
 }
 document.getElementById("cwd-go").addEventListener("click",spawnFromPopover);
