@@ -12,6 +12,8 @@
 
 **[▶ See it in action](https://kiril6.github.io/termdeck/)** — showcase page with a live demo GIF.
 
+[Features](#features) · [Quick start](#quick-start) · [CLI commands](#cli-commands) · [Configuration](#configuration) · [Keyboard shortcuts](#keyboard-shortcuts)
+
 Every window is backed by a **real shell (PTY)** on your machine — open a dozen, tile them into a grid, group them into projects, theme each one, and reconnect after a refresh without losing a session. It's an Express server, a WebSocket PTY bridge, and one HTML file. That's it.
 
 Three things set it apart:
@@ -20,7 +22,7 @@ Three things set it apart:
 - ⚡ **Zero setup** — `node install.js && npm start`. No database, no accounts, no keys. Works fully offline (xterm is vendored, no CDN).
 - 🪟 **Actually a GUI** — free-floating draggable/resizable windows, not just fixed grid panes. A real cockpit you arrange the way you think.
 
-![termdeck running three AI coding agents in separate git worktrees, with approval and waiting alerts](docs/demo.gif)
+![termdeck running three AI coding agents in separate git worktrees, with approval and waiting alerts](https://raw.githubusercontent.com/kiril6/termdeck/master/docs/demo.gif)
 
 <sub>Floating shells → tile into a grid → theme picker → real filesystem tree → command palette (`⌘K`) → play a game while a command runs.</sub>
 
@@ -32,9 +34,10 @@ Three things set it apart:
 
 **Windows & layout**
 - **Floating windows** — drag, resize, minimize, maximize, tile into a grid.
-- **Tabs per window** — multiple shells in one pane, scrollable tab strip.
+- **Glue two windows (🔒)** — drag a window against another to snap, and click the lock icon on the shared edge to glue the pair together: they move together and dragging the shared edge expands one while shrinking the other.
+- **Tabs per window** — multiple shells in one pane, scrollable tab strip. Double-click any tab to rename it.
 - **Projects** — group windows into project tabs; switch context instantly. Each project remembers its own last path, so a fresh project's tree starts at home instead of inheriting another's. The 📁 Dir popover can **Spawn here** (naming the tab after the folder if it's the project's first terminal) or open a path as a **New project** (tab named after the folder, tree rooted there).
-- **Directory tree** (`⌘B`) — a real filesystem sidebar rooted at the active project, dirs lazy-expanding on click. **＋** on a folder opens a shell there; **⤢** on a file reveals it in Finder/Explorer. Right-click any row for the full menu (new terminal, open as project, set as root, copy path, reveal); header buttons refresh the tree (keeping folders open) and toggle hidden files. The Dir popover (📁) has path autocomplete and rejects non-existent paths.
+- **Directory tree** (`⌘B`) — a real filesystem sidebar rooted at the active project, dirs lazy-expanding on click. Header breadcrumbs let you navigate up ancestors or pin a new root. **＋** on a folder opens a shell there; **⤢** on a file reveals it in Finder/Explorer. Right-click any row for the full menu (new terminal, open as project, set as root, copy path, open in editor, reveal); header buttons refresh the tree (keeping folders open) and toggle hidden files. The Dir popover (📁) has path autocomplete and rejects non-existent paths.
 - **Dock** — bottom session bar with activity/attention indicators; overflow scrolls with edge hints.
 
 **Sessions & persistence**
@@ -57,8 +60,8 @@ Three things set it apart:
 - **Command palette** — `⌘K` for fuzzy actions, sessions, and snippets. Category chips (Terminals, Agents, Workspace, Saved, Sessions) narrow the list; `Tab` cycles them.
 - **First-run tour** — a 5-step walkthrough on your first visit; replay it from the palette (*Take the tour*) or the Help sheet.
 - **Markdown viewer** — click any `.md` file in the tree, or palette → *Open file…*, to read it rendered (headings, code, lists, tables, links) with a one-click Raw toggle. No extra dependencies; other text files open as plain text.
-- **Command snippets** — save reusable commands and run them from the palette; a snippet is *typed* into the focused shell (not auto-run) so you can review before pressing Enter.
-- **Broadcast input** — 📢 Cast (`⌘⇧B`) mirrors your keystrokes to **every live shell in the active project** at once (not other projects); a pulsing red state makes it obvious when it's on, and it auto-disarms when you switch projects.
+- **Command snippets** — save reusable commands (`⌘⌥S` or palette → *Save snippet…*) and run them from the palette or the 🔖 footer icon; a snippet is *typed* into the focused shell (not auto-run) so you can review before pressing Enter.
+- **Broadcast input** — 📢 Cast (`⌘⌥B`) mirrors your keystrokes to **every live shell in the active project** at once (not other projects); a pulsing red state makes it obvious when it's on, and it auto-disarms when you switch projects.
 - **Find in terminal** — `⌘F` inside a shell searches its scrollback with match highlighting and a result counter.
 - **Safe paste** — paste goes through bracketed-paste (newlines don't auto-run at a shell prompt); multi-line pastes ask first.
 - **Configurable scrollback** — palette → *Set scrollback…* sets the lines of history each terminal keeps (default 8000).
@@ -69,7 +72,7 @@ Three things set it apart:
 **Look & feel**
 - **Themes** — per-terminal or dashboard-wide, with a searchable picker (Dracula, Nord, Gruvbox, Tokyo Night, Catppuccin, and more).
 - **Font zoom** — `⌘+` / `⌘-` / `⌘0` resize a single terminal's font (the PTY re-fits to match).
-- **Clickable links** — URLs in output are detected and open in a new tab.
+- **Clickable links & file paths** — URLs in output are detected and open in a new tab. File paths (`path/file.ext:line[:col]`) in output are detected and open in the built-in file viewer scrolled directly to that line.
 - **GPU rendering** — WebGL terminal renderer for smooth scrollback, with automatic fallback.
 - **Ambient pixel pets** — low-key pixel critters wander the desktop's bottom edge while you're idle or away, and vanish the moment you're back (`⌘⌥P` to toggle; off under reduced-motion).
 
@@ -122,7 +125,7 @@ npm start         # runs the server → http://localhost:3000
 (macOS `brew install tmux`, Debian/Ubuntu `sudo apt install tmux`). Without it the app still
 runs — shells just don't outlive the server. Not available on Windows; set `NO_TMUX=1` to force it off.
 
-It **opens in your browser automatically**. If it didn't (or you're on a headless box), go to **http://localhost:3000**. To disable auto-open, set `NO_OPEN=1`. To pick a browser, set `BROWSER` — e.g. `BROWSER="Google Chrome" npm start` (macOS) or `BROWSER=firefox npm start` (Linux).
+It **opens in your browser automatically**. If it didn't (or you're on a headless box), go to **http://localhost:3000**. Default port is 3000. If port 3000 is occupied and `PORT` was not set, termdeck automatically increments to the next free port (3001, 3002…) and opens that. To disable auto-open, set `NO_OPEN=1` or pass `--no-open`. To pick a browser, set `BROWSER` — e.g. `BROWSER="Google Chrome" npm start` (macOS) or `BROWSER=firefox npm start` (Linux).
 
 Override the port:
 
@@ -130,36 +133,38 @@ Override the port:
 PORT=4000 npm start        # or:  npx @kiril6/termdeck --port 4000
 ```
 
-Command-line options (flags win over env vars): `--port <n>`, `--host <addr>`, `--no-open`, `--version`, `--help`.
-**`termdeck doctor`** checks the machine and exits without starting anything — Node version, node-pty, a shell
-spawns, tmux (≥ 3.2 for agent hooks), git, port free, network exposure and any invalid `TD_*` value — with the
-fix next to each problem. It is fully offline; exit code 0 means all good, 1 means warnings or failures.
+### CLI commands
 
-**`termdeck hooks install`** wires up [agent hooks](docs/agent-hooks.md) for Claude Code, Gemini CLI and Codex in one
-command — it merges into your existing config, backs the file up first, and `--dry-run` shows what it would do.
-
-The bind address, reattach grace period, and replay-buffer size are configurable too:
+termdeck includes built-in diagnostic, hook setup, and system management tools (flags win over env vars):
 
 ```bash
-HOST=127.0.0.1 TD_GRACE_MS=120000 TD_BUFFER=2000000 npm start
+termdeck [options]             # start the server (--port <n>, --host <h>, --no-open, -v, -h)
+termdeck doctor                # check Node, node-pty, shell, tmux, git, ports (offline)
+termdeck hooks install         # wire Claude Code, Gemini CLI, and Codex hooks (also: uninstall, --dry-run, --yes)
+termdeck autostart install     # start termdeck at login via launchd/systemd (also: uninstall, --dry-run)
 ```
 
-`TD_GRACE_MS` and `TD_BUFFER` accept positive numbers. Invalid, zero, or negative
-values fall back to 60 seconds and 1,000,000 bytes respectively.
+- **`termdeck doctor`** checks this machine and exits without starting anything — Node version, node-pty, shell spawning, tmux (≥ 3.2 for agent hooks), git, free ports, network exposure, and any invalid `TD_*` configuration — providing actionable fixes next to each problem. Exit code 0 means all good, 1 means warnings or failures.
+- **`termdeck hooks install`** wires up [agent hooks](https://github.com/kiril6/termdeck/blob/master/docs/agent-hooks.md) for Claude Code, Gemini CLI, and Codex in one command — merges cleanly into existing config files, backs them up first, and `--dry-run` previews changes without writing.
+- **`termdeck autostart install`** sets up a launchd agent (macOS) or systemd user unit (Linux) so the dashboard starts automatically at login without root. `termdeck autostart uninstall` removes it cleanly. Needs a **global install** (`npm i -g @kiril6/termdeck`) or a clone. Templates and details: [docs/autostart](https://github.com/kiril6/termdeck/tree/master/docs/autostart).
 
-`TD_EDITOR=cursor` sets the command the tree's *Open in editor* runs on a path (default `code`; a single executable, no arguments).
-`TD_LOG_DIR=/path` writes each shell's output (ANSI stripped) to a log file when it ends; off by default.
-`TD_ALLOWED_HOSTS=host1,host2` lets a reverse proxy such as `tailscale serve` reach a loopback-bound server
-(exact hostnames, enables the access token) — see [docs/remote-access.md](docs/remote-access.md).
+### Configuration
 
-`TD_MAX_PANELS` caps live terminals server-side (default 64); new sessions beyond it are
-refused (the window says so and stops retrying — close one, then ⟳), reattaching to an existing one is never blocked.
+Options are set via environment variable; `--port`, `--host` and `--no-open` also exist as flags (flags win). Invalid, zero or negative numeric values for `TD_GRACE_MS` and `TD_BUFFER` fall back to their defaults; `TD_MAX_PANELS` never blocks reattaching to an existing session.
 
-### Autostart
-
-One command: **`termdeck autostart install`** sets up a launchd agent (macOS) or a systemd user unit (Linux) so the
-dashboard is there at login — no root, `--dry-run` previews the file and the commands, `termdeck autostart uninstall`
-removes it. It needs a **global install** (`npm i -g @kiril6/termdeck`) or a clone — not a one-off `npx` run, whose cache npm can delete. Prefer to do it by hand? The templates are in [docs/autostart](docs/autostart/README.md).
+| Variable / Flag | Default | Description |
+|---|---|---|
+| `PORT` / `--port <n>` | `3000` | Port to listen on. If unset, automatically increments to a free port. |
+| `HOST` / `--host <addr>` | `127.0.0.1` | Bind address. Non-loopback generates a random access token (`/?t=…`). |
+| `NO_OPEN` / `--no-open` | `0` | Set `1` or pass `--no-open` to prevent opening the browser on startup. |
+| `BROWSER` | *(default)* | Specific browser binary/name to launch (e.g. `Google Chrome`, `firefox`). |
+| `NO_TMUX` | `0` | Set `1` to force raw shell spawn even if tmux is installed on the host. |
+| `TD_GRACE_MS` | `60000` | Milliseconds to keep PTY alive after WebSocket disconnect (60s). Positive number. |
+| `TD_BUFFER` | `1000000` | Per-terminal replay buffer in bytes on reconnect (1 MB). Positive number. |
+| `TD_MAX_PANELS` | `64` | Maximum live terminals server-side; refuses excess to prevent resource exhaustion. |
+| `TD_EDITOR` | `code` | Single executable name for the file tree's *Open in editor* action. |
+| `TD_LOG_DIR` | *(none)* | Directory to write clean session logs when shells terminate (off by default). |
+| `TD_ALLOWED_HOSTS` | *(none)* | Comma-separated exact hostnames for reverse proxies (e.g. `tailscale serve`). Enables access token. |
 
 ### Updating
 
@@ -236,11 +241,14 @@ On Windows/Linux, `⌘` = `Ctrl` and `⌥` = `Alt`.
 | Toggle directory tree | `⌘B` |
 | Tile all windows | `⌘⌥⇧T` |
 | Broadcast input to all shells | `⌘⌥B` |
+| Play game (Dino / Snake) | `⌘⌥G` |
 | Open directory | `⌘⇧O` |
 | Open file | `⌘⌥O` |
 | New agent task | `⌘⌥R` |
 | Review agent changes | `⌘⌥D` |
+| Save snippet | `⌘⌥S` |
 | Theme picker | `⌘⇧P` |
+| Toggle pixel pets | `⌘⌥P` |
 | Close focused window | `⌘⌥W` |
 | Minimize focused | `⌘⌥M` |
 | Maximize / restore focused | `⌘⌥⇧M` |
