@@ -203,6 +203,9 @@ app.get('/api/ls', apiGuard, (req, res) => {
     .sort((a, b) => (a.dir !== b.dir ? (a.dir ? -1 : 1) : a.name.localeCompare(b.name)));
   res.json({ dir, entries });
 });
+app.get('/api/shells', apiGuard, (_req, res) => {      // shells the "Shell" picker may offer (the same allowlist spawn enforces)
+  res.json({ shells: shellCandidates().map((p) => ({ path: p, name: baseName(p) })) });
+});
 app.get('/api/reveal', apiGuard, (req, res) => {     // open the OS file manager at a path
   const target = expandDir(req.query.path);
   if (!fs.existsSync(target)) return res.status(404).end();
@@ -518,7 +521,16 @@ function shellCandidates() {
     process.env.SHELL,
     isWindows ? 'powershell.exe' : null,
     '/bin/zsh', '/bin/bash', '/bin/sh',
+    ...['fish', isWindows ? 'pwsh.exe' : 'pwsh'].map(onPath),   // optional extras: offered in the picker, last-resort fallbacks
   ].filter((s, i, a) => s && a.indexOf(s) === i);
+}
+// Absolute path of `name` on $PATH, or null. Lets fish/pwsh show up only when installed.
+function onPath(name) {
+  for (const d of String(process.env.PATH || '').split(path.delimiter)) {
+    const f = path.join(d, name);
+    try { if (d && fs.statSync(f).isFile()) return f; } catch {}
+  }
+  return null;
 }
 
 /** id -> { term, buffer, ws, killTimer, cwd, shellName, isLog } */
@@ -566,6 +578,7 @@ wss.on('connection', (ws, req) => {
   }
   let cwd = q.cwd ? String(q.cwd) : HOME;
   if (!safeDir(cwd)) cwd = HOME;
+  const wantShell = shellCandidates().includes(String(q.shell)) ? String(q.shell) : null;   // allowlist only — never an arbitrary executable
   const cmd = q.cmd ? String(q.cmd) : null;   // optional command to run once, on a freshly-created shell (e.g. `ssh host`, `npm run dev`)
 
   let term, usedShell, tmuxName = null, runCmd = false;
@@ -581,9 +594,10 @@ wss.on('connection', (ws, req) => {
     try { execFileSync('tmux', ['has-session', '-t', name], { stdio:'ignore' }); existed = true; } catch {}
     try {
       term = pty.spawn('tmux', ['new-session', '-A', '-D', '-s', name, '-c', cwd,
-                                   ...(tmuxEnvFlags ? ['-e', 'TD_ID=' + id, '-e', 'TD_URL=' + AGENT_URL, '-e', 'TD_HOOK=' + AGENT_HOOK, ...(TOKEN ? ['-e', 'TD_TOKEN=' + TOKEN] : [])] : [])],
+                                   ...(tmuxEnvFlags ? ['-e', 'TD_ID=' + id, '-e', 'TD_URL=' + AGENT_URL, '-e', 'TD_HOOK=' + AGENT_HOOK, ...(TOKEN ? ['-e', 'TD_TOKEN=' + TOKEN] : [])] : []),
+                                   ...(wantShell ? [wantShell] : [])],   // trailing shell-command: only used when the session is created
                        { name:'xterm-256color', cols, rows, cwd, env });
-      usedShell = process.env.SHELL || 'sh';            // tmux runs the login shell inside; badge shows it
+      usedShell = wantShell || process.env.SHELL || 'sh';            // tmux runs the login shell inside; badge shows it
       tmuxName  = name;
       runCmd    = !!cmd && !existed;
     } catch (e) {
@@ -594,7 +608,7 @@ wss.on('connection', (ws, req) => {
 
   // Fallback: raw shell (Windows, no tmux, or tmux spawn failed). Always a fresh shell here
   // (reattach within grace uses the `existing` branch above), so a cmd always runs.
-  if (!term) for (const sh of shellCandidates()) {
+  if (!term) for (const sh of [...new Set([wantShell, ...shellCandidates()].filter(Boolean))]) {
     runCmd = !!cmd;
     try {
       term = pty.spawn(sh, [], { name:'xterm-256color', cols, rows, cwd, env:agentEnv(id, process.env) });

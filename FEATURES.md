@@ -86,6 +86,10 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   has its default `project N` name, the tab is renamed to the folder's basename) or **New project** (new
   project tab named after the folder's basename + a shell there). A non-existent path is **rejected with an
   inline "No such folder"** instead of silently spawning in `$HOME`. Inline ✕ clears the input.
+  **Shell picker** — when the host has more than one shell (zsh/bash/sh, plus fish/pwsh if on `$PATH`), the
+  popover shows a *Shell* dropdown (default = `$SHELL`). The choice is sent as `?shell=` and the server honours
+  it only if it is in `shellCandidates()` (same list as `GET /api/shells`) — never an arbitrary executable.
+  Applies to new shells only (also under tmux); it is remembered per tab across reloads. Hidden in demo mode.
 
 ## Sessions & reattach
 - 🔌 **Durable sessions (tmux)** — when `tmux` is on the host, each shell is spawned inside
