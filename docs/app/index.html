@@ -334,6 +334,7 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
 @keyframes tout{from{opacity:1}to{opacity:0;transform:translateY(4px)}}
 .toast .t-icon{font-size:16px;flex:0 0 auto;margin-top:1px;}
 .toast .t-icon svg{width:1em;height:1em;display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.toast .t-appr{color:#e5484d;display:contents;}   /* same red as the header approval dot */
 .toast .t-body{flex:1;min-width:0;}
 .toast .t-title{font-weight:600;font-size:12px;}
 .toast .t-msg{color:var(--muted);font-size:11px;margin-top:2px;overflow-wrap:anywhere;
@@ -1523,7 +1524,10 @@ async function restartTabAs(s,tab,shell){
   if(tab.agent||!s.tabs.includes(tab)) return;
   if(!(await confirmModal("Restart this tab as "+shell.name+"? Its shell state and history will be lost"+(running.has(s.id+tab.id)?", and the running command will stop":"")+".","Restart",true))) return;
   if(tab.agent||!s.tabs.includes(tab)) return;   // an agent may have started while the dialog was open
-  addTab(s,{cwd:tab.cwd,shell:shell.path,name:tab.name});   // add first: closing a window's only tab would close the window
+  const idx=s.tabs.indexOf(tab);
+  const nt=addTab(s,{cwd:tab.cwd,shell:shell.path,name:tab.name});   // add first: closing a window's only tab would close the window
+  s.tabs.splice(s.tabs.indexOf(nt),1); s.tabs.splice(idx,0,nt);     // new tab takes the old one's slot (strip + saved order)
+  s.wtabsTrack.insertBefore(nt.wt,tab.wt);
   closeTab(s,tab.id);
 }
 // Send a snippet's text to the focused terminal WITHOUT a trailing newline, so the user reviews then hits Enter.
@@ -2163,7 +2167,7 @@ function agentApproval(s,tab){
   setWaiting(s,tab,true,true);
   const watching=focusedId===s.id&&s.activeTabId===tab.id&&!s.minimized&&s.project===activeProject&&document.hasFocus();
   if(watching)return;
-  toast('<span style="color:#e5484d">'+ICON.bot+"</span>","Needs approval","\""+s.name+"\" is blocked on a permission prompt",0,()=>{revealWindow(s);switchTab(s,tab.id);});
+  toast('<span class="t-appr">'+ICON.bot+"</span>","Needs approval","\""+s.name+"\" is blocked on a permission prompt",0,()=>{revealWindow(s);switchTab(s,tab.id);});
 }
 function setWaiting(s,tab,on,approval){
   const ap=on&&!!approval;
