@@ -315,9 +315,7 @@ Contributions welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the groun
 
 ## 💛 Supporting the Project
 
-termdeck is free and MIT-licensed. If it saves you time, you can support its development:
-
-[![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/ec1Pdqk)
+If this project saves you time, you can [support its development on Ko-fi](https://ko-fi.com/kdelovski).
 
 ## 📄 License
 
