@@ -12,7 +12,7 @@
 
 **[▶ See it in action](https://kiril6.github.io/termdeck/)** — showcase page with a live demo GIF.
 
-[Features](#features) · [Quick start](#quick-start) · [CLI commands](#cli-commands) · [Configuration](#configuration) · [Keyboard shortcuts](#keyboard-shortcuts)
+[Features](#-features) · [Quick start](#-quick-start) · [CLI commands](#cli-commands) · [Configuration](#configuration) · [Keyboard shortcuts](#-keyboard-shortcuts)
 
 Every window is backed by a **real shell (PTY)** on your machine — open a dozen, tile them into a grid, group them into projects, theme each one, and reconnect after a refresh without losing a session. It's an Express server, a WebSocket PTY bridge, and one HTML file. That's it.
 
@@ -30,7 +30,7 @@ Three things set it apart:
 
 ---
 
-## Features
+## ✨ Features
 
 **Windows & layout**
 - **Floating windows** — drag, resize, minimize, maximize, tile into a grid.
@@ -92,7 +92,7 @@ Cross-platform: **macOS, Windows, Linux** — uses prebuilt `node-pty` binaries,
 
 ---
 
-## Quick start
+## 🚀 Quick start
 
 Requires **Node.js 18+**.
 
@@ -221,7 +221,7 @@ What termdeck does *not* do, so none of it is a surprise:
 
 ---
 
-## Keyboard shortcuts
+## ⌨️ Keyboard shortcuts
 
 On Windows/Linux, `⌘` = `Ctrl` and `⌥` = `Alt`.
 
@@ -274,7 +274,7 @@ On Windows/Linux, `⌘` = `Ctrl` and `⌥` = `Alt`.
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
 Three files. Backend + frontend, no framework beyond Express.
 
@@ -301,25 +301,25 @@ Served over `http://`/`https://` the app is **live** (real shells). Opened direc
 
 ---
 
-## Feedback
+## 💬 Feedback
 
 termdeck has no telemetry, so the only way to know what works for you is if you say so. Questions, ideas, or just "I use it for X" → [Discussions](https://github.com/kiril6/termdeck/discussions). Bugs → [Issues](https://github.com/kiril6/termdeck/issues/new/choose). The same links are in the app's Help sheet (`?`) and in `termdeck --help`.
 
 ---
 
-## Contributing
+## 🤝 Contributing
 
 Contributions welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the ground rules (dependency-light backend, no build step, the reattach invariant) and the dev loop. Found a bug or have an idea? [Open an issue](https://github.com/kiril6/termdeck/issues/new/choose) — the guided form walks you through it. New here? The [good first issues](https://github.com/kiril6/termdeck/issues?q=is%3Aopen+label%3A%22good+first+issue%22) are a friendly start.
 
 ---
 
-## Supporting the Project
+## 💛 Supporting the Project
 
 termdeck is free and MIT-licensed. If it saves you time, you can support its development:
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/ec1Pdqk)
 
-## License
+## 📄 License
 
 MIT — see [`LICENSE`](LICENSE).
 
