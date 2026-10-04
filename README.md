@@ -319,6 +319,8 @@ If termdeck is useful to you, consider giving it a ⭐ — it helps others find 
 
 Support development: <a href="https://ko-fi.com/K3K2X0ERJ"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="ko-fi" align="absmiddle" /></a>
 
+---
+
 ## 📄 License
 
 MIT — see [`LICENSE`](LICENSE).
