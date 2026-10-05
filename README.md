@@ -72,6 +72,7 @@ Three things set it apart:
 - **Find in terminal** — `⌘F` inside a shell searches its scrollback with match highlighting and a result counter.
 - **Safe paste** — paste goes through bracketed-paste (newlines don't auto-run at a shell prompt); multi-line pastes ask first.
 - **Configurable scrollback** — palette → *Set scrollback…* sets the lines of history each terminal keeps (default 8000).
+- **Desktop right-click menu** — right-click the empty desktop for New terminal / New agent task / Open file, plus Tile, Restore minimized, Broadcast and agent-worktree actions when they apply.
 - **Save output** — right-click a terminal → *Save output…* to download its scrollback as a `.log`.
 - **Read-only log panels** — mirror a shell's output with input disabled (`⌘L`).
 - **Keyboard-first** — see the full shortcut list below or press `?` in the app.

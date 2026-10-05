@@ -3913,6 +3913,34 @@ document.addEventListener("fullscreenchange",()=>{
   fsBtn.title=(on?"Exit fullscreen (":"Fullscreen (")+fsKey+")";
   fsBtn.querySelector("svg").innerHTML=on?FS_EXIT:FS_ENTER;
 });
+// Right-click on the empty desktop: a launcher for the frequent actions (the palette has the rest). Rows are
+// context-aware — shown only when they can work — so the menu stays short. Windows keep their own menus.
+desktop.addEventListener("contextmenu",(e)=>{
+  if(e.defaultPrevented||e.target.closest(".win,#glue-btn,a,button"))return;
+  e.preventDefault();
+  const p=projects.get(activeProject);
+  const mini=order.filter((id)=>{const s=sessions.get(id);return s&&s.project===activeProject&&s.minimized;});
+  const it=[
+    {label:"New terminal",key:kbd("⌘","⌥","T"),run:()=>createSession({cwd:curCwd()})},
+    {label:"New agent task…",key:kbd("⌘","⌥","R"),run:newAgentTask},
+    {sep:true},
+    {label:"Open file…",key:kbd("⌘","⌥","O"),run:openFilePrompt},
+    {label:"Open directory…",key:kbd("⌘","⇧","O"),run:()=>document.getElementById("folder").click()},
+  ];
+  const lay=[];
+  if(tileable()) lay.push({label:"Tile windows",key:kbd("⌘","⌥","⇧","T"),run:tileAll});
+  if(mini.length) lay.push({label:"Restore minimized ("+mini.length+")",run:()=>mini.forEach((id)=>restore(sessions.get(id)))});
+  if(castableCount()>=2) lay.push({label:broadcastOn?"Stop broadcasting input":"Broadcast input to all",key:kbd("⌘","⌥","B"),run:()=>setBroadcast(!broadcastOn)});
+  if(LIVE&&p?.base) lay.push({label:"Review agent changes…",key:kbd("⌘","⌥","D"),run:openAgentDiff},{label:"Finish agent task…",run:finishAgentTask});
+  if(lay.length) it.push({sep:true},...lay);
+  it.push({sep:true},
+    {label:"Toggle directory tree",key:kbd("⌘","B"),run:toggleSidebar},
+    {label:"Change theme…",key:kbd("⌘","⇧","P"),run:()=>openThemePop(null,themeBtn)},
+    {label:document.fullscreenElement?"Exit fullscreen":"Fullscreen",run:()=>fsBtn.click()},
+    {sep:true},
+    {label:"Command palette…",key:kbd("⌘","K"),run:openPalette});
+  showCtxMenu(e.clientX,e.clientY,it);
+});
 paddBtn.addEventListener("click",()=>addProject());
 paddBtn.addEventListener("keydown",(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();addProject();}});
 
