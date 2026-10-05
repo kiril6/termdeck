@@ -1,0 +1,8 @@
+{
+  "user-prompt-submit":             { "type": "prompt_submit" },
+  "pre-tool-use-bash":              { "type": "tool_start", "tool": "Bash", "detail": "cat f.txt" },
+  "pre-tool-use-apply-patch":       { "type": "tool_start", "tool": "apply_patch", "files": ["g.txt"] },
+  "post-tool-use-apply-patch":      { "type": "tool_end", "tool": "apply_patch", "files": ["g.txt"] },
+  "permission-request-apply-patch": { "type": "permission_request", "tool": "apply_patch", "files": ["g.txt"] },
+  "stop":                           { "type": "stop" }
+}

@@ -1,0 +1,15 @@
+{
+  "session_id": "00000000-0000-0000-0000-000000000000",
+  "turn_id": "00000000-0000-0000-0000-000000000000",
+  "transcript_path": "/home/user/.codex/transcript.jsonl",
+  "cwd": "/home/user/project/cwork",
+  "hook_event_name": "PostToolUse",
+  "model": "gpt-6-luna",
+  "permission_mode": "default",
+  "tool_name": "apply_patch",
+  "tool_input": {
+    "command": "*** Begin Patch\n*** Add File: g.txt\n+hi\n*** End Patch"
+  },
+  "tool_response": "(omitted)",
+  "tool_use_id": "toolu_FIXTURE"
+}

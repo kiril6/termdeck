@@ -27,11 +27,14 @@ function toEvent(h, agent) {
   if (!type) return null;
   const input = h.tool_input && typeof h.tool_input === 'object' ? h.tool_input : {};
   const file = input.file_path || input.path || input.notebook_path;
-  return {
-    id: TD_ID, agent, type, tool: h.tool_name,
-    detail: input.command || input.pattern || input.url || h.message,
-    files: typeof file === 'string' ? [file] : undefined,
-  };
+  let detail = input.command || input.pattern || input.url || h.message;
+  let files = typeof file === 'string' ? [file] : undefined;
+  if (h.tool_name === 'apply_patch' && typeof input.command === 'string') {   // Codex: the patch text itself is tool_input.command
+    files = [...input.command.matchAll(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/gm)].map((m) => m[1].trim());
+    detail = files.length > 1 ? files.length + ' files' : undefined;           // never show the raw patch as the "command"
+    if (!files.length) files = undefined;
+  }
+  return { id: TD_ID, agent, type, tool: h.tool_name, detail, files };
 }
 
 let raw = '';

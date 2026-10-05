@@ -1,0 +1,9 @@
+{
+  "user-prompt-submit":      { "type": "prompt_submit" },
+  "pre-tool-use-read":       { "type": "tool_start", "tool": "Read", "files": ["/home/user/project/work/f.txt"] },
+  "pre-tool-use-bash":       { "type": "tool_start", "tool": "Bash", "detail": "touch made.txt" },
+  "post-tool-use-read":      { "type": "tool_end", "tool": "Read", "files": ["/home/user/project/work/f.txt"] },
+  "permission-request-bash": { "type": "permission_request", "tool": "Bash", "detail": "touch made2.txt" },
+  "notification-permission": { "type": "permission_request", "detail": "Claude needs your permission" },
+  "stop":                    { "type": "stop" }
+}

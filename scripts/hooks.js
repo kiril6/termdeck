@@ -16,7 +16,10 @@ const CLIS = {
   codex:  { dir: '.codex',  file: 'hooks.json',    events: ['UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'PermissionRequest', 'Stop'] },
 };
 const MARK = '$TD_HOOK';                                   // identifies our entries
-const commandFor = (agent) => `node "${MARK}" ${agent}`;   // fixed string — nothing user-supplied is interpolated
+// Guarded: outside termdeck $TD_HOOK is unset and a bare `node ""` runs node on stdin (SyntaxError, exit 1 → an error
+// on every hook event in the agent). Found by running the real CLIs (#46). Fixed string — nothing user-supplied is interpolated.
+const commandFor = (agent) => `[ -z "${MARK}" ] || node "${MARK}" ${agent}`;
+const legacyCommandFor = (agent) => `node "${MARK}" ${agent}`;   // what earlier versions wrote; upgraded in place on install
 const isOurs = (h) => h && typeof h.command === 'string' && h.command.includes(MARK);
 
 class Abort extends Error {}
@@ -30,7 +33,7 @@ function parseJson(file, raw) {
 function plan(obj, agent, action) {
   if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) throw new Abort('config is not a JSON object — left untouched');
   const next = JSON.parse(JSON.stringify(obj));
-  const added = [], present = [], removed = [];
+  const added = [], present = [], removed = [], updated = [];
   if (next.hooks !== undefined && (next.hooks === null || typeof next.hooks !== 'object' || Array.isArray(next.hooks)))
     throw new Abort('"hooks" is not an object — left untouched');
   if (action === 'install') {
@@ -38,11 +41,17 @@ function plan(obj, agent, action) {
     for (const ev of CLIS[agent].events) {
       if (next.hooks[ev] !== undefined && !Array.isArray(next.hooks[ev])) throw new Abort(`hooks.${ev} is not a list — left untouched`);
       const groups = next.hooks[ev] = next.hooks[ev] || [];
-      if (groups.some((g) => Array.isArray(g?.hooks) && g.hooks.some(isOurs))) { present.push(ev); continue; }
+      const ours = groups.flatMap((g) => (Array.isArray(g?.hooks) ? g.hooks : [])).filter(isOurs);
+      if (ours.length) {
+        const stale = ours.filter((h) => h.command === legacyCommandFor(agent));   // only our exact old string — never a hand-edited one
+        stale.forEach((h) => { h.command = commandFor(agent); });
+        (stale.length ? updated : present).push(ev);
+        continue;
+      }
       groups.push({ hooks: [{ type: 'command', command: commandFor(agent) }] });
       added.push(ev);
     }
-    return { next, added, present, removed };
+    return { next, added, present, removed, updated };
   }
   for (const ev of Object.keys(next.hooks || {})) {          // uninstall: scan every event, not just the table's
     if (!Array.isArray(next.hooks[ev])) continue;
@@ -55,7 +64,7 @@ function plan(obj, agent, action) {
     if (next.hooks[ev].length === 0) delete next.hooks[ev];
   }
   if (next.hooks && Object.keys(next.hooks).length === 0 && removed.length) delete next.hooks;
-  return { next, added, present, removed };
+  return { next, added, present, removed, updated };
 }
 
 function serialize(obj, raw) {                              // keep the file's own indent and trailing newline
@@ -110,8 +119,10 @@ async function main(argv) {
       console.log(`\n  ${label}`);
       if (action === 'install') {
         p.added.forEach((e) => console.log(`    + ${e}  ${commandFor(a)}`));
+        p.updated.forEach((e) => console.log(`    ~ ${e}  upgraded to the guarded command (silent outside termdeck)`));
         p.present.forEach((e) => console.log(`    = ${e}  already installed`));
-        if (!p.added.length) { console.log('    nothing to do'); continue; }
+        if (a === 'codex') console.log('    note: Codex hooks only see TD_* if ~/.codex/config.toml has  [shell_environment_policy] inherit = "all"');
+        if (!p.added.length && !p.updated.length) { console.log('    nothing to do'); continue; }
       } else {
         p.removed.forEach((e) => console.log(`    - ${e}`));
         if (!p.removed.length) { console.log('    nothing to remove'); continue; }

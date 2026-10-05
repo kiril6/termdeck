@@ -1,0 +1,14 @@
+{
+  "session_id": "00000000-0000-0000-0000-000000000000",
+  "turn_id": "00000000-0000-0000-0000-000000000000",
+  "transcript_path": "/home/user/.codex/transcript.jsonl",
+  "cwd": "/home/user/project/cwork",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-6-luna",
+  "permission_mode": "default",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "cat f.txt"
+  },
+  "tool_use_id": "toolu_FIXTURE"
+}
