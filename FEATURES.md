@@ -241,7 +241,14 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   (and tokens/cost if the agent supplies them). A tab that receives events is auto-tagged as an agent and
   its output heuristics stand down; the 8s idle watch becomes a 120s safety net (an Esc-interrupt fires
   no Stop hook). **Without hooks nothing changes.** Setup for Claude Code, Gemini CLI and Codex:
-  [docs/agent-hooks.md](docs/agent-hooks.md).
+  [docs/agent-hooks.md](docs/agent-hooks.md). **Verified against real Claude Code and Codex sessions (#46):**
+  captured payloads live in `scripts/fixtures/hooks/` and CI (`scripts/check-hooks.js`) replays them through
+  the helper, so a CLI changing its hook format fails the build instead of silently breaking the queue
+  (Gemini CLI still unverified). Running the real CLIs surfaced and fixed: the hook command is now guarded
+  (`[ -z "$TD_HOOK" ] || node …`) because a bare `node ""` errored on every event when the agent ran **outside**
+  termdeck — `termdeck hooks install` upgrades old entries in place and leaves hand-edited ones alone; Codex
+  `apply_patch` shows the patched file(s) instead of the raw patch text; and Codex needs
+  `[shell_environment_policy] inherit = "all"` for hooks to see `TD_*` (documented, and `hooks install` prints a note).
 - 🖥️ **Broadcast input** — 📢 Cast toolbar toggle / `⌘⌥B`: keystrokes **and inserted snippets** mirror to
   every live shell **in the active project** (not other projects — a cast can't hit shells you can't see).
   Pulsing red state signals ON (destructive — one command hits all of the project's shells).

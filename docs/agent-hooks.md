@@ -18,6 +18,34 @@ The helper is **safe to leave installed**: outside termdeck (no `TD_ID`) it does
 nothing, never blocks the agent for more than ~2s, and always exits 0. Events are display-only —
 termdeck never answers a prompt for you.
 
+## Verified against the real CLIs
+
+Payloads were captured from real sessions and are replayed through the helper in CI
+(`scripts/fixtures/hooks/`, `node scripts/check-hooks.js`), so a CLI changing its hook format fails the build.
+
+| CLI | Version tested | Status |
+|---|---|---|
+| Claude Code | 2.1.195 | ✅ every event in the snippet; `"$TD_HOOK"` expands; silent and error-free outside termdeck |
+| Codex | codex-cli 0.160.0 | ✅ with one setting (below): all events incl. approval; `apply_patch` files are read from the patch text (it arrives in `tool_input.command`). No `Notification` hook exists |
+| Gemini CLI | — | ⚠️ not verified yet (needs a signed-in install); the snippet follows its docs |
+
+**Two things the real CLIs taught us** (both fixed here):
+- A bare `node "$TD_HOOK" …` **fails outside termdeck** — `$TD_HOOK` is empty, `node ""` runs node on stdin and the hook
+  exits 1 with a SyntaxError on every event. The snippets below guard it (`[ -z "$TD_HOOK" ] || node …`), and
+  `termdeck hooks install` upgrades older entries in place.
+- **Codex hooks run with a reduced environment**: `TD_ID`/`TD_URL`/`TD_HOOK` arrive empty unless
+  `~/.codex/config.toml` has `[shell_environment_policy] inherit = "all"`. (Codex's default excludes variables whose
+  names contain `KEY`/`SECRET`/`TOKEN`, so with remote access on `TD_TOKEN` is dropped too.)
+
+Notes from the captures: Claude Code fires `PermissionRequest` and `Notification` (`notification_type: "permission_prompt"`) only
+in **interactive** sessions — `claude -p` denies instead of asking, so no approval state there.
+
+**Token usage (for cost totals):** none of the hook payloads carry it. Claude Code and Codex both give a
+`transcript_path` (JSONL): Claude Code has per-message `usage` (`input_tokens`, `output_tokens`,
+`cache_read_input_tokens`, `cache_creation_input_tokens`); Codex has `token_count` events with
+`total_token_usage` (`input_tokens`, `cached_input_tokens`, `output_tokens`, `reasoning_output_tokens`, `total_tokens`).
+Gemini CLI: unchecked.
+
 ## Quick setup
 
 ```bash
@@ -42,12 +70,12 @@ hand? The snippets below are exactly what it writes.
 ```json
 {
   "hooks": {
-    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "node \"$TD_HOOK\" claude" }] }],
-    "PreToolUse":       [{ "hooks": [{ "type": "command", "command": "node \"$TD_HOOK\" claude" }] }],
-    "PostToolUse":      [{ "hooks": [{ "type": "command", "command": "node \"$TD_HOOK\" claude" }] }],
-    "PermissionRequest":[{ "hooks": [{ "type": "command", "command": "node \"$TD_HOOK\" claude" }] }],
-    "Notification":     [{ "hooks": [{ "type": "command", "command": "node \"$TD_HOOK\" claude" }] }],
-    "Stop":             [{ "hooks": [{ "type": "command", "command": "node \"$TD_HOOK\" claude" }] }]
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" claude" }] }],
+    "PreToolUse":       [{ "hooks": [{ "type": "command", "command": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" claude" }] }],
+    "PostToolUse":      [{ "hooks": [{ "type": "command", "command": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" claude" }] }],
+    "PermissionRequest":[{ "hooks": [{ "type": "command", "command": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" claude" }] }],
+    "Notification":     [{ "hooks": [{ "type": "command", "command": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" claude" }] }],
+    "Stop":             [{ "hooks": [{ "type": "command", "command": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" claude" }] }]
   }
 }
 ```
@@ -59,27 +87,33 @@ hand? The snippets below are exactly what it writes.
 ```json
 {
   "hooks": {
-    "BeforeAgent":  [{ "hooks": [{ "type": "command", "command": "node \"$TD_HOOK\" gemini" }] }],
-    "BeforeTool":   [{ "hooks": [{ "type": "command", "command": "node \"$TD_HOOK\" gemini" }] }],
-    "AfterTool":    [{ "hooks": [{ "type": "command", "command": "node \"$TD_HOOK\" gemini" }] }],
-    "Notification": [{ "hooks": [{ "type": "command", "command": "node \"$TD_HOOK\" gemini" }] }],
-    "AfterAgent":   [{ "hooks": [{ "type": "command", "command": "node \"$TD_HOOK\" gemini" }] }]
+    "BeforeAgent":  [{ "hooks": [{ "type": "command", "command": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" gemini" }] }],
+    "BeforeTool":   [{ "hooks": [{ "type": "command", "command": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" gemini" }] }],
+    "AfterTool":    [{ "hooks": [{ "type": "command", "command": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" gemini" }] }],
+    "Notification": [{ "hooks": [{ "type": "command", "command": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" gemini" }] }],
+    "AfterAgent":   [{ "hooks": [{ "type": "command", "command": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" gemini" }] }]
   }
 }
 ```
 
 ## Codex
 
-`~/.codex/hooks.json` (Codex asks you to review/trust new hooks the first time):
+`~/.codex/hooks.json` (Codex asks you to review/trust new hooks the first time), **plus** this in `~/.codex/config.toml`
+so the hooks can see `TD_*`:
+
+```toml
+[shell_environment_policy]
+inherit = "all"
+```
 
 ```json
 {
   "hooks": {
-    "UserPromptSubmit":  [{ "hooks": [{ "type": "command", "command": "node \"$TD_HOOK\" codex" }] }],
-    "PreToolUse":        [{ "hooks": [{ "type": "command", "command": "node \"$TD_HOOK\" codex" }] }],
-    "PostToolUse":       [{ "hooks": [{ "type": "command", "command": "node \"$TD_HOOK\" codex" }] }],
-    "PermissionRequest": [{ "hooks": [{ "type": "command", "command": "node \"$TD_HOOK\" codex" }] }],
-    "Stop":              [{ "hooks": [{ "type": "command", "command": "node \"$TD_HOOK\" codex" }] }]
+    "UserPromptSubmit":  [{ "hooks": [{ "type": "command", "command": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" codex" }] }],
+    "PreToolUse":        [{ "hooks": [{ "type": "command", "command": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" codex" }] }],
+    "PostToolUse":       [{ "hooks": [{ "type": "command", "command": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" codex" }] }],
+    "PermissionRequest": [{ "hooks": [{ "type": "command", "command": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" codex" }] }],
+    "Stop":              [{ "hooks": [{ "type": "command", "command": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" codex" }] }]
   }
 }
 ```
