@@ -160,14 +160,21 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🖥️ **Resume agents after a reboot / dead shell** — agent tabs remember a *resume command*, persisted with
   the tab and sent as its startup command on reload. The backend runs a startup command **only on a fresh
   shell**, so a live reattach (reload, server restart under tmux) never re-fires it; after a machine reboot
-  (tmux gone) or on a host without tmux, the agent comes back instead of a bare shell. Built-ins: **Claude**
-  launches with a generated `--session-id <uuid>` and resumes exactly that session (`claude --resume <uuid>`,
-  correct even with several agents in one folder); **Codex** `codex resume --last`, **Gemini**
-  `gemini --resume latest`, **Copilot** `copilot --continue` (flags checked against each CLI's `--help`;
-  "last" forms are per-folder, so worktree tasks stay unambiguous). Resume is `<resume> || <cli>`: if there
-  is nothing to resume it starts the CLI clean — the original task prompt is never re-sent. *Add/Edit AI CLI
-  preset…* has an optional **Resume command** field (`{id}` is not substituted for custom presets). If you
-  exited the agent but left its shell open, a reboot will resume it again.
+  (tmux gone) or on a host without tmux, the agent comes back instead of a bare shell. The launch command is
+  left exactly as the preset says (**no extra flags** — a shell function wrapping the CLI can choke on them), and
+  resume runs the real binary via `command <cli>` for the same reason (aliases / functions that mangle
+  arguments are skipped). Built-ins: **Claude** `command claude --continue`, upgraded to the **exact**
+  `command claude --resume <session id>` as soon as a hook event reports the CLI's own session id (hooks
+  installed → correct even with several agents in one folder; without hooks `--continue` resumes the folder's
+  latest conversation); **Codex** `codex resume --last`, **Gemini** `gemini --resume latest`, **Copilot**
+  `copilot --continue` ("last" forms are per-folder, so worktree tasks stay unambiguous). Resume is
+  `<resume> || <cli>`: if there is nothing to resume it starts the CLI clean — the original task prompt is never
+  re-sent. *Add/Edit AI CLI preset…* has an optional **Resume command** field (`{id}` is not substituted for
+  custom presets). If you exited the agent but left its shell open, a reboot will resume it again.
+  **Verified with real Claude Code 2.1.195:** a conversation survived a killed tmux session + reload and
+  remembered its context, `--resume <id>` restored an interactive session, a plain reload did not re-run it.
+  *Not verified:* Codex / Gemini / Copilot resume flows. A Claude that opens its agent dashboard on bare
+  `claude` can't `--resume` a running background agent (falls back to a clean start).
 - 🖥️ **Agent worktrees — one isolated checkout per task** (palette → *New agent task…*). Three agents
   loose in one repo overwrite each other, so a task gets its own `git worktree`: pick a **branch name**,
   an **AI CLI preset**, and an optional **prompt**, and the backend cuts a worktree off the project's repo

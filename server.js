@@ -264,7 +264,7 @@ app.post('/api/agent-events', apiGuard, (req, res) => {
   const now = Date.now();
   if (now - (s.evtWin || 0) > 1000) { s.evtWin = now; s.evtCount = 0; }
   if (++s.evtCount > 30) return res.status(429).end();           // 30 events/s per terminal
-  const ev = { type: b.type, agent: cap(b.agent, 32), tool: cap(b.tool, 64), detail: cap(b.detail, 200), ts: now };
+  const ev = { type: b.type, agent: cap(b.agent, 32), tool: cap(b.tool, 64), detail: cap(b.detail, 200), session: cap(b.session, 64), ts: now };
   if (Array.isArray(b.files)) ev.files = b.files.slice(0, 10).map((f) => cap(f, 300)).filter(Boolean);
   if (Number.isFinite(b.tokens)) ev.tokens = b.tokens;
   if (Number.isFinite(b.cost))   ev.cost = b.cost;
