@@ -15,8 +15,10 @@ Every terminal termdeck spawns has these environment variables:
 | `TD_TOKEN` | access token, only when remote access is on |
 
 The helper is **safe to leave installed**: outside termdeck (no `TD_ID`) it does nothing, it prints
-nothing, never blocks the agent for more than ~2s, and always exits 0. Events are display-only —
-termdeck never answers a prompt for you.
+nothing, never blocks the agent for more than ~2s, and always exits 0 — with one deliberate exception: a
+`PermissionRequest` (Claude Code, Codex) is held until you click **Approve / Deny** on the agent-queue row, then the
+helper prints that decision. No click means no output and the CLI asks as usual (after 120s, when you type in the
+terminal, or when no browser is attached). termdeck never answers a prompt without your click.
 
 ## Verified against the real CLIs
 

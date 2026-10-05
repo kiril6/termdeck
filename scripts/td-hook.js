@@ -2,15 +2,19 @@
 // termdeck agent-event hook helper (#40). Wire it into an agent CLI's hooks and it reports the
 // agent's lifecycle to the termdeck terminal it runs in:   node "$TD_HOOK" <agent>
 // Reads the hook JSON from stdin (Claude Code / Gemini CLI / Codex share this shape).
-// SAFE TO LEAVE INSTALLED: silent no-op outside termdeck (no TD_ID/TD_URL), never prints, never
-// blocks the agent (short timeout) and always exits 0 — a hook must not break the agent's turn.
+// SAFE TO LEAVE INSTALLED: silent no-op outside termdeck (no TD_ID/TD_URL), never blocks the agent
+// (short timeout) and always exits 0 — a hook must not break the agent's turn. The ONE exception (#44):
+// a PermissionRequest is held until you click Approve/Deny in termdeck (or ~2 min / you answer in the
+// terminal), and only then prints the decision. No click = no output = the CLI's normal prompt.
 const http = require('http');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { TD_ID, TD_URL, TD_TOKEN } = process.env;
 if (!TD_ID || !TD_URL) process.exit(0);
-setTimeout(() => process.exit(0), 2000).unref();   // hard ceiling
+const WAIT_MS = 125000;                              // just over the server's approval hold (120s)
+const ceiling = setTimeout(() => process.exit(0), 2000);   // hard ceiling
+ceiling.unref();
 
 const EVENTS = {
   UserPromptSubmit: 'prompt_submit', BeforeAgent: 'prompt_submit',
@@ -34,7 +38,9 @@ function toEvent(h, agent) {
     detail = files.length > 1 ? files.length + ' files' : undefined;           // never show the raw patch as the "command"
     if (!files.length) files = undefined;
   }
-  return { id: TD_ID, agent, type, tool: h.tool_name, detail, files };
+  // wait: ask the server to hold this request open for a human decision. Only a real PermissionRequest
+  // (Claude Code / Codex) can take a decision back — a Gemini Notification can't.
+  return { id: TD_ID, agent, type, tool: h.tool_name, detail, files, wait: h.hook_event_name === 'PermissionRequest' };
 }
 
 let raw = '';
@@ -44,12 +50,24 @@ process.stdin.on('end', () => {
   let ev; try { ev = toEvent(JSON.parse(raw), process.argv[2] || 'agent'); } catch { ev = null; }
   if (!ev) process.exit(0);
   const body = JSON.stringify(ev);
+  if (ev.wait) { clearTimeout(ceiling); setTimeout(() => process.exit(0), WAIT_MS).unref(); }
   const post = (url, token, onFail) => {
     const req = http.request(new URL('/api/agent-events', url), {
-      method: 'POST', timeout: 1500,
+      method: 'POST', timeout: ev.wait ? WAIT_MS : 1500,
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body),
                  ...(token ? { Cookie: 'td_token=' + token } : {}) },
-    }, (res) => { res.resume(); res.on('end', () => process.exit(0)); });
+    }, (res) => {
+      let out = '';
+      res.setEncoding('utf8').on('data', (c) => { if (out.length < 1024) out += c; });
+      res.on('end', () => {
+        if (ev.wait && res.statusCode === 200) {
+          let d; try { d = JSON.parse(out).decision; } catch {}
+          if (d === 'allow' || d === 'deny') process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PermissionRequest',
+            decision: d === 'allow' ? { behavior: 'allow' } : { behavior: 'deny', ...(ev.agent === 'codex' ? { message: 'Denied from termdeck' } : {}) } } }));
+        }
+        process.exit(0);
+      });
+    });
     req.on('error', onFail).on('timeout', () => { req.destroy(); onFail(); });
     req.end(body);
   };

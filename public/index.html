@@ -183,6 +183,15 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
 .agent-row-info{display:flex;flex-direction:column;min-width:0;flex:1;}
 .agent-row-path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;}
 .agent-row-evt{text-transform:none;letter-spacing:0;opacity:.85;}
+.agent-row-ask{font-size:11px;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.9;}
+.agent-row-btns{display:flex;gap:6px;margin-top:5px;}
+.agent-btn{font:inherit;font-size:11px;padding:3px 10px;border-radius:5px;border:1px solid var(--line);background:var(--btn-bg);color:inherit;cursor:pointer;}
+.agent-btn.allow{border-color:#2e9d5b;color:#43c077;}
+.agent-btn.deny{border-color:#e5484d;color:#ff9b93;}
+.agent-btn:hover{filter:brightness(1.25);}
+.agent-audit{border-top:1px solid var(--line);margin-top:6px;padding:6px 10px 2px;font-size:10.5px;color:var(--muted);}
+.agent-audit-row{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 0;}
+.agent-audit-row b{font-weight:600;}
 .agent-row-warn{font-size:10.5px;color:#d9822b;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .agent-row-state{font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-top:1px;}
 .agent-row.approval .agent-row-state{color:#ff9b93;}
@@ -794,6 +803,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
       <span class="agent-pop-count" id="agent-pop-count">0 active</span>
     </div>
     <div class="agent-list" id="agent-list"></div>
+    <div class="agent-audit" id="agent-audit" hidden></div>
   </div>
 </div>
 
@@ -2188,8 +2198,13 @@ function agentEvent(s,tab,ev){
   tab.evt=ev;
   armAgentIdle(s,tab,true);
   if(ev.type==="stop"||ev.type==="error") agentWaiting(s,tab);
-  else if(ev.type==="permission_request") agentApproval(s,tab);
+  else if(ev.type==="permission_request"){
+    // reqId = the hook is held open for a click (#44): the queue row offers Approve / Deny. No reqId = display-only.
+    tab.ask=ev.reqId?{reqId:ev.reqId,text:[ev.tool,ev.files?.[0]||ev.detail].filter(Boolean).join(" ")}:null;
+    agentApproval(s,tab);
+  }
   else setWaiting(s,tab,false);   // prompt/tool activity = working (also clears a red approval once you answered)
+  if(ev.type!=="permission_request") tab.ask=null;
   updateAgentOverview();
 }
 function evtSummary(tab){
@@ -2286,6 +2301,16 @@ function renderAgentList(queue){
     const extra=evtSummary(tab);
     if(extra){const x=el("span","agent-row-evt"); x.textContent=" · "+extra; st.append(x);}   // textContent only — event data is untrusted
     info.append(path,st);
+    if(state==="approval"&&tab.ask){   // exact request + one-click answer; textContent only — the command is untrusted
+      const q=el("div","agent-row-ask"); q.textContent=tab.ask.text; q.title=tab.ask.text;
+      const bt=el("div","agent-row-btns");
+      for(const [d,label] of [["allow","Approve"],["deny","Deny"]]){
+        const b=el("button","agent-btn "+d); b.textContent=label; b.type="button";
+        b.addEventListener("click",(e)=>{e.stopPropagation(); const a=tab.ask; if(!a||!tab.conn?.approve)return; tab.conn.approve(a.reqId,d);});
+        bt.append(b);
+      }
+      info.append(q,bt);
+    }
     const ov=overlapByProject.get(s.project);
     if(ov){const w=el("div","agent-row-warn"); w.textContent="\u26a0 "+overlapText(ov); w.title=w.textContent; info.append(w);}   // textContent: file names are untrusted
     row.append(dot,info);
@@ -2321,8 +2346,26 @@ function updateAgentOverview(){
   }
 }
 
+// Recent approval decisions (server-side audit, #44): when, which terminal, what, and who decided.
+const agentAudit=document.getElementById("agent-audit");
+async function loadAudit(){
+  if(!LIVE||!agentAudit)return;
+  let rows; try{rows=await (await fetch("/api/approvals")).json();}catch{return;}
+  agentAudit.innerHTML=""; agentAudit.hidden=!rows.length; if(!rows.length)return;
+  const h=el("div"); h.textContent="Recent approvals"; agentAudit.append(h);
+  const src={click:"you",terminal:"in terminal",timeout:"timed out",superseded:"replaced"};
+  rows.slice(0,8).forEach((a)=>{
+    const sess=sessions.get(String(a.id).split("-")[0]);
+    const r=el("div","agent-audit-row");
+    const d=el("b"); d.textContent=a.decision==="allow"?"Approved":a.decision==="deny"?"Denied":"Not decided";
+    r.append(new Date(a.ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})+" · ",d,
+      document.createTextNode(" · "+(sess?.name||a.id)+" · "+[a.tool,a.files?.[0]||a.detail].filter(Boolean).join(" ")+" · "+(src[a.source]||a.source)));
+    r.title=r.textContent; agentAudit.append(r);
+  });
+}
 function openAgentPop(){
   closeModals("agent");
+  loadAudit();
   const r=agentBtn.getBoundingClientRect();
   agentPop.style.top=(r.bottom+6)+"px";
   agentPop.style.left=Math.max(12,Math.min(window.innerWidth-352,r.right-340))+"px";
@@ -2349,6 +2392,8 @@ function openTabWS(s,tab){
       if(m.shell){tab.shellName=m.shell; if(s.activeTabId===tab.id) s.badgeShell.textContent=m.shell;}
     }else if(m.type==="agent"){
       agentEvent(s,tab,m.event);
+    }else if(m.type==="approval"){   // the held request ended (clicked, answered in the terminal, timed out)
+      if(tab.ask?.reqId===m.reqId){tab.ask=null; updateAgentOverview(); loadAudit();}
     }else if(m.type==="output"){
       tab.term.write(m.data);
       // On reattach the server replays the whole ring buffer in one chunk. Scanning all of it
@@ -2396,6 +2441,7 @@ function openTabWS(s,tab){
     send:(d)=>ws.readyState===1&&ws.send(JSON.stringify({type:"input",data:d})),
     resize:(c,r)=>ws.readyState===1&&ws.send(JSON.stringify({type:"resize",cols:c,rows:r})),
     kill:()=>ws.readyState===1&&ws.send(JSON.stringify({type:"kill"})),
+    approve:(reqId,decision)=>ws.readyState===1&&ws.send(JSON.stringify({type:"approve",reqId,decision})),
     close:()=>ws.close(),
   };
 }

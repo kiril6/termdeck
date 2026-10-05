@@ -54,7 +54,7 @@ Three things set it apart:
 - **Review agent changes** — palette → *Review agent changes…*: a read-only diff of a worktree against the commit it was cut from, so **committed and uncommitted work both show in one view**, with a file summary and untracked files listed. View-only by design — you already have a shell in that worktree.
 - **Conflict radar** — when two agent worktrees of the same repo change the **same file**, the project tabs get an orange dot and the agent queue shows `⚠ overlaps with <agent>: <files>` — *(same lines)* if the edits actually collide. Informational only; checked every 10 s, read-only, idle with a single worktree.
 - **"Waiting on you" watch** — an agent tab that goes quiet flips to an amber pulse plus a notification, so a row of agents reads as a who-needs-me queue.
-- **Approval-prompt routing** — when an agent blocks on *"Allow this tool? (y/n)"* it jumps straight to a louder red alert, no idle wait. termdeck **never auto-answers** — it only surfaces and jumps to the prompt. Optional [agent hooks](docs/agent-hooks.md) (Claude Code, Gemini CLI, Codex) make this exact: real working / waiting / approval state plus the current tool and file, instead of guessing from output.
+- **Approval-prompt routing** — when an agent blocks on *"Allow this tool? (y/n)"* it jumps straight to a louder red alert, no idle wait. termdeck **never answers on its own** — it surfaces and jumps to the prompt, and with the optional [agent hooks](docs/agent-hooks.md) (Claude Code, Gemini CLI, Codex) the queue row shows the exact command with **Approve / Deny** buttons that answer only when you click, plus real working / waiting / approval state instead of guessing from output.
 - **Cross-project agent queue** — a toolbar button opens one popover listing **every agent tab across all projects**, ranked *needs approval → waiting → working*; clicking a row jumps straight to that tab. The state also shows as a dot on each project tab, so the escalation reads tab pulse → project dot → one queue for the whole fleet.
 
 **Productivity**
@@ -211,7 +211,7 @@ What termdeck does *not* do, so none of it is a surprise:
 
 - **Reboots end shells.** tmux keeps shells alive across a server restart or crash, not across a machine reboot. Layout and projects come back; the processes don't — except agent tabs, which relaunch their CLI in resume mode (Claude, Codex, Gemini, Copilot, or your own resume command).
 - **Agent state is a guess unless you install the hooks.** Without [agent hooks](docs/agent-hooks.md) "waiting" and "needs approval" come from output heuristics (idle time, a prompt regex). The hooks are checked against each CLI's documented payloads, not yet against every real CLI version.
-- **It never answers a prompt for you.** Approval prompts are surfaced and jumped to, never approved.
+- **It never answers a prompt without your click.** Approval prompts are surfaced and jumped to; **Approve / Deny** (Claude Code and Codex, with hooks installed) acts only when you press it, and every answer is logged. Without hooks it's jump-only. No rules, no auto-approve.
 - **Remote access exposes a real shell.** The access token is a per-start secret, not multi-user auth. Keep the loopback bind, or use a tunnel — see [docs/remote-access.md](docs/remote-access.md).
 - **Limits:** 12 terminals per project, 10 projects, 64 live terminals server-wide (`TD_MAX_PANELS`).
 - **Windows:** works through ConPTY, but there is no tmux, so shells don't outlive the server, and the live working-directory badge falls back to the spawn directory.

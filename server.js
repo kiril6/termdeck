@@ -267,10 +267,41 @@ app.post('/api/agent-events', apiGuard, (req, res) => {
   if (Array.isArray(b.files)) ev.files = b.files.slice(0, 10).map((f) => cap(f, 300)).filter(Boolean);
   if (Number.isFinite(b.tokens)) ev.tokens = b.tokens;
   if (Number.isFinite(b.cost))   ev.cost = b.cost;
+  // Any event other than the request itself means the agent moved on (you answered in the terminal).
+  if (b.type !== 'permission_request') settleApproval(b.id, null, 'terminal');
+  // #44: a permission request from a hook that can take a decision back (b.wait) is held open until the
+  // browser answers. Only with a browser attached — otherwise nobody could click, so fall through at once.
+  const held = b.wait === true && b.type === 'permission_request' && !!s.ws;
+  if (held) {
+    settleApproval(b.id, null, 'superseded');
+    ev.reqId = require('crypto').randomUUID();
+    const p = { reqId: ev.reqId, res, ev, timer: setTimeout(() => settleApproval(b.id, null, 'timeout'), APPROVAL_HOLD_MS) };
+    pendingApprovals.set(b.id, p);
+    res.on('close', () => { if (pendingApprovals.get(b.id) === p) settleApproval(b.id, null, 'terminal'); });   // helper gone: the CLI was answered or died
+  }
   s.agentEvt = ev;                                                // replayed to a reattaching browser
   if (s.ws) send(s.ws, { type: 'agent', event: ev });
-  res.status(204).end();
+  if (!held) res.status(204).end();
 });
+
+// ── Approve / Deny from the queue (#44) ───────────────────────────────────────
+// The hook helper's request stays open; a click arrives over that terminal's own WebSocket (same
+// Origin/Host/token guards as input) and is answered with {decision}. Nothing is typed into a PTY, and
+// no click means no decision: the helper prints nothing and the CLI shows its normal prompt.
+const APPROVAL_HOLD_MS = Math.floor(positiveEnvNumber('TD_APPROVAL_HOLD_MS', 120000));
+const pendingApprovals = new Map();   // terminal id -> { reqId, res, ev, timer }
+const approvalAudit = [];             // newest last, capped; also appended to TD_LOG_DIR/approvals.jsonl when set
+function settleApproval(id, decision, source) {   // decision: 'allow' | 'deny' | null (= no decision, CLI asks as usual)
+  const p = pendingApprovals.get(id); if (!p) return false;
+  pendingApprovals.delete(id); clearTimeout(p.timer);
+  const entry = { ts: Date.now(), id, agent: p.ev.agent, tool: p.ev.tool, detail: p.ev.detail, files: p.ev.files, decision, source };
+  approvalAudit.push(entry); if (approvalAudit.length > 200) approvalAudit.shift();
+  if (LOG_DIR) try { fs.mkdirSync(LOG_DIR, { recursive: true, mode: 0o700 }); fs.appendFileSync(path.join(LOG_DIR, 'approvals.jsonl'), JSON.stringify(entry) + '\n', { mode: 0o600 }); } catch {}
+  if (!p.res.writableEnded) { if (decision) p.res.json({ decision }); else p.res.status(204).end(); }
+  const s = live.get(id); if (s?.ws) send(s.ws, { type: 'approval', reqId: p.reqId, done: true, decision, source });
+  return true;
+}
+app.get('/api/approvals', apiGuard, (req, res) => res.json(approvalAudit.slice(-50).reverse()));
 
 // ── /api/git — worktree-per-agent + read-only diff review ────────────────────
 // Same Origin+Host guard as /api/ls. Worktree creation writes to the user's repo,
@@ -665,7 +696,10 @@ wss.on('connection', (ws, req) => {
     existing.ws = ws;
     send(ws, { type:'attach', id, shell:existing.shellName, cwd:existing.cwd, resumed:true });
     if (existing.buffer) send(ws, { type:'output', data:existing.buffer });
-    if (existing.agentEvt) send(ws, { type:'agent', event:existing.agentEvt });
+    if (existing.agentEvt) {   // a replayed request is only answerable while its hook is still held; settled ones lose the reqId
+      const e = existing.agentEvt, held = pendingApprovals.get(id)?.reqId === e.reqId;
+      send(ws, { type:'agent', event: held || !e.reqId ? e : { ...e, reqId: undefined } });
+    }
     try { existing.term.resize(cols, rows); } catch {}
     bindWsEvents(ws, id);
     return;
@@ -764,7 +798,16 @@ function bindWsEvents(ws, id) {
   ws.on('message', (raw) => {
     let m; try { m = JSON.parse(raw.toString()); } catch { return; }
     const s = live.get(id); if (!s) return;
-    if      (m.type === 'input'  && !s.isLog) s.term.write(m.data);
+    if      (m.type === 'input'  && !s.isLog) {
+      // Typing in the terminal = you're handling the prompt there; stop holding the hook (Codex blocks on it
+      // before showing its prompt). Terminal-generated replies (cursor/device reports, focus) don't count.
+      if (pendingApprovals.has(id) && !/^\x1b(\[[\x30-\x3f]*[\x20-\x2f]*[cRnIOty$]|\]|P)/.test(String(m.data))) settleApproval(id, null, 'terminal');
+      s.term.write(m.data);
+    }
+    else if (m.type === 'approve' && !s.isLog) {
+      const p = pendingApprovals.get(id);
+      if (p && p.reqId === m.reqId && (m.decision === 'allow' || m.decision === 'deny')) settleApproval(id, m.decision, 'click');
+    }
     else if (m.type === 'resize') { try { s.term.resize(clampInt(m.cols,80), clampInt(m.rows,24)); } catch {} }
     else if (m.type === 'kill')   {
       // tmux: killing the pty only detaches the client — the session would live on and
