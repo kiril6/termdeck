@@ -2,7 +2,8 @@
 
 [![npm](https://img.shields.io/npm/v/@kiril6/termdeck?label=npm)](https://www.npmjs.com/package/@kiril6/termdeck)
 [![Latest release](https://img.shields.io/github/v/release/kiril6/termdeck?label=release)](https://github.com/kiril6/termdeck/releases/latest)
-[![npm downloads](https://img.shields.io/npm/dm/@kiril6/termdeck?label=downloads)](https://npm-stat.com/charts.html?package=@kiril6/termdeck)
+[![npm downloads total](https://img.shields.io/npm/dt/@kiril6/termdeck?label=downloads%20total)](https://npm-stat.com/charts.html?package=@kiril6/termdeck)
+[![npm downloads per month](https://img.shields.io/npm/dm/@kiril6/termdeck?label=downloads%2Fmonth)](https://npm-stat.com/charts.html?package=@kiril6/termdeck)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Node ≥18](https://img.shields.io/badge/node-%E2%89%A518-brightgreen)
 ![Platforms: macOS · Windows · Linux](https://img.shields.io/badge/platform-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-blue)
