@@ -194,6 +194,22 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   file summary (modified / added / deleted / new) above the unified diff and untracked files listed.
   Deliberately **view-only** — no accept, discard or reset buttons; landing is a separate, explicit step
   (*Finish agent task…*). The base commit is persisted with the project, so the baseline survives reloads.
+- 🖥️ **Send to agent (#27)** — turn a selection into a prompt for another terminal, no copy-paste. **Three
+  sources, one target picker:** a selection in the **file viewer** (a floating *Send to agent…* button appears
+  next to it), a selection in the **Review agent changes** diff, or **any terminal's output** (right-click →
+  *Send selection to agent…*). The picker lists live terminals — **agent tabs first, then the same project, then most
+  recently focused** (shells are listed too, so any CLI you started by hand works; with no live terminal at all it
+  says so). The message is a reference plus the excerpt in a code fence: `path/to/file.ts:40-52` (path relative to
+  the target's folder when it is inside it), or per file `src/a.ts:12-15` + a `diff` fence for the diff (line numbers
+  are the **new** file's; removed-only selections say `removed lines a-b`), or `Output from "<window>":` for terminal
+  output. A rendered-markdown selection has no line map, so it sends the path only. It is **typed, never executed
+  — no trailing newline** — so you add your instruction and press Enter; the target is revealed and focused.
+  **Safety:** text is wrapped in a bracketed paste (a TUI sees one paste — real Claude Code shows
+  `[Pasted text #1 +3 lines]`), but if the target did not turn bracketed paste on and the text has line breaks it
+  asks first, because the breaks could run as commands. Control characters (an embedded `ESC[201~` could end a
+  paste early) and bidi overrides are stripped, the fence is longer than any backtick run in the text, and a selection
+  over 64 KB is refused. It deliberately does **not** go through Cast broadcast (that would copy a file excerpt into
+  every shell). Works in demo mode too. Checked in a real browser against zsh and real Claude Code.
 - 🖥️ **Finish agent task — merge or PR, then clean up** (palette → *Finish agent task…*, #83). The "land"
   step of launch → watch → unblock → review → land. Shows the branch, its base and commits ahead, then
   you pick: **Merge** into the branch the worktree was cut from (`git merge --no-ff`, run in the main tree),
@@ -228,6 +244,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   startup `cmd` is deliberately *not* persisted, so it can never re-fire on reload. The waiting/approval
   states themselves are never persisted either: they're re-derived from the live output stream (a tmux
   reattach repaints the current screen, so a still-pending approval prompt re-flags itself).
+- 💚 **Working pulse** — a live agent tab that is neither waiting nor blocked gets a slow green pulsing dot on its window tab and its dock chip (amber = waiting, red = approval take over).
 - ⛔ **Approval-prompt routing** — when an agent tab hits a tool-approval prompt (*"Allow this tool?"*,
   *"Do you want to proceed?"*, `(y/n)`…), it jumps **straight** to a louder **red** pulse (tab + dock chip)
   and a **sticky** toast/OS notification ("Needs approval — blocked on a permission prompt") — no 8s idle
