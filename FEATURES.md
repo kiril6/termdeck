@@ -225,7 +225,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   *"Do you want to proceed?"*, `(y/n)`…), it jumps **straight** to a louder **red** pulse (tab + dock chip)
   and a **sticky** toast/OS notification ("Needs approval — blocked on a permission prompt") — no 8s idle
   wait, since an approval halts *all* progress. Stays flagged through prompt repaints until you look at it.
-  **Never auto-answers** — the app only surfaces + jumps, never sends `y`. Cross-CLI regex heuristic.
+  **Never answers on its own** — without hooks it only surfaces + jumps, never sends `y` (Approve / Deny needs the hook channel, below). Cross-CLI regex heuristic.
   On **reattach** only the tail of the replayed ring buffer (last 2 KB — the current screen) is scanned:
   matching the whole buffer would re-fire a red flag for a prompt you already answered earlier in the
   session. A prompt that is still on screen is still caught; history is not re-litigated.
@@ -241,6 +241,21 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   popover. The button's badge mirrors the highest-priority state in the queue (**red** approval beats
   **amber** waiting beats working), and its tooltip carries the count, so the whole fleet collapses to one
   glanceable control. Empty state reads *"No active agents / All quiet"*.
+- ✅ **Approve / Deny from the queue (#44, phase 1)** — with agent hooks installed, an approval row in the
+  agent queue shows the **exact request** (tool + command or file) and **Approve / Deny** buttons. Not
+  keystroke injection: the CLI's `PermissionRequest` hook is held open by `scripts/td-hook.js` until you click,
+  then prints the CLI's own allow/deny JSON, so it is exact for any prompt style and nothing is typed into a PTY.
+  **Checked against real Claude Code 2.1.195** (allow → "Allowed by PermissionRequest hook", deny →
+  "Denied by …"; the normal dialog still shows while the hook is held, and answering it in the terminal
+  releases the hold). Codex uses the same JSON per its docs but blocks on the hook *before* its prompt, so typing
+  in that terminal releases the hold — not yet verified against a real Codex. **No click = no decision**: after
+  120s (`TD_APPROVAL_HOLD_MS`), when you type in the terminal, when no browser is attached, or on any other agent
+  event, the helper prints nothing and the CLI asks as usual. Only that terminal's own socket can answer
+  (same guards as input); the command is shown via `textContent`. **Audit log:** every held request is
+  recorded with time, terminal, tool/command, decision and **who decided** (*you* / *in terminal* / *timed out* /
+  *replaced*) — listed under the queue (*Recent approvals*), served at `GET /api/approvals`, and appended to
+  `TD_LOG_DIR/approvals.jsonl` (0600) when set. Without hooks, or on Gemini (no decision channel), rows stay
+  jump-only. Scoped allow-rules and a deny-list are phase 2 and **not** built.
 - 🔌 **Agent event bridge** — an agent CLI's lifecycle hooks report real state instead of the idle/regex
   guesses. Every PTY gets `TD_ID`, `TD_URL`, `TD_HOOK` (and `TD_TOKEN` when the access token is on) in its
   environment (tmux ≥ 3.2 via `-e`); the server also writes its current URL (and token, if on) to `~/.termdeck/server.json` (0600, removed on exit) and the helper falls back to it when `TD_URL` is unreachable, so tmux-kept shells keep reporting after a restart on another port; `scripts/td-hook.js` — a dependency-free, silent, never-blocking
@@ -385,7 +400,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🔌 **`/api/agent-events` hardening** — same `apiGuard` Origin/Host check (and access token when on) as
   every `/api/*` route; JSON only, 64KB body cap, `type` whitelist, unknown/log-only terminal ids → 404,
   fields whitelisted and length-capped, 30 events/s per terminal (429), shown via `textContent`. An event
-  can never write to a PTY — it only changes what the UI displays; termdeck still never auto-answers.
+  can never write to a PTY — it only changes what the UI displays; termdeck still never answers without your click (see *Approve / Deny*).
 - 🔌 **`/api/git/root` + `/api/git/worktree` + `/api/git/diff` + `/api/git/finish`** — git repo detection, worktree creation
   and read-only diff for the agent-worktree flow, behind the **same** `apiGuard` as the rest. Worktree
   creation writes to the repo but grants no capability a shell in that repo doesn't already have
