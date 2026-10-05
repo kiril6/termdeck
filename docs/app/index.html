@@ -313,6 +313,8 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
   color:var(--text);white-space:pre;overflow:auto;max-height:70vh;tab-size:4;}
 .fv-hl{display:block;background:color-mix(in srgb,var(--accent) 22%,transparent);}
 .fv-body.msg{white-space:pre-wrap;color:var(--muted);}
+.fv-send{position:fixed;z-index:9997;display:none;font:inherit;font-size:12px;padding:5px 11px;border-radius:6px;border:1px solid var(--accent);background:var(--panel);color:var(--accent);cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);}
+.fv-send:hover{filter:brightness(1.2);}
 .fv-body .d-add{color:#46d17f;} .fv-body .d-del{color:#e0655f;}
 .fv-body .d-hunk{color:var(--accent);} .fv-body .d-meta{color:var(--muted);}
 .fv-body .d-file{color:var(--text);font-weight:600;}
@@ -606,6 +608,8 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 @keyframes wtappr{0%,100%{background:color-mix(in srgb,#e5484d 42%,transparent);}50%{background:color-mix(in srgb,#e5484d 10%,transparent);}}
 .wtab.waiting.approval:not(.active){animation:wtappr 0.9s ease-in-out infinite;}
 .wtab.waiting.approval:not(.active) .wt-dot{background:#e5484d;box-shadow:0 0 7px #e5484d;}
+@keyframes wtwork{0%,100%{opacity:1;box-shadow:0 0 6px var(--live);}50%{opacity:.35;box-shadow:none;}}
+.wtab.working .wt-dot{background:var(--live);animation:wtwork 1.6s ease-in-out infinite;}
 .wtab .wt-dot{width:5px;height:5px;border-radius:50%;flex:0 0 auto;background:var(--muted);}
 .wtab .wt-dot.live{background:var(--live);}
 .wtab .wt-dot.demo{background:var(--demo);}
@@ -696,6 +700,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 .chip.attn{border-color:var(--accent);background:var(--chip-active);animation:chipblink .5s ease-in-out 3;}
 .chip.attn .cled{box-shadow:0 0 6px var(--accent);}
 @keyframes chipwait{0%,100%{border-color:#e6a23c;}50%{border-color:color-mix(in srgb,#e6a23c 30%,var(--line));}}
+.chip.working:not(.waiting):not(.approval) .cled{background:var(--live);animation:wtwork 1.6s ease-in-out infinite;}
 .chip.waiting{animation:chipwait 1.4s ease-in-out infinite;}
 .chip.waiting .cled{background:#e6a23c;box-shadow:0 0 6px #e6a23c;}
 @keyframes chipappr{0%,100%{border-color:#e5484d;}50%{border-color:color-mix(in srgb,#e5484d 35%,var(--line));}}
@@ -1448,21 +1453,114 @@ async function openAgentDiff(){
   }catch(e){fvBody.textContent="⚠ "+e.message;return;}
   if(!j.files?.length&&!j.diff){fvBody.textContent="No changes since this branch was cut.";return;}
   fvBody.className="fv-body"; fvBody.textContent="";
+  fvMode="diff"; fvRoot=dir; fvProject=activeProject; hideSendBtn();
   const frag=document.createDocumentFragment();
-  const add=(text,cls)=>{const n=el("span",cls);n.textContent=text+"\n";frag.append(n);};
+  const add=(text,cls,data)=>{const n=el("span",cls);n.textContent=text+"\n";if(data)Object.assign(n.dataset,data);frag.append(n);};
   (j.files||[]).forEach((f)=>add(({A:"added   ",M:"modified",D:"deleted ",R:"renamed ","?":"new     "}[f.status]||f.status+"       ")+"  "+f.path,"d-file"));
   add("","");
+  // Track file + line numbers per hunk line (data-p/-l/-o) so a selection can be sent as `path:from-to`. Counting the
+  // hunk's remaining lines keeps a removed "-- x" line (shown as "--- x") from being read as a file header.
+  let curPath="",minusPath="",oldN=0,newN=0,oldLeft=0,newLeft=0,m;
   (j.diff||"").split("\n").forEach((l)=>{
-    const cls=l.startsWith("+++")||l.startsWith("---")?"d-meta"
-      :l.startsWith("@@")?"d-hunk":l.startsWith("+")?"d-add":l.startsWith("-")?"d-del"
-      :l.startsWith("diff --git")?"d-file":"";
-    add(l,cls);
+    if(oldLeft>0||newLeft>0){
+      const c=l[0];
+      if(c==="+"){add(l,"d-add",{p:curPath,l:newN++});newLeft--;return;}
+      if(c==="-"){add(l,"d-del",{p:curPath,o:oldN++});oldLeft--;return;}
+      if(c===" "||l===""){add(l,"",{p:curPath,l:newN++});oldN++;oldLeft--;newLeft--;return;}
+    }
+    if(l.startsWith("diff --git")){curPath="";minusPath="";add(l,"d-file");return;}
+    if(l.startsWith("--- ")){minusPath=l.slice(4).replace(/^a\//,"");add(l,"d-meta");return;}
+    if(l.startsWith("+++ ")){const t=l.slice(4).replace(/^b\//,""); curPath=t==="/dev/null"?minusPath:t; add(l,"d-meta");return;}
+    if((m=l.match(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/))){oldN=+m[1];oldLeft=m[2]===undefined?1:+m[2];newN=+m[3];newLeft=m[4]===undefined?1:+m[4];add(l,"d-hunk");return;}
+    add(l,l.startsWith("diff --git")?"d-file":"");
   });
   if(j.untracked?.length) add("\n"+j.untracked.length+" untracked file(s) listed above are not shown as a diff.","d-meta");
   fvBody.append(frag);
 }
 
 
+// ── Send to agent (#27): put a selection into another terminal's input — typed, never executed ──────────────
+// Sources: the file viewer, the Review-changes diff and any terminal's output; one target picker for all three.
+// The text is typed WITHOUT a trailing newline (you add the instruction and press Enter), wrapped in a bracketed
+// paste so a TUI treats it as one paste. Deliberately NOT term.paste(): that routes through onData, where Cast
+// broadcast would copy a file excerpt into every shell. Control characters (an ESC can end a bracketed paste early
+// and turn the rest into typed commands) and bidi overrides are stripped first.
+const tabSeen=new Map();   // tab → last time it was focused (default target = most recent agent)
+function touchTab(t){if(t)tabSeen.set(t,Date.now());}
+const SEND_MAX=64*1024;
+const cleanSel=(t)=>t.replace(/\r\n?/g,"\n").replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g,"");
+function fenceOf(text,lang){const run=Math.max(2,...(text.match(/`+/g)||[]).map((x)=>x.length)); const f="`".repeat(run+1); return f+(lang||"")+"\n"+text.replace(/\n+$/,"")+"\n"+f;}
+function relTo(tab,full){const c=(tab.cwd||"").replace(/\/+$/,""); return c&&full.startsWith(c+"/")?full.slice(c.length+1):full;}
+function sendCandidates(exclude){
+  const out=[];
+  sessions.forEach((s)=>{ if(s.isLog)return; s.tabs.forEach((t)=>{ if(t===exclude||t.status!=="live"||!t.conn?.send)return; out.push({s,t}); }); });
+  return out;
+}
+async function pickTarget(note,prefProject,exclude){
+  const c=sendCandidates(exclude);
+  if(!c.length){toast(ICON.warn,"No live terminal","Open an agent (palette \u2192 AI CLI) or a shell first",4500);return null;}
+  const rank=(x)=>(x.t.agent?0:2)+(x.s.project===prefProject?0:1);
+  c.sort((a,b)=>rank(a)-rank(b)||(tabSeen.get(b.t)||0)-(tabSeen.get(a.t)||0));
+  const label=(x)=>(x.t.agent?"Agent":"Shell")+" \u2014 "+(projects.get(x.s.project)?.name||"project")+" \u00b7 "+(x.s.name||"window")+" \u00b7 "+(x.t.name||"tab");
+  const v=await inputModal("Send to which terminal?",[
+    {type:"note",label:note+"\n\nIt is typed into the terminal\u2019s input but NOT run \u2014 add your instruction there and press Enter."+(c.some((x)=>x.t.agent)?"":"\n\nNo agent tab is open; showing live shells.")},
+    {key:"i",label:"Target",type:"select",options:c.map((x,i)=>({value:String(i),label:label(x)}))},
+  ],"Send");
+  return v?c[+v.i]:null;
+}
+async function sendToAgent({text,build,prefProject,exclude}){   // build(targetTab) → the message (paths relative to that tab's cwd)
+  text=cleanSel(text||"").replace(/\s+$/,"");
+  if(!text.trim()){toast(ICON.warn,"Nothing selected","Select some text first",3000);return;}
+  if(text.length>SEND_MAX){toast(ICON.warn,"Selection too large","Limit "+Math.round(SEND_MAX/1024)+" KB \u2014 select less",4500);return;}
+  const n=text.split("\n").length;
+  const tgt=await pickTarget(n+" line"+(n===1?"":"s")+" ("+(text.length>=1024?(text.length/1024).toFixed(1)+" KB":text.length+" chars")+")",prefProject,exclude);
+  if(!tgt)return;
+  const {s,t}=tgt;
+  const bp=!!t.term?.modes?.bracketedPasteMode;
+  if(!bp && n>1 && !(await inputModal("\u201c"+s.name+"\u201d doesn\u2019t use bracketed paste, so the line breaks in this text may run as commands. Send anyway?",[],"Send")))return;
+  const msg=build(t);
+  t.conn.send(bp?"\x1b[200~"+msg+"\x1b[201~":msg);
+  closeFileViewer(); hideSendBtn();
+  revealWindow(s); switchTab(s,t.id);
+  toast(ICON.bot,"Sent to \u201c"+(t.name||s.name)+"\u201d",n+" line"+(n===1?"":"s")+" typed \u2014 add your instruction and press Enter",5000);
+}
+let fvMode="file", fvRoot="", fvProject=null;
+let sendSel=null;
+const sendBtn=el("button","fv-send"); sendBtn.type="button"; sendBtn.textContent="Send to agent\u2026"; document.body.append(sendBtn);
+function hideSendBtn(){sendBtn.style.display="none"; sendSel=null;}
+// The current selection inside the viewer as {text, build(tab)}, or null. File: path + line range counted from the raw
+// text. Diff: whole lines grouped per file as `path:from-to` of the NEW file. Rendered markdown has no line map → path only.
+function viewerSelection(){
+  const sel=getSelection(); if(!sel.rangeCount||sel.isCollapsed)return null;
+  const r=sel.getRangeAt(0); if(!fvBody.contains(r.commonAncestorContainer))return null;
+  const root=fvRoot.replace(/\/+$/,"");
+  if(fvMode==="diff"){
+    const groups=[]; let cur=null;
+    fvBody.querySelectorAll("span[data-p]").forEach((sp)=>{
+      if(!r.intersectsNode(sp))return;
+      if(!cur||cur.p!==sp.dataset.p){cur={p:sp.dataset.p,lines:[],nl:[],ol:[]};groups.push(cur);}
+      cur.lines.push(sp.textContent.replace(/\n$/,""));
+      if(sp.dataset.l!==undefined)cur.nl.push(+sp.dataset.l); else if(sp.dataset.o!==undefined)cur.ol.push(+sp.dataset.o);
+    });
+    if(!groups.length)return null;
+    return {text:groups.map((g)=>g.lines.join("\n")).join("\n"),build:(t)=>groups.map((g)=>{
+      const where=relTo(t,root+"/"+g.p), span=(xs)=>{const lo=Math.min(...xs),hi=Math.max(...xs);return lo===hi?String(lo):lo+"-"+hi;}, range=g.nl.length?":"+span(g.nl):" (removed line"+(g.ol.length>1?"s ":" ")+span(g.ol)+")";
+      return where+range+"\n"+fenceOf(cleanSel(g.lines.join("\n")),"diff");
+    }).join("\n\n")};
+  }
+  const text=r.toString(); if(!text.trim())return null;
+  if(fvRendered&&fvText!==null) return {text,build:(t)=>relTo(t,fvRoot)+" (rendered selection)\n"+fenceOf(cleanSel(text))};
+  const pre=document.createRange(); pre.selectNodeContents(fvBody); pre.setEnd(r.startContainer,r.startOffset);
+  const a=pre.toString().split("\n").length, b=a+text.replace(/\n$/,"").split("\n").length-1;
+  return {text,build:(t)=>relTo(t,fvRoot)+":"+(a===b?a:a+"-"+b)+"\n"+fenceOf(cleanSel(text))};
+}
+function positionSendBtn(){
+  const sel=getSelection(); const vs=viewerSelection(); if(!vs){hideSendBtn();return;}
+  const rc=sel.getRangeAt(0).getBoundingClientRect(); sendSel=vs;
+  sendBtn.style.display="block";
+  sendBtn.style.left=Math.max(8,Math.min(window.innerWidth-sendBtn.offsetWidth-8,rc.right-sendBtn.offsetWidth/2))+"px";
+  sendBtn.style.top=Math.min(window.innerHeight-sendBtn.offsetHeight-8,rc.bottom+8)+"px";
+}
 // Finish task (#83): the "land" step. Preview → pick merge / PR / keep → optional cleanup → close the tab.
 // The server re-checks everything and refuses (with the reason) what isn't allowed; cleanup never forces.
 async function finishAgentTask(){
@@ -2017,6 +2115,7 @@ function addTab(s, opts){
     reconnecting:false,retries:0,reconnectTimer:null,
     cwd:opts.cwd||s.cwd||"",shellName:"",cmd:opts.cmd||"",shell:opts.shell||"",resume:opts.resume||"",rtpl:opts.rtpl||"",agent:!!opts.agent,waiting:false};
   s.tabs.push(tab);
+  if(tab.agent) updateAgentOverview();
   if(LIVE) registerPathLinks(term,tab);
 
   wt.addEventListener("click",(e)=>{if(e.target===wtX||wtName.isContentEditable)return; switchTab(s,tid);});
@@ -2070,6 +2169,7 @@ function addTab(s, opts){
     if(!s.isLog) items.push({label:"Paste",key:kbd("⌘","V"),run:async()=>{
       try{const t=await navigator.clipboard.readText(); if(t)safePaste(s,tab,t);}catch{}
     }});
+    if(sel) items.push({label:"Send selection to agent…",run:()=>sendToAgent({text:sel,build:()=>"Output from \u201c"+s.name+"\u201d:\n"+fenceOf(cleanSel(sel)),prefProject:s.project,exclude:tab})});
     items.push({sep:true},
       {label:"Find…",key:kbd("⌘","F"),run:()=>openFind(s,tab)},
       {label:"Select all",run:()=>term.selectAll()},
@@ -2111,7 +2211,7 @@ function updTabEdges(track){
   wrap.classList.toggle("can-right",track.scrollLeft<max-1);
 }
 function switchTab(s,tid){
-  s.activeTabId=tid;
+  s.activeTabId=tid; touchTab(s.tabs.find((t)=>t.id===tid));
   s.tabs.forEach((t)=>{
     const on=t.id===tid;
     t.pane.classList.toggle("active",on);
@@ -2378,6 +2478,12 @@ function updateAgentOverview(){
   const queue=getAgentQueue();
   const hasAppr=queue.some((x)=>x.state==="approval");
   const hasWait=queue.some((x)=>x.state==="waiting");
+  // working = live agent tab that's neither waiting nor blocked → soft pulse on its tab dot + dock chip
+  const workingTabs=new Set(queue.filter((x)=>x.state==="working").map((x)=>x.tab));
+  sessions.forEach((sess)=>{
+    sess.tabs.forEach((t)=>t.wt.classList.toggle("working",workingTabs.has(t)));
+    sess.chip.classList.toggle("working",sess.tabs.some((t)=>workingTabs.has(t)));
+  });
 
   agentBadge.className="agent-badge"+(hasAppr?" approval":(hasWait?" waiting":(queue.length?" working":"")));
 
@@ -2663,7 +2769,7 @@ function toggleMax(s){
 function unmaxKeeping(s){const p=s.prevRect||{width:"580px",height:"380px"};s.win.classList.remove("max");s.maximized=false;s.win.style.width=p.width;s.win.style.height=p.height;refitActive(s);}
 function focus(s){
   if(focusedId&&sessions.has(focusedId)){sessions.get(focusedId).win.classList.remove("focused");sessions.get(focusedId).chip.classList.remove("active");}
-  focusedId=s.id;s.win.style.zIndex=++zTop;s.win.classList.add("focused");s.chip.classList.add("active");
+  focusedId=s.id;s.win.style.zIndex=++zTop;s.win.classList.add("focused");s.chip.classList.add("active"); touchTab(activeTab(s));
   if(!s.minimized){const t=activeTab(s); if(t){clearTabAttn(s,t); setTimeout(()=>{try{t.term.focus();}catch{}},0);}}
   if(sidebarOpen) refreshTree();
   if(sessSearchOpen&&ssInput.value) closeSessSearch();   // picked a match → drop the filter
@@ -3284,9 +3390,19 @@ function fvRaw(text){
   hl.scrollIntoView({block:"center"});
 }
 fvTog.addEventListener("click",()=>fvShowMd(!fvRendered));
+fileOverlay.addEventListener("mouseup",()=>setTimeout(positionSendBtn,0));
+fileOverlay.addEventListener("keyup",(e)=>{if(e.shiftKey||e.key==="a")setTimeout(positionSendBtn,0);});
+fileOverlay.addEventListener("mousedown",hideSendBtn);
+fileOverlay.addEventListener("scroll",hideSendBtn,true);
+sendBtn.addEventListener("mousedown",(e)=>e.preventDefault());   // keep the selection while clicking
+sendBtn.addEventListener("click",()=>{
+  const vs=sendSel; if(!vs)return;
+  sendToAgent({text:vs.text,build:vs.build,prefProject:fvProject});
+});
+
 // text: optional preloaded content (demo mode has no backend to read from)
 async function openFileViewer(full,name,text,line){
-  closeModals("file"); fvLine=line||0;
+  closeModals("file"); fvLine=line||0; fvMode="file"; fvRoot=full; fvProject=activeProject; hideSendBtn();
   fvName.textContent=name; fvPath.textContent=full; fvText=null; fvTog.hidden=true;
   fvBody.className="fv-body msg"; fvBody.textContent="Loading…";
   fileOverlay.classList.add("open");
