@@ -28,6 +28,12 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   RAM across many terminals.
 - 🖥️ Custom right-click menu on terminals: Copy, Paste, Find…, Select all, Clear, Save output…
   (native browser menu preserved on chrome/inputs; Paste hidden on read-only log panels).
+- 🖥️ **Desktop right-click menu** — right-click the empty desktop (not a window, the tree or a control) for a launcher
+  of the frequent actions instead of the browser's native menu: *New terminal · New agent task… · Open file… · Open
+  directory…*, then only what can work right now — *Tile windows* (something to tile), *Restore minimized (N)*,
+  *Broadcast input* (≥2 live shells), *Review agent changes… / Finish agent task…* (an agent-worktree project, live
+  mode) — then *Toggle directory tree · Change theme… · Fullscreen · Command palette…*. Same actions and shortcut
+  hints as the palette, nothing destructive, no submenus; snippets, SSH hosts and AI CLI presets stay in the palette.
 - 🖥️ **Find in terminal** (`⌘F` when focused) — scrollback search with match highlighting and a
   result counter (xterm search addon). `⌘F` with no terminal focused filters sessions instead.
 - 🖥️ **Clickable links** — URLs in output open in a new tab (xterm web-links addon).
