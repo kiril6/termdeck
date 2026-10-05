@@ -165,8 +165,8 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   CLI launches there with the prompt as its first argument (shell-quoted, so apostrophes and shell
   metacharacters are passed literally, never executed). Worktrees live in a sibling
   `<main-repo>-worktrees/<branch>` folder, keeping the repo itself clean — always cut from the **main**
-  working tree, even when started from another agent's worktree tab (never nested). **Nothing is ever removed
-  automatically:** a finished task leaves its worktree and branch on disk to merge or delete yourself.
+  working tree, even when started from another agent's worktree tab (never nested). **Nothing is removed
+  automatically:** a finished task stays on disk until you run *Finish agent task…* (below) and opt in to cleanup.
   Requires the project root to be inside a git repo. Failures name their **real** cause rather than
   a plausible-sounding wrong one: a non-repo says so, a host without git installed says *that*, and in
   backend-free demo mode both commands say so — three different messages, never one catch-all.
@@ -174,9 +174,24 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   agent did is the real bottleneck, not launching it. Diffs the project's worktree against the commit it
   was cut from (`GET /api/git/diff`), so **committed and uncommitted work both show in one view**, with a
   file summary (modified / added / deleted / new) above the unified diff and untracked files listed.
-  Deliberately **view-only** — no accept, merge, discard or reset buttons: you already have a real shell
-  in that worktree, and git is one typed command away. The base commit is persisted with the project, so
-  the baseline survives reloads.
+  Deliberately **view-only** — no accept, discard or reset buttons; landing is a separate, explicit step
+  (*Finish agent task…*). The base commit is persisted with the project, so the baseline survives reloads.
+- 🖥️ **Finish agent task — merge or PR, then clean up** (palette → *Finish agent task…*, #83). The "land"
+  step of launch → watch → unblock → review → land. Shows the branch, its base and commits ahead, then
+  you pick: **Merge** into the branch the worktree was cut from (`git merge --no-ff`, run in the main tree),
+  **Push and open a pull request** (`git push -u origin` + `gh pr create --fill --base <base>`), or **Keep as
+  is** (just closes the tab). Each option is offered only when it can work and otherwise **states why**:
+  uncommitted work in the worktree (termdeck never commits for you), main tree dirty or on a different branch
+  than the base, a merge that would conflict (dry run with `git merge-tree`, main tree untouched), no commits to
+  land, `gh` missing / not signed in, no `origin`. **Cleanup is a separate opt-in, off by default**, and asks a
+  confirm that names the exact path and branch: `git worktree remove` then `git branch -d` — **never
+  `--force`, never `-D`**, so git itself refuses a dirty tree or an unmerged branch (the reason is shown, and
+  if only the branch is refused the worktree-removed/branch-kept state is reported). Only worktrees listed by
+  `git worktree list` that sit directly in `<main-repo>-worktrees/` are ever touched. The base *branch* is
+  recorded when the worktree is cut (older projects fall back to the main tree's current branch, and the
+  dialog says so). Afterwards the worktree's project tab and shells are closed (same confirm as any project
+  delete). `GET/POST /api/git/finish`, behind `apiGuard`; the POST re-runs the preview and refuses anything
+  the preview disallowed; one finish per repo at a time. Not available in demo mode.
 - ⚠️ **Conflict radar** — warns when two agents' worktrees of the same repo change the **same file**, before
   you hit it at merge time. While ≥2 worktree projects have a live agent, the browser asks
   `POST /api/git/overlaps` every 10 s (paused while the tab is hidden); the server diffs each worktree against its
@@ -353,11 +368,11 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   every `/api/*` route; JSON only, 64KB body cap, `type` whitelist, unknown/log-only terminal ids → 404,
   fields whitelisted and length-capped, 30 events/s per terminal (429), shown via `textContent`. An event
   can never write to a PTY — it only changes what the UI displays; termdeck still never auto-answers.
-- 🔌 **`/api/git/root` + `/api/git/worktree` + `/api/git/diff`** — git repo detection, worktree creation
+- 🔌 **`/api/git/root` + `/api/git/worktree` + `/api/git/diff` + `/api/git/finish`** — git repo detection, worktree creation
   and read-only diff for the agent-worktree flow, behind the **same** `apiGuard` as the rest. Worktree
   creation writes to the repo but grants no capability a shell in that repo doesn't already have
-  (`git worktree add` is one command); **nothing here deletes** — no worktree removal, no branch deletion,
-  no reset. Branch names are validated against a strict pattern and every git call uses `execFile` with an
+  (`git worktree add` is one command); **nothing deletes except the opt-in cleanup of *Finish agent task*** (`git worktree remove` / `git
+  branch -d`, never forced, only termdeck-made worktrees) — no `-D`, no reset. Branch names are validated against a strict pattern and every git call uses `execFile` with an
   argument array (no shell), so a branch name or prompt can't inject a command.
 - 🔌 **`/api/ls` + `/api/reveal` + `/api/read`** — sidebar-tree filesystem read, OS-file-manager reveal,
   and file-text read for the in-app viewer (2 MB cap, NUL-byte binary detection), all behind the
