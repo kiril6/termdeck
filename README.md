@@ -209,7 +209,7 @@ Run **`termdeck doctor`** (offline; also works as `npx @kiril6/termdeck doctor`)
 
 What termdeck does *not* do, so none of it is a surprise:
 
-- **Reboots end shells.** tmux keeps shells alive across a server restart or crash, not across a machine reboot. Layout and projects come back; the processes don't.
+- **Reboots end shells.** tmux keeps shells alive across a server restart or crash, not across a machine reboot. Layout and projects come back; the processes don't — except agent tabs, which relaunch their CLI in resume mode (Claude, Codex, Gemini, Copilot, or your own resume command).
 - **Agent state is a guess unless you install the hooks.** Without [agent hooks](docs/agent-hooks.md) "waiting" and "needs approval" come from output heuristics (idle time, a prompt regex). The hooks are checked against each CLI's documented payloads, not yet against every real CLI version.
 - **It never answers a prompt for you.** Approval prompts are surfaced and jumped to, never approved.
 - **Remote access exposes a real shell.** The access token is a per-start secret, not multi-user auth. Keep the loopback bind, or use a tunnel — see [docs/remote-access.md](docs/remote-access.md).

@@ -1295,10 +1295,10 @@ function connectSsh(h){createSession({cwd:curCwd()||"~",cmd:"ssh "+h.target,name
 // arms the "waiting on you" idle watch (openTabWS) — normal shells are never watched, so
 // there are no false positives. Built-ins are fixed; user presets live in localStorage.
 const AICLI_BUILTIN=[
-  {id:"claude",  label:"Claude Code", cmd:"claude"},
-  {id:"codex",   label:"Codex",       cmd:"codex"},
-  {id:"gemini",  label:"Gemini",      cmd:"gemini"},
-  {id:"copilot", label:"Copilot",     cmd:"copilot"},
+  {id:"claude",  label:"Claude Code", cmd:"claude", idFlag:"--session-id", resume:"claude --resume {id}"},
+  {id:"codex",   label:"Codex",       cmd:"codex",  resume:"codex resume --last"},
+  {id:"gemini",  label:"Gemini",      cmd:"gemini", resume:"gemini --resume latest"},
+  {id:"copilot", label:"Copilot",     cmd:"copilot", resume:"copilot --continue"},
   // Extras (shown under "More agents"). pflag = flag that pre-fills the prompt in interactive mode
   // (verified against each CLI's docs); noPrompt = no way to pre-fill, so the task prompt can't be passed.
   {id:"cursor",   label:"Cursor Agent", cmd:"cursor-agent"},
@@ -1314,18 +1314,20 @@ async function addAiCli(){
   const v=await inputModal("New AI CLI preset",[
     {key:"label",label:"Name",placeholder:"e.g. Claude (staging)"},
     {key:"cmd",label:"Command",placeholder:"claude --model opus"},
+    {key:"resume",label:"Resume command (optional)",placeholder:"claude --continue"},
   ]);
   if(!v||!v.cmd)return;
-  aiClis.push({id:newId("ai"),label:v.label||v.cmd,cmd:v.cmd}); saveAiClis();
+  aiClis.push({id:newId("ai"),label:v.label||v.cmd,cmd:v.cmd,resume:v.resume||""}); saveAiClis();
   toast(ICON.bot,"AI CLI preset saved",v.label||v.cmd,2200);
 }
 async function editAiCli(p){
   const v=await inputModal("Edit AI CLI preset",[
     {key:"label",label:"Name",value:p.label},
     {key:"cmd",label:"Command",value:p.cmd},
+    {key:"resume",label:"Resume command (optional)",value:p.resume||""},
   ]);
   if(!v||!v.cmd)return;
-  p.label=v.label||v.cmd; p.cmd=v.cmd; saveAiClis();
+  p.label=v.label||v.cmd; p.cmd=v.cmd; p.resume=v.resume||""; saveAiClis();
 }
 function deleteAiCli(id){aiClis=aiClis.filter((x)=>x.id!==id);saveAiClis();}
 // Usage ranking: launches bump a decayed score (half-life 14 days), so what you actually use floats up
@@ -1353,7 +1355,17 @@ function agentCmd(p,prompt){
   if(!prompt||p.noPrompt) return p.cmd;
   return p.cmd+" "+(p.pflag?p.pflag+" ":"")+shQuote(prompt);
 }
-function launchAiCli(p){bumpAiUse(p);createSession({cwd:curCwd()||"~",cmd:p.cmd,name:p.label,agent:true});}
+// Launch + resume commands for one agent tab. The resume command is persisted with the tab and sent as
+// its startup command on reload; the backend runs it only on a FRESH shell (reboot / no tmux), never on a
+// live reattach. A CLI that takes a session id (idFlag) gets a fresh UUID so resume targets exactly this
+// session. `|| p.cmd` starts clean if there was nothing to resume (no prompt re-sent, so the task can't re-run).
+function agentRun(p,prompt){
+  const id=p.idFlag&&crypto.randomUUID?crypto.randomUUID():"";
+  const cmd=agentCmd(p,prompt)+(id?" "+p.idFlag+" "+id:"");
+  if(p.idFlag&&!id) return {cmd,resume:""};   // crypto.randomUUID needs a secure context; without an id there is nothing exact to resume
+  return {cmd,resume:p.resume?p.resume.replace("{id}",id)+" || "+p.cmd:""};
+}
+function launchAiCli(p){bumpAiUse(p);createSession({cwd:curCwd()||"~",...agentRun(p),name:p.label,agent:true});}
 // ── Agent worktrees: one isolated checkout per agent task ────────────────────
 // Three agents loose in one repo overwrite each other. "New agent task" cuts a git
 // worktree off the project's repo, opens it as its OWN project (so the tree, cwd and
@@ -1394,7 +1406,7 @@ async function newAgentTask(){
   treeRoot=null; treeLastRoot=null; refreshTree();
   const preset=presets.find((x)=>x.cmd===v.cli)||{cmd:v.cli};
   if(preset.id) bumpAiUse(preset);
-  createSession({cwd:j.path,cmd:agentCmd(preset,v.prompt),name:v.branch,agent:true});
+  createSession({cwd:j.path,...agentRun(preset,v.prompt),name:v.branch,agent:true});
   if(v.prompt&&preset.noPrompt) toast(ICON.warn,preset.label+" can’t take a starting prompt","Type it in the terminal: "+v.prompt.slice(0,80),8000);
   scheduleSave();
   toast(ICON.branch,"Worktree ready",v.branch+" → "+j.path,6000);
@@ -1857,8 +1869,8 @@ function createSession(desc, isLog){
   else{hint.style.display="none"; focus(s);}
 
   // spawn tabs — restore saved ones (names + cwd + agent tag), else one fresh tab
-  if(desc.tabs?.length) desc.tabs.forEach((t)=>addTab(s,{id:t.id,name:t.name,cwd:t.cwd,agent:t.agent,shell:t.shell}));
-  else addTab(s,{cmd:desc.cmd,agent:desc.agent,shell:desc.shell});   // desc.cmd = one-shot startup command (Dir popover / SSH / AI CLI); not persisted, so it won't re-fire on reload. agent=arm idle "waiting" watch.
+  if(desc.tabs?.length) desc.tabs.forEach((t)=>addTab(s,{id:t.id,name:t.name,cwd:t.cwd,agent:t.agent,shell:t.shell,cmd:t.resume,resume:t.resume}));
+  else addTab(s,{cmd:desc.cmd,resume:desc.resume,agent:desc.agent,shell:desc.shell});   // desc.cmd = one-shot startup command (Dir popover / SSH / AI CLI); not persisted, so it won't re-fire on reload. agent=arm idle "waiting" watch.
 
   if(desc.minimized) minimize(s);
   updateProjCounts(); scheduleSave();
@@ -1988,7 +2000,7 @@ function addTab(s, opts){
   const tab={id:tid,pane,term,fit,search,ser,wt,wtDot,wtName,name:wtName.textContent,
     conn:null,status:"pending",exited:false,closedByUser:false,
     reconnecting:false,retries:0,reconnectTimer:null,
-    cwd:opts.cwd||s.cwd||"",shellName:"",cmd:opts.cmd||"",shell:opts.shell||"",agent:!!opts.agent,waiting:false};
+    cwd:opts.cwd||s.cwd||"",shellName:"",cmd:opts.cmd||"",shell:opts.shell||"",resume:opts.resume||"",agent:!!opts.agent,waiting:false};
   s.tabs.push(tab);
   if(LIVE) registerPathLinks(term,tab);
 
@@ -3558,8 +3570,8 @@ function saveState(){
         return{id:s.id,project:s.project,name:s.name,cwd:s.cwd,themeId:s.themeId||null,isLog:s.isLog||false,
                left:st.left,top:st.top,width:st.width,height:st.height,
                minimized:s.minimized,maximized:s.maximized,prevRect:s.prevRect,glue:s.glue||null,
-               // agent tag persists (arms the waiting/approval watch after a reload); cmd deliberately does NOT, so it can't re-fire
-               tabs:s.tabs.map((t)=>({id:t.id,name:t.name,cwd:t.cwd||"",agent:!!t.agent,shell:t.shell||""}))};}).filter(Boolean)};
+               // agent tag + resume command persist (resume only fires on a fresh shell, see agentRun); the launch cmd deliberately does NOT, so it can't re-fire
+               tabs:s.tabs.map((t)=>({id:t.id,name:t.name,cwd:t.cwd||"",agent:!!t.agent,shell:t.shell||"",resume:t.resume||""}))};}).filter(Boolean)};
     localStorage.setItem(STORE,JSON.stringify(data));
   }catch{}
 }
