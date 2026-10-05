@@ -46,11 +46,51 @@ function toEvent(h, agent) {
   return ev;
 }
 
+// Token usage as the agent itself recorded it (#85) — read on `stop`, never estimated, no price table.
+// "tokens" = new input + cache writes + output; cache READS are reported separately (they dominate the volume
+// and are repeats, so counting them as tokens would make every number meaningless).
+//  Claude Code: the transcript repeats one message once per streamed block, so sum per message id (last wins) —
+//    a naive sum double-counts (measured ~2x). Main conversation only; sub-agent runs are not in this file.
+//  Codex: the last cumulative `token_count` event. Anything unreadable / oversized / unknown CLI → nothing sent.
+const MAX_TRANSCRIPT = 48 << 20;
+function usageFrom(h, agent) {
+  const f = h.transcript_path;
+  if (typeof f !== 'string' || !f.endsWith('.jsonl') || (agent !== 'claude' && agent !== 'codex')) return null;
+  const num = (n) => (Number.isFinite(n) && n > 0 ? n : 0);
+  try {
+    const size = fs.statSync(f).size;
+    if (size > MAX_TRANSCRIPT) return null;
+    if (agent === 'codex') {                                   // cumulative: only the tail is needed
+      const len = Math.min(size, 512 << 10), buf = Buffer.alloc(len), fd = fs.openSync(f, 'r');
+      try { fs.readSync(fd, buf, 0, len, size - len); } finally { fs.closeSync(fd); }
+      const lines = buf.toString('utf8').split('\n');
+      for (let i = lines.length - 1; i >= 0; i--) {
+        if (!lines[i].includes('"token_count"')) continue;
+        let u; try { u = JSON.parse(lines[i]).payload?.info?.total_token_usage; } catch { continue; }
+        if (!u) continue;
+        const cached = num(u.cached_input_tokens), total = num(u.total_tokens) || num(u.input_tokens) + num(u.output_tokens);
+        return total > cached ? { tokens: total - cached, cacheTokens: cached } : null;
+      }
+      return null;
+    }
+    const byId = new Map();
+    for (const line of fs.readFileSync(f, 'utf8').split('\n')) {
+      if (!line.includes('"output_tokens"')) continue;          // cheap filter: most lines carry no usage
+      let r; try { r = JSON.parse(line); } catch { continue; }
+      const u = r.type === 'assistant' && r.message?.usage;
+      if (u && typeof r.message.id === 'string') byId.set(r.message.id, u);
+    }
+    let tokens = 0, cacheTokens = 0;
+    for (const u of byId.values()) { tokens += num(u.input_tokens) + num(u.cache_creation_input_tokens) + num(u.output_tokens); cacheTokens += num(u.cache_read_input_tokens); }
+    return tokens ? { tokens, cacheTokens } : null;
+  } catch { return null; }
+}
+
 let raw = '';
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', (c) => { if (raw.length < 1 << 20) raw += c; });
 process.stdin.on('end', () => {
-  let ev; try { ev = toEvent(JSON.parse(raw), process.argv[2] || 'agent'); } catch { ev = null; }
+  let ev; try { const h = JSON.parse(raw); ev = toEvent(h, process.argv[2] || 'agent'); if (ev && ev.type === 'stop') Object.assign(ev, usageFrom(h, ev.agent)); } catch { ev = null; }
   if (!ev) process.exit(0);
   const body = JSON.stringify(ev);
   if (ev.wait) { clearTimeout(ceiling); setTimeout(() => process.exit(0), WAIT_MS).unref(); }

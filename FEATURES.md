@@ -256,6 +256,18 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   *replaced*) — listed under the queue (*Recent approvals*), served at `GET /api/approvals`, and appended to
   `TD_LOG_DIR/approvals.jsonl` (0600) when set. Without hooks, or on Gemini (no decision channel), rows stay
   jump-only.
+- 🔢 **Token totals (#85)** — what the agent itself reported, never estimated, labelled *as reported by the agent*.
+  On `stop` the hook helper reads the CLI's transcript (**Claude Code, Codex**; Gemini shows nothing) and sends the
+  conversation total; the browser keeps it **per tab** and shows it on the **queue row** (`361k tok`), the **queue
+  header** (`1 active · 361k tok`, all projects) and the **project tab tooltip** (`2 agents · …`). A tab's report
+  *replaces* its entry (it is already a total); a project total is the sum of its tabs, closed ones included, since
+  they cost money. Stored in `localStorage` `td.usage.v1` (7-day prune) so a reload keeps it; palette → **Reset
+  usage** clears it. **What a "token" is:** new input + cache writes + output; **cache reads are shown separately**
+  in the tooltip (≈98 % of the volume, and repeats). Claude's transcript repeats a message per streamed block, so
+  the helper sums per message id — a naive sum double-counts ~2× (`scripts/check-usage.js` pins it). **Not
+  covered:** Claude sub-agent runs (separate files), any dollar figure (no transcript has one; no price table),
+  CLIs without a transcript. Verified against a real Claude Code transcript (matches an independent recount) and a
+  real Codex rollout. No data → nothing shown, never `0`.
 - 🔐 **Opt-in allow-rules + hard deny-list (#44, phase 2)** — **off by default, none shipped.** A hook-backed
   approval row for a shell command also offers **Always allow…**: a confirm dialog names the scope (the **git
   repo / worktree** containing the agent's working directory, so a `cd` into a subfolder still matches) and
@@ -283,7 +295,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   the event only to that terminal's own browser socket (and replays the last one on reattach). In the
   browser: `permission_request` → red *needs approval* instantly, `stop` → amber *waiting*, anything else
   → *working* (also clears a red flag once you answered). The queue row shows the current tool and file
-  (and tokens/cost if the agent supplies them). A tab that receives events is auto-tagged as an agent and
+  (and cost, if an agent supplies one; token totals have their own entry below). A tab that receives events is auto-tagged as an agent and
   its output heuristics stand down; the 8s idle watch becomes a 120s safety net (an Esc-interrupt fires
   no Stop hook). **Without hooks nothing changes.** Setup for Claude Code, Gemini CLI and Codex:
   [docs/agent-hooks.md](docs/agent-hooks.md). **Verified against real Claude Code and Codex sessions (#46):**
