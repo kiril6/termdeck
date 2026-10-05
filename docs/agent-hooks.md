@@ -18,7 +18,8 @@ The helper is **safe to leave installed**: outside termdeck (no `TD_ID`) it does
 nothing, never blocks the agent for more than ~2s, and always exits 0 — with one deliberate exception: a
 `PermissionRequest` (Claude Code, Codex) is held until you click **Approve / Deny** on the agent-queue row, then the
 helper prints that decision. No click means no output and the CLI asks as usual (after 120s, when you type in the
-terminal, or when no browser is attached). termdeck never answers a prompt without your click.
+terminal, or when no browser is attached). termdeck never answers a prompt unless you click — or you opted in to a scoped
+allow-rule (*Always allow…* on an approval row; off by default; never for deny-listed commands; every firing is logged and toasted).
 
 ## Verified against the real CLIs
 

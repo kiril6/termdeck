@@ -253,6 +253,7 @@ app.get('/api/read', apiGuard, (req, res) => {       // read a text file for the
 // ── /api/agent-events — structured agent state from CLI hooks (#40) ───────────
 // Events are UNTRUSTED data: whitelisted fields, length caps, per-terminal rate limit, unknown ids
 // ignored. They only ever flow to that terminal's own browser socket — nothing here writes to a PTY.
+const rules = require('./scripts/approval-rules');
 const AGENT_EVT_TYPES = new Set(['prompt_submit', 'tool_start', 'tool_end', 'permission_request', 'stop', 'error']);
 const cap = (v, n) => typeof v === 'string' && v ? v.slice(0, n) : undefined;
 app.post('/api/agent-events', apiGuard, (req, res) => {
@@ -269,12 +270,32 @@ app.post('/api/agent-events', apiGuard, (req, res) => {
   if (Number.isFinite(b.cost))   ev.cost = b.cost;
   // Any event other than the request itself means the agent moved on (you answered in the terminal).
   if (b.type !== 'permission_request') settleApproval(b.id, null, 'terminal');
+  // #44 phase 2: an opt-in allow-rule answers on its own — visibly (audit entry + toast), never for a deny-list command.
+  const cmd = b.type === 'permission_request' && b.wait === true && typeof b.command === 'string' ? b.command.slice(0, 4000) : null;
+  if (cmd !== null) {
+    const full = { agent: ev.agent, tool: ev.tool, command: cmd, cwd: cap(b.cwd, 500) };
+    const risk = rules.riskReason(cmd);
+    const hit = !risk && ruleStore.enabled && ruleStore.rules.find((r) => rules.matches(r, full));
+    if (hit) {
+      settleApproval(b.id, null, 'superseded');
+      recordApproval({ ts: now, id: b.id, agent: ev.agent, tool: ev.tool, detail: ev.detail, cwd: full.cwd, decision: 'allow', source: 'rule', ruleId: hit.id });
+      if (s.ws) send(s.ws, { type: 'autoallow', tool: ev.tool, detail: ev.detail, rule: hit.pattern });
+      return res.json({ decision: 'allow' });
+    }
+    if (risk) ev.risk = risk;                                       // shown on the row: this one always needs a click
+    ev.cwd = full.cwd;
+  }
   // #44: a permission request from a hook that can take a decision back (b.wait) is held open until the
   // browser answers. Only with a browser attached — otherwise nobody could click, so fall through at once.
   const held = b.wait === true && b.type === 'permission_request' && !!s.ws;
   if (held) {
     settleApproval(b.id, null, 'superseded');
     ev.reqId = require('crypto').randomUUID();
+    if (cmd !== null) {   // what a later "Always allow" is derived from: only a command you were actually shown
+      for (const [k, r] of recentReqs) if (now - r.ts > RECENT_REQ_MS) recentReqs.delete(k);
+      if (recentReqs.size >= 50) recentReqs.delete(recentReqs.keys().next().value);
+      recentReqs.set(ev.reqId, { agent: ev.agent, tool: ev.tool, command: cmd, cwd: ev.cwd, ts: now });
+    }
     const p = { reqId: ev.reqId, res, ev, timer: setTimeout(() => settleApproval(b.id, null, 'timeout'), APPROVAL_HOLD_MS) };
     pendingApprovals.set(b.id, p);
     res.on('close', () => { if (pendingApprovals.get(b.id) === p) settleApproval(b.id, null, 'terminal'); });   // helper gone: the CLI was answered or died
@@ -291,17 +312,73 @@ app.post('/api/agent-events', apiGuard, (req, res) => {
 const APPROVAL_HOLD_MS = Math.floor(positiveEnvNumber('TD_APPROVAL_HOLD_MS', 120000));
 const pendingApprovals = new Map();   // terminal id -> { reqId, res, ev, timer }
 const approvalAudit = [];             // newest last, capped; also appended to TD_LOG_DIR/approvals.jsonl when set
+function recordApproval(entry) {
+  approvalAudit.push(entry); if (approvalAudit.length > 200) approvalAudit.shift();
+  if (LOG_DIR) try { fs.mkdirSync(LOG_DIR, { recursive: true, mode: 0o700 }); fs.appendFileSync(path.join(LOG_DIR, 'approvals.jsonl'), JSON.stringify(entry) + '\n', { mode: 0o600 }); } catch {}
+}
 function settleApproval(id, decision, source) {   // decision: 'allow' | 'deny' | null (= no decision, CLI asks as usual)
   const p = pendingApprovals.get(id); if (!p) return false;
   pendingApprovals.delete(id); clearTimeout(p.timer);
-  const entry = { ts: Date.now(), id, agent: p.ev.agent, tool: p.ev.tool, detail: p.ev.detail, files: p.ev.files, decision, source };
-  approvalAudit.push(entry); if (approvalAudit.length > 200) approvalAudit.shift();
-  if (LOG_DIR) try { fs.mkdirSync(LOG_DIR, { recursive: true, mode: 0o700 }); fs.appendFileSync(path.join(LOG_DIR, 'approvals.jsonl'), JSON.stringify(entry) + '\n', { mode: 0o600 }); } catch {}
+  recordApproval({ ts: Date.now(), id, agent: p.ev.agent, tool: p.ev.tool, detail: p.ev.detail, files: p.ev.files, cwd: p.ev.cwd, decision, source });
   if (!p.res.writableEnded) { if (decision) p.res.json({ decision }); else p.res.status(204).end(); }
   const s = live.get(id); if (s?.ws) send(s.ws, { type: 'approval', reqId: p.reqId, done: true, decision, source });
   return true;
 }
 app.get('/api/approvals', apiGuard, (req, res) => res.json(approvalAudit.slice(-50).reverse()));
+
+// ── Opt-in allow-rules (#44 phase 2) ──────────────────────────────────────────
+// OFF by default and none shipped. A rule is derived server-side from a command you were just shown
+// (reqId), so the client never supplies a pattern, never a regex; matching + the deny-list live in
+// scripts/approval-rules.js (pinned by scripts/check-rules.js). Stored 0600 in ~/.termdeck. Every firing is
+// an audit entry (source 'rule') and a toast. Same trust as terminal input: a local process that can already
+// drive termdeck could also create a rule — keep the loopback bind / token.
+const RULES_FILE = path.join(os.homedir(), '.termdeck', 'approval-rules.json');
+const RECENT_REQ_MS = 10 * 60 * 1000, MAX_RULES = 100;
+const recentReqs = new Map();         // reqId -> { agent, tool, command, cwd, ts }
+const validRule = (r) => r && typeof r.id === 'string' && r.tool === 'Bash' && typeof r.agent === 'string' && (r.mode === 'exact' || r.mode === 'prefix')
+  && typeof r.pattern === 'string' && r.pattern && typeof r.dir === 'string' && path.isAbsolute(r.dir);
+let ruleStore = { enabled: false, rules: [] };
+try { const j = JSON.parse(fs.readFileSync(RULES_FILE, 'utf8')); ruleStore = { enabled: j.enabled === true, rules: (Array.isArray(j.rules) ? j.rules : []).filter(validRule).slice(0, MAX_RULES) }; } catch {}
+function saveRules() {
+  try {
+    fs.mkdirSync(path.dirname(RULES_FILE), { recursive: true, mode: 0o700 });
+    const tmp = RULES_FILE + '.' + process.pid + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(ruleStore, null, 2), { mode: 0o600 }); fs.renameSync(tmp, RULES_FILE);
+    return true;
+  } catch (e) { console.error('  [rules] save failed:', e.message); return false; }
+}
+app.get('/api/approval-rules', apiGuard, (req, res) => res.json(ruleStore));
+app.post('/api/approval-rules', apiGuard, async (req, res) => {
+  const { reqId, mode } = req.body || {};
+  const r = recentReqs.get(reqId);
+  if (!r || Date.now() - r.ts > RECENT_REQ_MS) return res.status(400).json({ error: 'that request has expired — answer one first' });
+  if (r.tool !== 'Bash' || !r.command) return res.status(400).json({ error: 'only shell commands can get a rule' });
+  const risk = rules.riskReason(r.command);
+  if (risk) return res.status(400).json({ error: 'matches the deny-list (' + risk + ') — always needs a click' });
+  const pattern = mode === 'prefix' ? rules.prefixOf(r.command) : mode === 'exact' ? rules.norm(r.command) : null;
+  if (!pattern || rules.riskReason(pattern)) return res.status(400).json({ error: 'no safe pattern for that command' });
+  if (!r.cwd || !path.isAbsolute(r.cwd)) return res.status(400).json({ error: 'the agent did not report a working directory' });
+  let dir = r.cwd;                                        // scope = the repo / worktree root, so a `cd` into a subfolder still matches
+  try { dir = (await gitP(['rev-parse', '--show-toplevel'], r.cwd)).trim() || dir; } catch {}
+  let rule = ruleStore.rules.find((x) => x.agent === r.agent && x.mode === mode && x.pattern === pattern && x.dir === dir);
+  if (!rule) {
+    if (ruleStore.rules.length >= MAX_RULES) return res.status(400).json({ error: 'rule limit reached (' + MAX_RULES + ')' });
+    rule = { id: require('crypto').randomUUID(), agent: r.agent, tool: 'Bash', mode, pattern, dir, created: Date.now() };
+    ruleStore.rules.push(rule);
+  }
+  ruleStore.enabled = true;
+  if (!saveRules()) return res.status(500).json({ error: 'could not save the rule file' });
+  res.json(rule);
+});
+app.delete('/api/approval-rules/:id', apiGuard, (req, res) => {
+  const n = ruleStore.rules.length;
+  ruleStore.rules = ruleStore.rules.filter((x) => x.id !== req.params.id);
+  if (ruleStore.rules.length !== n) saveRules();
+  res.status(204).end();
+});
+app.post('/api/approval-rules/enabled', apiGuard, (req, res) => {   // pause / resume without losing the rules
+  ruleStore.enabled = req.body?.enabled === true; saveRules(); res.json(ruleStore);
+});
 
 // ── /api/git — worktree-per-agent + read-only diff review ────────────────────
 // Same Origin+Host guard as /api/ls. Worktree creation writes to the user's repo,
