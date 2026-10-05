@@ -21,5 +21,6 @@ jobs:
       - run: node scripts/check-hooks-docs.js
       - run: node scripts/check-hooks.js
       - run: node scripts/check-rules.js
+      - run: node scripts/check-usage.js
       - run: node server.js autostart install --dry-run
       - run: test "$(node server.js --bogus >/dev/null 2>&1; echo $?)" = 2

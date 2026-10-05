@@ -2200,6 +2200,7 @@ function agentEvent(s,tab,ev){
   if(tab.exited||!ev||typeof ev!=="object")return;
   tab.agent=true;
   tab.evt=ev;
+  recordUsage(s,tab,ev);
   armAgentIdle(s,tab,true);
   if(ev.type==="stop"||ev.type==="error") agentWaiting(s,tab);
   else if(ev.type==="permission_request"){
@@ -2211,13 +2212,44 @@ function agentEvent(s,tab,ev){
   if(ev.type!=="permission_request") tab.ask=null;
   updateAgentOverview();
 }
+// ── Token usage (#85): what the agent itself reported, never estimated ────────────────────────────
+// The hook helper reads it from the CLI's transcript on `stop` (Claude Code, Codex): `tokens` = new input +
+// cache writes + output, `cache` = cache reads (shown separately — they dominate and are repeats). Each report
+// is the CONVERSATION total, so a tab's entry is replaced, not added to. Kept per tab in localStorage so a
+// reload keeps the totals (7-day prune); a project total is the sum of its tabs, closed ones included — they
+// still cost money. Main conversation only: Claude sub-agent runs are not in that transcript. No $ — neither
+// transcript carries one and termdeck ships no price table.
+const USAGE_STORE="td.usage.v1", USAGE_TTL=7*864e5;
+let usage=(()=>{try{const u=JSON.parse(localStorage.getItem(USAGE_STORE)||"{}"),now=Date.now(),t={};
+  for(const k in (u.tabs||{})){const e=u.tabs[k]; if(e&&Number.isFinite(e.t)&&now-e.ts<USAGE_TTL) t[k]=e;} return {tabs:t};}catch{return {tabs:{}};}})();
+function saveUsage(){try{localStorage.setItem(USAGE_STORE,JSON.stringify(usage));}catch{}}
+const fmtTok=(n)=>n>=1e6?(n/1e6).toFixed(1)+"M":n>=1e3?(n/1e3).toFixed(n>=1e5?0:1)+"k":String(n);
+function usageSum(pid){   // pid omitted = every existing project
+  let t=0,c=0,n=0;
+  for(const k in usage.tabs){const e=usage.tabs[k]; if(!projects.has(e.p)||(pid&&e.p!==pid))continue; t+=e.t; c+=e.c||0; n++;}
+  return {tokens:t,cache:c,tabs:n};
+}
+const usageTip=(u)=>fmtTok(u.tokens)+" tokens (new input + cache writes + output)"+(u.cache?" · "+fmtTok(u.cache)+" cache reads":"")+" — as reported by the agent";
+function recordUsage(s,tab,ev){
+  if(!(ev.tokens>0))return;
+  usage.tabs[s.id+"-"+tab.id]={t:ev.tokens,c:Number.isFinite(ev.cache)?ev.cache:0,ts:Date.now(),p:s.project};
+  saveUsage(); updateUsageViews();
+}
+function updateUsageViews(){
+  projects.forEach((p)=>{
+    const nm=p.tab&&p.tab.querySelector(".pname"); if(!nm)return;
+    const u=usageSum(p.id);
+    nm.title="Double-click to rename"+(u.tokens?"\n"+u.tabs+" agent"+(u.tabs===1?"":"s")+" \u00b7 "+usageTip(u):"");
+  });
+  if(agentPop&&agentPop.classList.contains("open")) renderAgentList();
+}
+function resetUsage(){usage={tabs:{}};saveUsage();updateUsageViews();toast(ICON.bot,"Usage reset","Token totals cleared",2200);}
 function evtSummary(tab){
   const e=tab.evt; if(!e)return "";
   const bits=[];
   if(e.type==="tool_start"||e.type==="permission_request"){
     bits.push([e.tool,e.files?.[0]?e.files[0].split(/[\\/]/).pop():e.detail].filter(Boolean).join(" "));
   }
-  if(Number.isFinite(e.tokens)) bits.push((e.tokens>=1000?(e.tokens/1000).toFixed(1)+"k":e.tokens)+" tok");
   if(Number.isFinite(e.cost)) bits.push("$"+e.cost.toFixed(2));
   return bits.filter(Boolean).join(" · ").slice(0,80);
 }
@@ -2283,7 +2315,8 @@ function getAgentQueue(){
 function renderAgentList(queue){
   if(!agentList) return;
   if(!queue) queue=getAgentQueue();
-  if(agentPopCount) agentPopCount.textContent=queue.length+" active";
+  const ut=usageSum();
+  if(agentPopCount){agentPopCount.textContent=queue.length+" active"+(ut.tokens?" \u00b7 "+fmtTok(ut.tokens)+" tok":""); agentPopCount.title=ut.tokens?ut.tabs+" agent"+(ut.tabs===1?"":"s")+" \u00b7 "+usageTip(ut):"";}
   agentList.innerHTML="";
   if(!queue.length){
     const emp=el("div","agent-empty");
@@ -2304,6 +2337,8 @@ function renderAgentList(queue){
     st.textContent=state==="approval"?"needs approval":state;
     const extra=evtSummary(tab);
     if(extra){const x=el("span","agent-row-evt"); x.textContent=" · "+extra; st.append(x);}   // textContent only — event data is untrusted
+    const ue=usage.tabs[s.id+"-"+tab.id];
+    if(ue){const x=el("span","agent-row-evt"); x.textContent=" \u00b7 "+fmtTok(ue.t)+" tok"; x.title=usageTip({tokens:ue.t,cache:ue.c}); st.append(x);}
     info.append(path,st);
     if(state==="approval"&&tab.ask){   // exact request + one-click answer; textContent only — the command is untrusted
       const q=el("div","agent-row-ask"); q.textContent=tab.ask.text; q.title=tab.ask.text;
@@ -2976,6 +3011,7 @@ const PAL_CMDS=[
   {icon:ICON.check,label:"Finish agent task\u2026",sub:"Merge or open a PR for this worktree, then optionally remove it \u2014 never auto-commits, never forces",run:()=>{closePalette();finishAgentTask();}},
   {icon:ICON.eye,label:"Review agent changes\u2026",sub:"Read-only diff of this project's worktree against the commit it was cut from",kbd:"\u2318\u2325D",run:()=>{closePalette();openAgentDiff();}},
   {icon:ICON.terminal,label:"Add AI CLI preset\u2026",sub:"Save an agent command \u2014 launch it in one click; pings you when it needs input",run:()=>{closePalette();addAiCli();}},
+  {icon:ICON.terminal,label:"Reset usage",sub:"Clear the token totals shown in the agent queue and project tabs",run:()=>{closePalette();resetUsage();}},
   {icon:ICON.terminal,label:"Reset agent order",sub:"Forget which agents you use most — back to the default order",run:()=>{closePalette();resetAiOrder();}},
 {icon:ICON.log,label:"Set scrollback\u2026",sub:"Lines of history each terminal keeps",run:()=>{closePalette();setScrollback();}},
   {icon:ICON.gamepad,label:"Play game",sub:"Dino or Snake while a command runs \u2014 pings when the watched terminal finishes",kbd:"\u2318\u2325G",run:()=>{closePalette();openGame();}},
@@ -2985,7 +3021,7 @@ const PAL_CMDS=[
 // Category of each built-in command; unlisted ones fall under Workspace. Snippets/SSH/AI presets/sessions map to the other tabs.
 const PAL_CATS=["All","Terminals","Agents","Workspace","Saved","Sessions"];
 const PAL_CAT_OF={"New terminal":"Terminals","New log panel":"Terminals","Add SSH host\u2026":"Terminals",
-  "New agent task\u2026":"Agents","Review agent changes\u2026":"Agents","Add AI CLI preset\u2026":"Agents","Reset agent order":"Agents","Save snippet\u2026":"Saved"};
+  "New agent task\u2026":"Agents","Review agent changes\u2026":"Agents","Add AI CLI preset\u2026":"Agents","Reset agent order":"Agents","Reset usage":"Agents","Save snippet\u2026":"Saved"};
 PAL_CMDS.forEach((c)=>{c.cat=PAL_CAT_OF[c.label]||"Workspace";});
 let palCat="All", aiMore=false;   // aiMore: "More agents" expanded
 const inCat=(c)=>palCat==="All"||palCat===c;
@@ -3930,7 +3966,7 @@ if(held && held.id!==myTab){
   updateConn();
   if(!restoreState()){addProject("default",null,true);switchProject(projectOrder[0]);createSession();}
   else{toast('<span class="led live"></span>',"Restored","Layout loaded from last session",3500);}
-  updateDockEdges(); updateProjEdges(); updateAgentOverview();
+  updateDockEdges(); updateProjEdges(); updateAgentOverview(); updateUsageViews();
 }
 
 /* ═══ mini-games: dino runner + snake ═══

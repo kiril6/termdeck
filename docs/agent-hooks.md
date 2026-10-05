@@ -43,11 +43,15 @@ Payloads were captured from real sessions and are replayed through the helper in
 Notes from the captures: Claude Code fires `PermissionRequest` and `Notification` (`notification_type: "permission_prompt"`) only
 in **interactive** sessions — `claude -p` denies instead of asking, so no approval state there.
 
-**Token usage (for cost totals):** none of the hook payloads carry it. Claude Code and Codex both give a
-`transcript_path` (JSONL): Claude Code has per-message `usage` (`input_tokens`, `output_tokens`,
-`cache_read_input_tokens`, `cache_creation_input_tokens`); Codex has `token_count` events with
-`total_token_usage` (`input_tokens`, `cached_input_tokens`, `output_tokens`, `reasoning_output_tokens`, `total_tokens`).
-Gemini CLI: unchecked.
+**Token usage (#85):** no hook payload carries it, but Claude Code and Codex give a `transcript_path` (JSONL) and the
+helper reads it on `stop` (silent, ≤ 48 MB, ~50 ms), sending `tokens` and `cacheTokens` — as **recorded by the agent**,
+never estimated, and **no dollar figure** (neither transcript has one; termdeck ships no price table).
+- `tokens` = new input + cache writes + output; `cacheTokens` = cache reads, shown separately because they are ~98 % of
+  the volume (measured: 18.6 M cache reads vs 0.33 M real tokens in one session) and are repeats.
+- **Claude Code** repeats one message once per streamed block in the transcript; a naive sum **double-counts (~2×)**, so
+  the helper sums per message id. Main conversation only — sub-agent runs are not in that file. `scripts/check-usage.js` pins this in CI.
+- **Codex** `token_count` is cumulative: the helper takes the last one (input − cached input + output).
+- **Gemini CLI**: unchecked, shows nothing. Unreadable / missing / oversized transcripts show nothing (never a `0`).
 
 ## Quick setup
 
@@ -140,7 +144,7 @@ curl -s -X POST "$TD_URL/api/agent-events" -H 'Content-Type: application/json' \
 | `id` | required — `$TD_ID` |
 | `type` | required — `prompt_submit`, `tool_start`, `tool_end`, `permission_request`, `stop`, `error` |
 | `agent`, `tool`, `detail`, `files` | optional display strings (capped; `files` ≤ 10) |
-| `tokens`, `cost` | optional numbers, shown only if present |
+| `tokens`, `cacheTokens`, `cost` | optional numbers (the helper sends the first two on `stop`; `cost` only if an agent supplies one), shown only if present |
 
 `permission_request` → red *needs approval*; `stop`/`error` → amber *waiting*; the rest → *working*.
 Unknown ids return 404, malformed events 400, more than 30 events/s per terminal 429.

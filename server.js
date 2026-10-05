@@ -268,6 +268,7 @@ app.post('/api/agent-events', apiGuard, (req, res) => {
   if (Array.isArray(b.files)) ev.files = b.files.slice(0, 10).map((f) => cap(f, 300)).filter(Boolean);
   if (Number.isFinite(b.tokens)) ev.tokens = b.tokens;
   if (Number.isFinite(b.cost))   ev.cost = b.cost;
+  if (Number.isFinite(b.cacheTokens)) ev.cache = b.cacheTokens;   // cache reads, shown beside tokens (#85)
   // Any event other than the request itself means the agent moved on (you answered in the terminal).
   if (b.type !== 'permission_request') settleApproval(b.id, null, 'terminal');
   // #44 phase 2: an opt-in allow-rule answers on its own — visibly (audit entry + toast), never for a deny-list command.
