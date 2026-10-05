@@ -189,6 +189,9 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
 .agent-btn.allow{border-color:#2e9d5b;color:#43c077;}
 .agent-btn.deny{border-color:#e5484d;color:#ff9b93;}
 .agent-btn:hover{filter:brightness(1.25);}
+.agent-risk{font-size:10.5px;color:#d9822b;margin-top:3px;}
+.agent-rule-x{font:inherit;font-size:11px;background:none;border:0;color:var(--muted);cursor:pointer;padding:0 4px;}
+.agent-rule-x:hover{color:#ff9b93;}
 .agent-audit{border-top:1px solid var(--line);margin-top:6px;padding:6px 10px 2px;font-size:10.5px;color:var(--muted);}
 .agent-audit-row{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 0;}
 .agent-audit-row b{font-weight:600;}
@@ -804,6 +807,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
     </div>
     <div class="agent-list" id="agent-list"></div>
     <div class="agent-audit" id="agent-audit" hidden></div>
+    <div class="agent-audit" id="agent-rules" hidden></div>
   </div>
 </div>
 
@@ -2200,7 +2204,7 @@ function agentEvent(s,tab,ev){
   if(ev.type==="stop"||ev.type==="error") agentWaiting(s,tab);
   else if(ev.type==="permission_request"){
     // reqId = the hook is held open for a click (#44): the queue row offers Approve / Deny. No reqId = display-only.
-    tab.ask=ev.reqId?{reqId:ev.reqId,text:[ev.tool,ev.files?.[0]||ev.detail].filter(Boolean).join(" ")}:null;
+    tab.ask=ev.reqId?{reqId:ev.reqId,text:[ev.tool,ev.files?.[0]||ev.detail].filter(Boolean).join(" "),cmd:ev.detail||"",risk:ev.risk||"",cwd:ev.cwd||"",canRule:ev.tool==="Bash"&&!ev.risk&&!!ev.cwd&&!!ev.detail}:null;
     agentApproval(s,tab);
   }
   else setWaiting(s,tab,false);   // prompt/tool activity = working (also clears a red approval once you answered)
@@ -2309,7 +2313,14 @@ function renderAgentList(queue){
         b.addEventListener("click",(e)=>{e.stopPropagation(); const a=tab.ask; if(!a||!tab.conn?.approve)return; tab.conn.approve(a.reqId,d);});
         bt.append(b);
       }
-      info.append(q,bt);
+      if(tab.ask.canRule){
+        const al=el("button","agent-btn"); al.textContent="Always allow\u2026"; al.type="button"; al.title="Create an opt-in rule for this command in this repo";
+        al.addEventListener("click",(e)=>{e.stopPropagation(); alwaysAllow(tab);});
+        bt.append(al);
+      }
+      info.append(q);
+      if(tab.ask.risk){const rk=el("div","agent-risk"); rk.textContent="\u26a0 "+tab.ask.risk+" \u2014 always needs your click"; info.append(rk);}
+      info.append(bt);
     }
     const ov=overlapByProject.get(s.project);
     if(ov){const w=el("div","agent-row-warn"); w.textContent="\u26a0 "+overlapText(ov); w.title=w.textContent; info.append(w);}   // textContent: file names are untrusted
@@ -2353,19 +2364,51 @@ async function loadAudit(){
   let rows; try{rows=await (await fetch("/api/approvals")).json();}catch{return;}
   agentAudit.innerHTML=""; agentAudit.hidden=!rows.length; if(!rows.length)return;
   const h=el("div"); h.textContent="Recent approvals"; agentAudit.append(h);
-  const src={click:"you",terminal:"in terminal",timeout:"timed out",superseded:"replaced"};
+  const src={click:"you",terminal:"in terminal",timeout:"timed out",superseded:"replaced",rule:"rule"};
   rows.slice(0,8).forEach((a)=>{
     const sess=sessions.get(String(a.id).split("-")[0]);
     const r=el("div","agent-audit-row");
-    const d=el("b"); d.textContent=a.decision==="allow"?"Approved":a.decision==="deny"?"Denied":"Not decided";
+    const d=el("b"); d.textContent=a.source==="rule"?"Auto-allowed":a.decision==="allow"?"Approved":a.decision==="deny"?"Denied":"Not decided";
     r.append(new Date(a.ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})+" · ",d,
       document.createTextNode(" · "+(sess?.name||a.id)+" · "+[a.tool,a.files?.[0]||a.detail].filter(Boolean).join(" ")+" · "+(src[a.source]||a.source)));
     r.title=r.textContent; agentAudit.append(r);
   });
 }
+// Opt-in allow-rules (#44 phase 2): created from an approval row, listed here, deletable, pausable.
+const agentRules=document.getElementById("agent-rules");
+async function loadRules(){
+  if(!LIVE||!agentRules)return;
+  let st; try{st=await (await fetch("/api/approval-rules")).json();}catch{return;}
+  agentRules.innerHTML=""; agentRules.hidden=!st.rules.length; if(!st.rules.length)return;
+  const h=el("div"); h.textContent="Auto-allow rules \u00b7 "+(st.enabled?"on":"paused")+" \u00b7 "; 
+  const tg=el("button","agent-rule-x"); tg.type="button"; tg.textContent=st.enabled?"pause":"resume";
+  tg.addEventListener("click",async()=>{try{await fetch("/api/approval-rules/enabled",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({enabled:!st.enabled})});}catch{} loadRules();});
+  h.append(tg); agentRules.append(h);
+  st.rules.forEach((r)=>{
+    const row=el("div","agent-audit-row");
+    row.append(document.createTextNode(r.agent+" \u00b7 "+(r.mode==="exact"?"exactly ":"starts with ")+r.pattern+" \u00b7 in "+r.dir+" "));
+    const x=el("button","agent-rule-x"); x.type="button"; x.textContent="\u2715"; x.title="Delete this rule";
+    x.addEventListener("click",async()=>{try{await fetch("/api/approval-rules/"+encodeURIComponent(r.id),{method:"DELETE"});}catch{} loadRules();});
+    row.append(x); row.title=row.textContent; agentRules.append(row);
+  });
+}
+async function alwaysAllow(tab){
+  const a=tab.ask; if(!a)return;
+  const w=a.cmd.trim().split(/\s+/), pre=w.length>=2?w.slice(0,2).join(" "):"";
+  const v=await inputModal("Always allow this command?",[
+    {type:"note",label:"termdeck will then answer on its own, without asking, whenever this agent runs a matching command in the git repo / worktree (or folder) containing:\n"+a.cwd+"\n\nTurned on only by you, right now. Risky commands (deleting, sudo, network, secrets\u2026) are never covered. Every automatic answer is logged and shown as a toast; manage or pause rules under Agents."},
+    {key:"mode",label:"Allow",type:"select",options:[{value:"exact",label:"Only exactly: "+a.cmd},...(pre?[{value:"prefix",label:"Anything starting with: "+pre+" \u2026"}]:[])]},
+  ],"Always allow");
+  if(!v)return;
+  let r; try{r=await fetch("/api/approval-rules",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reqId:a.reqId,mode:v.mode})});}catch{toast(ICON.bot,"Rule not saved","Server unreachable",4000);return;}
+  if(!r.ok){let e={}; try{e=await r.json();}catch{} toast(ICON.bot,"Rule not saved",e.error||"Refused",5000);return;}
+  toast(ICON.bot,"Auto-allow rule saved",(v.mode==="exact"?"exactly ":"starts with ")+(v.mode==="exact"?a.cmd:pre),4000);
+  if(tab.ask&&tab.ask.reqId===a.reqId&&tab.conn?.approve) tab.conn.approve(a.reqId,"allow");   // and answer this one now
+  loadRules();
+}
 function openAgentPop(){
   closeModals("agent");
-  loadAudit();
+  loadAudit(); loadRules();
   const r=agentBtn.getBoundingClientRect();
   agentPop.style.top=(r.bottom+6)+"px";
   agentPop.style.left=Math.max(12,Math.min(window.innerWidth-352,r.right-340))+"px";
@@ -2392,6 +2435,9 @@ function openTabWS(s,tab){
       if(m.shell){tab.shellName=m.shell; if(s.activeTabId===tab.id) s.badgeShell.textContent=m.shell;}
     }else if(m.type==="agent"){
       agentEvent(s,tab,m.event);
+    }else if(m.type==="autoallow"){   // an allow-rule answered on its own — never silent
+      toast(ICON.bot,"Auto-allowed by rule","\""+s.name+"\": "+[m.tool,m.detail].filter(Boolean).join(" ").slice(0,80)+" (rule: "+m.rule+")",6000,()=>{revealWindow(s);switchTab(s,tab.id);});
+      loadAudit();
     }else if(m.type==="approval"){   // the held request ended (clicked, answered in the terminal, timed out)
       if(tab.ask?.reqId===m.reqId){tab.ask=null; updateAgentOverview(); loadAudit();}
     }else if(m.type==="output"){

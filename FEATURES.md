@@ -255,7 +255,26 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   recorded with time, terminal, tool/command, decision and **who decided** (*you* / *in terminal* / *timed out* /
   *replaced*) — listed under the queue (*Recent approvals*), served at `GET /api/approvals`, and appended to
   `TD_LOG_DIR/approvals.jsonl` (0600) when set. Without hooks, or on Gemini (no decision channel), rows stay
-  jump-only. Scoped allow-rules and a deny-list are phase 2 and **not** built.
+  jump-only.
+- 🔐 **Opt-in allow-rules + hard deny-list (#44, phase 2)** — **off by default, none shipped.** A hook-backed
+  approval row for a shell command also offers **Always allow…**: a confirm dialog names the scope (the **git
+  repo / worktree** containing the agent's working directory, so a `cd` into a subfolder still matches) and
+  asks *only this exact command* or *anything starting with its first two words*. The rule is derived on the
+  server from the command you were just shown — the client never sends a pattern, and there is no user regex.
+  Matching is literal: exact string, or a prefix on a word boundary **with nothing chained after it** (`;`, `&`,
+  `|`, backticks, `$(`, redirects, newlines make a prefix rule not match), the same agent, Bash only, inside
+  the scope dir. Stored `0600` in `~/.termdeck/approval-rules.json`; capped at 100. **Visible, never silent:**
+  each automatic answer is a toast ("Auto-allowed by rule") and an audit entry (*source: rule*, rule id) next to
+  your manual ones; under the queue, *Auto-allow rules* lists them with **✕ delete** and **pause / resume**
+  (pause keeps the rules). **Hard deny-list** (`scripts/approval-rules.js`): recursive `rm`, `sudo`, `git push --force` /
+  delete / `reset --hard` / `clean`, download-piped-to-shell, `bash -c` / `eval` / interpreter inline code,
+  `ssh`/`scp`/`nc`/`rsync`, reading `~/.ssh` / `.env` / cloud credentials, uploads, recursive `chmod`, `kill`
+  by name, shell-startup edits, `npm publish`, `DROP TABLE` … — such a request shows a **⚠ reason**, has no
+  *Always allow*, is refused by the rule endpoint, and is **re-checked at match time** so even a hand-edited
+  rules file cannot cover it. It is best-effort, **not a sandbox**; CI (`scripts/check-rules.js`) pins matcher
+  and deny-list behaviour. Same trust as terminal input: a local process that can already drive termdeck could
+  also create a rule, so keep the loopback bind / access token. Rules only act through hooks (Claude Code,
+  Codex) and need no browser open.
 - 🔌 **Agent event bridge** — an agent CLI's lifecycle hooks report real state instead of the idle/regex
   guesses. Every PTY gets `TD_ID`, `TD_URL`, `TD_HOOK` (and `TD_TOKEN` when the access token is on) in its
   environment (tmux ≥ 3.2 via `-e`); the server also writes its current URL (and token, if on) to `~/.termdeck/server.json` (0600, removed on exit) and the helper falls back to it when `TD_URL` is unreachable, so tmux-kept shells keep reporting after a restart on another port; `scripts/td-hook.js` — a dependency-free, silent, never-blocking
@@ -377,7 +396,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🖥️ **Clickable file paths** — `path/file.ext`, `./x`, `~/x`, `/abs/x`, optional `:line[:col]` in terminal output become links
   when `/api/stat` confirms a regular file (relative paths resolve against the tab's live cwd). Click opens the file viewer
   scrolled to and highlighting that line (markdown opens as raw source for a `:line` link). Live mode only; no-op in demo.
-- 📄 **Known limits** — a README section stating plainly what termdeck doesn't do (reboots end shells, heuristic agent state without hooks, never auto-answers, remote-access caveats, caps, Windows differences, demo has no backend).
+- 📄 **Known limits** — a README section stating plainly what termdeck doesn't do (reboots end shells, heuristic agent state without hooks, no answering without your click or an opt-in rule, remote-access caveats, caps, Windows differences, demo has no backend).
 - 🔌 **`termdeck autostart install|uninstall`** — sets up start-at-login without hand-editing (`scripts/autostart.js`):
   a launchd agent `~/Library/LaunchAgents/com.termdeck.plist` (macOS; `launchctl bootstrap`/`bootout`) or a systemd
   **user** unit `~/.config/systemd/user/termdeck.service` (Linux; `daemon-reload` + `enable --now`). No root.
@@ -400,7 +419,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🔌 **`/api/agent-events` hardening** — same `apiGuard` Origin/Host check (and access token when on) as
   every `/api/*` route; JSON only, 64KB body cap, `type` whitelist, unknown/log-only terminal ids → 404,
   fields whitelisted and length-capped, 30 events/s per terminal (429), shown via `textContent`. An event
-  can never write to a PTY — it only changes what the UI displays; termdeck still never answers without your click (see *Approve / Deny*).
+  can never write to a PTY — it only changes what the UI displays; termdeck still never answers without your click or a rule you opted in to (see *Approve / Deny*, *allow-rules*).
 - 🔌 **`/api/git/root` + `/api/git/worktree` + `/api/git/diff` + `/api/git/finish`** — git repo detection, worktree creation
   and read-only diff for the agent-worktree flow, behind the **same** `apiGuard` as the rest. Worktree
   creation writes to the repo but grants no capability a shell in that repo doesn't already have
