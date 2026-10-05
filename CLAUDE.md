@@ -53,3 +53,4 @@ change.** Read it first when you need to know what already exists.
 - Backend is deliberately dependency-light (express, ws, node-pty only). Keep it that way.
 - The reattach/grace-timer + ring-buffer is the core invariant — changes to WS lifecycle in `bindWsEvents`/`connection` must preserve "disconnect ≠ kill, reconnect replays buffer".
 - UI icons are **monochrome inline SVGs** from the `ICON` map in `public/index.html` (`currentColor`, same style as the header buttons) — including toast icons. No emoji or text glyphs as icons; add a new `ICON` entry if none fits. Exceptions: status LED dots (`.led`, tab dots, `DEAD_DOT`) stay as coloured dots, and the "Needs approval" toast keeps its red tint.
+- **Never commit or push directly to `master`.** Before any commit run `git branch --show-current`; if it is `master` (or an already-merged branch), create a fresh feature branch first, push that, and open a PR.
