@@ -1203,9 +1203,10 @@ function inputModal(title, fields, okLabel="Save"){
     const inputs={};
     card.append(h);
     fields.forEach((f)=>{
+      if(f.type==="note"){const n=el("div"); n.textContent=f.label; n.style.cssText="color:var(--muted);font-size:12px;margin:8px 0 2px;white-space:pre-wrap"; card.append(n); return;}
       const lab=el("label"); lab.textContent=f.label; lab.style.cssText="display:block;color:var(--muted);font-size:12px;margin:10px 0 4px";
       const inp=f.type==="select"?el("select"):el("input");
-      if(f.type==="select"){(f.options||[]).forEach((o)=>{const op=el("option");op.value=o.value;op.textContent=o.label;inp.append(op);});}
+      if(f.type==="select"){(f.options||[]).forEach((o)=>{const op=el("option");op.value=o.value;op.textContent=o.label;inp.append(op);}); if(f.value) inp.value=f.value;}
       else{inp.type="text"; inp.spellcheck=false; inp.placeholder=f.placeholder||""; inp.value=f.value||"";}
       inp.style.cssText="width:100%;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--text);font:13px ui-monospace,monospace;padding:8px 10px;outline:none";
       inputs[f.key]=inp; card.append(lab,inp);
@@ -1357,8 +1358,8 @@ function launchAiCli(p){bumpAiUse(p);createSession({cwd:curCwd()||"~",cmd:p.cmd,
 // Three agents loose in one repo overwrite each other. "New agent task" cuts a git
 // worktree off the project's repo, opens it as its OWN project (so the tree, cwd and
 // every shell in it are scoped to that branch), and launches the agent CLI there.
-// Nothing is ever removed automatically — a finished task leaves its worktree and
-// branch on disk for you to merge or delete yourself, in the shell.
+// Nothing is removed automatically — "Finish agent task" lands the work (merge / PR) and
+// only removes the worktree + branch on an explicit opt-in + confirm.
 const shQuote=(s)=>"'"+String(s).replace(/'/g,"'\\''")+"'";
 async function gitRootOf(dir){   // -> {root} | {error} — the error matters: "git not installed" is not "not a repo"
   try{const r=await fetch("/api/git/root?dir="+encodeURIComponent(dir));
@@ -1389,7 +1390,7 @@ async function newAgentTask(){
   }catch(e){toast(ICON.warn,"Couldn’t create worktree",e.message,6000);return;}
   const p=addProject(v.branch);
   if(!p){toast(ICON.warn,"Worktree created, no project slot",j.path,6000);return;}
-  p.root=j.path; p.base=j.base;                    // base = commit the branch was cut from; the diff baseline
+  p.root=j.path; p.base=j.base; p.baseBranch=j.baseBranch||"";                    // base = commit the branch was cut from; the diff baseline
   treeRoot=null; treeLastRoot=null; refreshTree();
   const preset=presets.find((x)=>x.cmd===v.cli)||{cmd:v.cli};
   if(preset.id) bumpAiUse(preset);
@@ -1435,6 +1436,48 @@ async function openAgentDiff(){
 }
 
 
+// Finish task (#83): the "land" step. Preview → pick merge / PR / keep → optional cleanup → close the tab.
+// The server re-checks everything and refuses (with the reason) what isn't allowed; cleanup never forces.
+async function finishAgentTask(){
+  if(!LIVE){toast(ICON.warn,"Demo mode","Finishing a task needs a backend \u2014 run termdeck locally",5000);return;}
+  const pid=activeProject, p=projects.get(pid);
+  if(!p?.root||!p.base){toast(ICON.warn,"Not an agent task","Switch to a project created with \u201cNew agent task\u201d",5000);return;}
+  let j;
+  try{
+    const r=await fetch("/api/git/finish?dir="+encodeURIComponent(p.root)+"&baseBranch="+encodeURIComponent(p.baseBranch||""));
+    j=await r.json().catch(()=>({}));
+    if(!r.ok){toast(ICON.warn,"Can\u2019t finish this task",j.error||("HTTP "+r.status),7000);return;}
+  }catch(e){toast(ICON.warn,"Can\u2019t finish this task",e.message,6000);return;}
+  if(j.dirty.length){toast(ICON.warn,"Uncommitted changes",j.dirty.length+" file(s) in "+j.branch+" \u2014 commit or discard first. termdeck never commits for you.",8000);return;}
+  const opts=[];
+  if(j.merge.ok) opts.push({value:"merge",label:"Merge into "+j.target+" (no-ff)"});
+  if(j.pr.ok)    opts.push({value:"pr",label:"Push and open a pull request"});
+  opts.push({value:"none",label:"Keep as is \u2014 just close the tab"});
+  const why=[!j.merge.ok&&"Merge: "+j.merge.reason, !j.pr.ok&&"Pull request: "+j.pr.reason].filter(Boolean).join("\n");
+  const v=await inputModal("Finish "+j.branch,[
+    {type:"note",label:j.ahead+" commit"+(j.ahead===1?"":"s")+" ahead of "+j.target+(p.baseBranch?"":" (base branch not recorded \u2014 using the main tree\u2019s)")},
+    ...(why?[{type:"note",label:why}]:[]),
+    {key:"action",label:"How to land",type:"select",options:opts},
+    {key:"cleanup",label:"Afterwards",type:"select",value:"no",options:[
+      {value:"no",label:"Keep the worktree and branch"},
+      {value:"yes",label:"Remove the worktree and delete the branch"}]},
+  ],"Finish");
+  if(!v)return;
+  const cleanup=v.cleanup==="yes";
+  if(cleanup&&!(await confirmModal("Remove worktree "+j.top+" and delete branch "+j.branch+"? Git refuses if work is unmerged or uncommitted.","Remove",true)))return;
+  let out;
+  try{
+    const r=await fetch("/api/git/finish",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({dir:p.root,baseBranch:p.baseBranch||"",action:v.action,cleanup})});
+    out=await r.json().catch(()=>({}));
+    if(!r.ok){toast(ICON.warn,"Not finished",out.error||("HTTP "+r.status),8000);return;}
+  }catch(e){toast(ICON.warn,"Not finished",e.message,6000);return;}
+  if(out.merged) toast(ICON.check,"Merged",j.branch+" \u2192 "+j.target,5000);
+  if(out.url)    toast(ICON.branch,"Pull request opened",out.url,15000);
+  if(out.cleaned)toast(ICON.check,"Cleaned up","Removed "+j.top+" and branch "+j.branch,6000);
+  if(out.cleanupError) toast(ICON.warn,"Cleanup incomplete",out.cleanupError,9000);
+  await deleteProject(pid);   // closes the tab + its shells (asks first if any are running)
+}
 // ── Conflict radar (#43): warn when two agent worktrees of one repo change the same file ─────────────────
 // Informational only. Polls the server every 10s while >=2 worktree projects have a live agent.
 const overlapByProject=new Map();   // project id -> [{path, with:[project names], collide}]
@@ -2826,6 +2869,7 @@ const PAL_CMDS=[
   {icon:ICON.snippet,label:"Save snippet\u2026",sub:"Store a reusable command",kbd:"\u2318\u2325S",run:()=>{closePalette();addSnippet();}},
   {icon:ICON.terminal,label:"Add SSH host\u2026",sub:"Save an ssh target \u2014 connect in one click from here",run:()=>{closePalette();addSshHost();}},
   {icon:ICON.folderPlus,label:"New agent task\u2026",sub:"Cut a git worktree for a branch and launch an agent in it \u2014 isolated from your other agents",kbd:"\u2318\u2325R",run:()=>{closePalette();newAgentTask();}},
+  {icon:ICON.check,label:"Finish agent task\u2026",sub:"Merge or open a PR for this worktree, then optionally remove it \u2014 never auto-commits, never forces",run:()=>{closePalette();finishAgentTask();}},
   {icon:ICON.eye,label:"Review agent changes\u2026",sub:"Read-only diff of this project's worktree against the commit it was cut from",kbd:"\u2318\u2325D",run:()=>{closePalette();openAgentDiff();}},
   {icon:ICON.terminal,label:"Add AI CLI preset\u2026",sub:"Save an agent command \u2014 launch it in one click; pings you when it needs input",run:()=>{closePalette();addAiCli();}},
   {icon:ICON.terminal,label:"Reset agent order",sub:"Forget which agents you use most — back to the default order",run:()=>{closePalette();resetAiOrder();}},
@@ -3509,7 +3553,7 @@ function saveState(){
   if(!instanceActive) return;   // passive tab: never write — would clobber the active tab's layout
   try{
     const data={activeProject,
-      projects:projectOrder.map((pid)=>({id:pid,name:projects.get(pid).name,root:projects.get(pid).root||null,base:projects.get(pid).base||null,lastCwd:projects.get(pid).lastCwd||null})),
+      projects:projectOrder.map((pid)=>({id:pid,name:projects.get(pid).name,root:projects.get(pid).root||null,base:projects.get(pid).base||null,baseBranch:projects.get(pid).baseBranch||null,lastCwd:projects.get(pid).lastCwd||null})),
       sessions:order.map((id)=>{const s=sessions.get(id);if(!s)return null;const st=s.win.style;
         return{id:s.id,project:s.project,name:s.name,cwd:s.cwd,themeId:s.themeId||null,isLog:s.isLog||false,
                left:st.left,top:st.top,width:st.width,height:st.height,
@@ -3522,7 +3566,7 @@ function saveState(){
 function restoreState(){
   let data=null;try{data=JSON.parse(localStorage.getItem(STORE)||"null");}catch{}
   if(!data)return false;
-  if(data.projects?.length) data.projects.forEach((p)=>{addProject(p.name,p.id,true); const pr=projects.get(p.id); if(pr){if(p.root)pr.root=p.root; if(p.base)pr.base=p.base; if(p.lastCwd)pr.lastCwd=p.lastCwd;}});
+  if(data.projects?.length) data.projects.forEach((p)=>{addProject(p.name,p.id,true); const pr=projects.get(p.id); if(pr){if(p.root)pr.root=p.root; if(p.base)pr.base=p.base; if(p.baseBranch)pr.baseBranch=p.baseBranch; if(p.lastCwd)pr.lastCwd=p.lastCwd;}});
   else addProject("default",null,true);
   activeProject=projects.has(data.activeProject)?data.activeProject:projectOrder[0];
   projects.forEach((p)=>p.tab.classList.toggle("active",p.id===activeProject));
