@@ -1309,10 +1309,10 @@ function connectSsh(h){createSession({cwd:curCwd()||"~",cmd:"ssh "+h.target,name
 // arms the "waiting on you" idle watch (openTabWS) — normal shells are never watched, so
 // there are no false positives. Built-ins are fixed; user presets live in localStorage.
 const AICLI_BUILTIN=[
-  {id:"claude",  label:"Claude Code", cmd:"claude", idFlag:"--session-id", resume:"claude --resume {id}"},
-  {id:"codex",   label:"Codex",       cmd:"codex",  resume:"codex resume --last"},
-  {id:"gemini",  label:"Gemini",      cmd:"gemini", resume:"gemini --resume latest"},
-  {id:"copilot", label:"Copilot",     cmd:"copilot", resume:"copilot --continue"},
+  {id:"claude",  label:"Claude Code", cmd:"claude", resume:"command claude --continue", resumeId:"command claude --resume {id}"},
+  {id:"codex",   label:"Codex",       cmd:"codex",  resume:"command codex resume --last"},
+  {id:"gemini",  label:"Gemini",      cmd:"gemini", resume:"command gemini --resume latest"},
+  {id:"copilot", label:"Copilot",     cmd:"copilot", resume:"command copilot --continue"},
   // Extras (shown under "More agents"). pflag = flag that pre-fills the prompt in interactive mode
   // (verified against each CLI's docs); noPrompt = no way to pre-fill, so the task prompt can't be passed.
   {id:"cursor",   label:"Cursor Agent", cmd:"cursor-agent"},
@@ -1371,13 +1371,14 @@ function agentCmd(p,prompt){
 }
 // Launch + resume commands for one agent tab. The resume command is persisted with the tab and sent as
 // its startup command on reload; the backend runs it only on a FRESH shell (reboot / no tmux), never on a
-// live reattach. A CLI that takes a session id (idFlag) gets a fresh UUID so resume targets exactly this
-// session. `|| p.cmd` starts clean if there was nothing to resume (no prompt re-sent, so the task can't re-run).
+// live reattach. The launch command is left exactly as the preset says (no extra flags: a shell function that
+// wraps the CLI can choke on them). `command <cli>` runs the real binary for the same reason — wrappers and
+// aliases that mangle arguments are skipped. `|| <cli>` starts clean if there was nothing to resume (the task
+// prompt is never re-sent, so the task can't re-run). rtpl: where a hook event later reports the CLI's own
+// session id (agentEvent), the resume command becomes the exact `--resume <id>` instead of "continue the last".
 function agentRun(p,prompt){
-  const id=p.idFlag&&crypto.randomUUID?crypto.randomUUID():"";
-  const cmd=agentCmd(p,prompt)+(id?" "+p.idFlag+" "+id:"");
-  if(p.idFlag&&!id) return {cmd,resume:""};   // crypto.randomUUID needs a secure context; without an id there is nothing exact to resume
-  return {cmd,resume:p.resume?p.resume.replace("{id}",id)+" || "+p.cmd:""};
+  const tail=" || "+p.cmd;
+  return {cmd:agentCmd(p,prompt),resume:p.resume?p.resume+tail:"",rtpl:p.resumeId?p.resumeId+tail:""};
 }
 function launchAiCli(p){bumpAiUse(p);createSession({cwd:curCwd()||"~",...agentRun(p),name:p.label,agent:true});}
 // ── Agent worktrees: one isolated checkout per agent task ────────────────────
@@ -1883,8 +1884,8 @@ function createSession(desc, isLog){
   else{hint.style.display="none"; focus(s);}
 
   // spawn tabs — restore saved ones (names + cwd + agent tag), else one fresh tab
-  if(desc.tabs?.length) desc.tabs.forEach((t)=>addTab(s,{id:t.id,name:t.name,cwd:t.cwd,agent:t.agent,shell:t.shell,cmd:t.resume,resume:t.resume}));
-  else addTab(s,{cmd:desc.cmd,resume:desc.resume,agent:desc.agent,shell:desc.shell});   // desc.cmd = one-shot startup command (Dir popover / SSH / AI CLI); not persisted, so it won't re-fire on reload. agent=arm idle "waiting" watch.
+  if(desc.tabs?.length) desc.tabs.forEach((t)=>addTab(s,{id:t.id,name:t.name,cwd:t.cwd,agent:t.agent,shell:t.shell,cmd:t.resume,resume:t.resume,rtpl:t.rtpl}));
+  else addTab(s,{cmd:desc.cmd,resume:desc.resume,rtpl:desc.rtpl,agent:desc.agent,shell:desc.shell});   // desc.cmd = one-shot startup command (Dir popover / SSH / AI CLI); not persisted, so it won't re-fire on reload. agent=arm idle "waiting" watch.
 
   if(desc.minimized) minimize(s);
   updateProjCounts(); scheduleSave();
@@ -2014,7 +2015,7 @@ function addTab(s, opts){
   const tab={id:tid,pane,term,fit,search,ser,wt,wtDot,wtName,name:wtName.textContent,
     conn:null,status:"pending",exited:false,closedByUser:false,
     reconnecting:false,retries:0,reconnectTimer:null,
-    cwd:opts.cwd||s.cwd||"",shellName:"",cmd:opts.cmd||"",shell:opts.shell||"",resume:opts.resume||"",agent:!!opts.agent,waiting:false};
+    cwd:opts.cwd||s.cwd||"",shellName:"",cmd:opts.cmd||"",shell:opts.shell||"",resume:opts.resume||"",rtpl:opts.rtpl||"",agent:!!opts.agent,waiting:false};
   s.tabs.push(tab);
   if(LIVE) registerPathLinks(term,tab);
 
@@ -2200,6 +2201,9 @@ function agentEvent(s,tab,ev){
   if(tab.exited||!ev||typeof ev!=="object")return;
   tab.agent=true;
   tab.evt=ev;
+  if(tab.rtpl&&typeof ev.session==="string"&&/^[0-9a-f-]{36}$/i.test(ev.session)){   // the CLI's own session id (via hooks): resume exactly this one
+    const r=tab.rtpl.replace("{id}",ev.session); if(r!==tab.resume){tab.resume=r; scheduleSave();}
+  }
   recordUsage(s,tab,ev);
   armAgentIdle(s,tab,true);
   if(ev.type==="stop"||ev.type==="error") agentWaiting(s,tab);
@@ -3699,7 +3703,7 @@ function saveState(){
                left:st.left,top:st.top,width:st.width,height:st.height,
                minimized:s.minimized,maximized:s.maximized,prevRect:s.prevRect,glue:s.glue||null,
                // agent tag + resume command persist (resume only fires on a fresh shell, see agentRun); the launch cmd deliberately does NOT, so it can't re-fire
-               tabs:s.tabs.map((t)=>({id:t.id,name:t.name,cwd:t.cwd||"",agent:!!t.agent,shell:t.shell||"",resume:t.resume||""}))};}).filter(Boolean)};
+               tabs:s.tabs.map((t)=>({id:t.id,name:t.name,cwd:t.cwd||"",agent:!!t.agent,shell:t.shell||"",resume:t.resume||"",rtpl:t.rtpl||""}))};}).filter(Boolean)};
     localStorage.setItem(STORE,JSON.stringify(data));
   }catch{}
 }

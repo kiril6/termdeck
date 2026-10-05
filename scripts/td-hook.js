@@ -41,6 +41,7 @@ function toEvent(h, agent) {
   // wait: ask the server to hold this request open for a human decision. Only a real PermissionRequest
   // (Claude Code / Codex) can take a decision back — a Gemini Notification can't.
   const ev = { id: TD_ID, agent, type, tool: h.tool_name, detail, files, wait: h.hook_event_name === 'PermissionRequest' };
+  if (typeof h.session_id === 'string') ev.session = h.session_id.slice(0, 64);   // the CLI's own session id: lets termdeck resume exactly this conversation
   // The full command + cwd let the server match opt-in allow-rules (#44 phase 2). Bash only — never a patch body.
   if (ev.wait && h.tool_name === 'Bash' && typeof input.command === 'string') { ev.command = input.command.slice(0, 4000); if (typeof h.cwd === 'string') ev.cwd = h.cwd.slice(0, 500); }
   return ev;
