@@ -244,7 +244,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   startup `cmd` is deliberately *not* persisted, so it can never re-fire on reload. The waiting/approval
   states themselves are never persisted either: they're re-derived from the live output stream (a tmux
   reattach repaints the current screen, so a still-pending approval prompt re-flags itself).
-- 💚 **Working pulse** — a live agent tab that is neither waiting nor blocked gets a slow green pulsing dot on its window tab and its dock chip (amber = waiting, red = approval take over).
+- 💚 **Working pulse** (#28) — a green pulsing dot (with a static ring, so it still reads under reduced-motion) on a window tab and its dock chip while a tab is *working*: a live agent tab that is neither waiting nor blocked, or a shell whose tracked command (Enter → prompt) has been streaming output for >1s (keystroke echo ignored; 3s of silence → idle). Amber *waiting* / red *approval* always take over. *Idle* = the plain dot; *done* = the existing finish toast + attention flash. Heuristic, no backend or per-CLI parsing.
 - ⛔ **Approval-prompt routing** — when an agent tab hits a tool-approval prompt (*"Allow this tool?"*,
   *"Do you want to proceed?"*, `(y/n)`…), it jumps **straight** to a louder **red** pulse (tab + dock chip)
   and a **sticky** toast/OS notification ("Needs approval — blocked on a permission prompt") — no 8s idle

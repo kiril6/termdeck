@@ -608,8 +608,9 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 @keyframes wtappr{0%,100%{background:color-mix(in srgb,#e5484d 42%,transparent);}50%{background:color-mix(in srgb,#e5484d 10%,transparent);}}
 .wtab.waiting.approval:not(.active){animation:wtappr 0.9s ease-in-out infinite;}
 .wtab.waiting.approval:not(.active) .wt-dot{background:#e5484d;box-shadow:0 0 7px #e5484d;}
-@keyframes wtwork{0%,100%{opacity:1;box-shadow:0 0 6px var(--live);}50%{opacity:.35;box-shadow:none;}}
-.wtab.working .wt-dot{background:var(--live);animation:wtwork 1.6s ease-in-out infinite;}
+/* working: green dot + static ring (still distinct under prefers-reduced-motion, which disables the pulse globally) */
+@keyframes wtwork{0%,100%{opacity:1;}50%{opacity:.35;}}
+.wtab.working .wt-dot{background:var(--live);box-shadow:0 0 0 2px color-mix(in srgb,var(--live) 35%,transparent);animation:wtwork 1.6s ease-in-out infinite;}
 .wtab .wt-dot{width:5px;height:5px;border-radius:50%;flex:0 0 auto;background:var(--muted);}
 .wtab .wt-dot.live{background:var(--live);}
 .wtab .wt-dot.demo{background:var(--demo);}
@@ -700,7 +701,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 .chip.attn{border-color:var(--accent);background:var(--chip-active);animation:chipblink .5s ease-in-out 3;}
 .chip.attn .cled{box-shadow:0 0 6px var(--accent);}
 @keyframes chipwait{0%,100%{border-color:#e6a23c;}50%{border-color:color-mix(in srgb,#e6a23c 30%,var(--line));}}
-.chip.working:not(.waiting):not(.approval) .cled{background:var(--live);animation:wtwork 1.6s ease-in-out infinite;}
+.chip.working:not(.waiting):not(.approval) .cled{background:var(--live);box-shadow:0 0 0 2px color-mix(in srgb,var(--live) 35%,transparent);animation:wtwork 1.6s ease-in-out infinite;}
 .chip.waiting{animation:chipwait 1.4s ease-in-out infinite;}
 .chip.waiting .cled{background:#e6a23c;box-shadow:0 0 6px #e6a23c;}
 @keyframes chipappr{0%,100%{border-color:#e5484d;}50%{border-color:color-mix(in srgb,#e5484d 35%,var(--line));}}
@@ -2130,6 +2131,7 @@ function addTab(s, opts){
   if(!s.isLog){
     term.onData((d)=>{
       if(tab.conn?.send) tab.conn.send(d);
+      tab.lastIn=Date.now();
       if(d.includes("\r")) markRunning(s,tab);   // Enter → a command may be running; start the long-run timer
 
       // Broadcast: mirror this tab's input to every other live shell in the SAME project.
@@ -2265,8 +2267,23 @@ function markRunning(s,tab){
   running.set(k,{start:Date.now(),timer:setTimeout(()=>maybeNudge(s,tab),NUDGE_MS),nudged:false});
 }
 function clearRunning(s,tab){          // returns elapsed ms, or null if not tracked
+  setBusy(s,tab,false);
   const k=s.id+tab.id, r=running.get(k); if(!r)return null;
   clearTimeout(r.timer); running.delete(k); return Date.now()-r.start;
+}
+// Shell "running" glyph (#28): a command is tracked (Enter → prompt) AND output is streaming. Quiet for
+// BUSY_QUIET_MS (vim, ssh, idle dev server) → idle again; first BUSY_MIN_MS and keystroke echoes are
+// ignored so `ls` and typing don't flicker. Heuristic, same ceiling as the long-run timer.
+const BUSY_MIN_MS=1000, BUSY_QUIET_MS=3000, ECHO_MS=300;
+function setBusy(s,tab,on){
+  clearTimeout(tab.busyTimer);
+  if(on) tab.busyTimer=setTimeout(()=>setBusy(s,tab,false),BUSY_QUIET_MS);
+  if(!!tab.busy===on)return;
+  tab.busy=on; updateAgentOverview();
+}
+function noteShellOutput(s,tab){
+  const r=running.get(s.id+tab.id), now=Date.now();
+  if(r&&now-r.start>BUSY_MIN_MS&&now-(tab.lastIn||0)>ECHO_MS) setBusy(s,tab,true);
 }
 function maybeNudge(s,tab){
   const r=running.get(s.id+tab.id); if(!r||r.nudged)return; r.nudged=true;
@@ -2478,11 +2495,12 @@ function updateAgentOverview(){
   const queue=getAgentQueue();
   const hasAppr=queue.some((x)=>x.state==="approval");
   const hasWait=queue.some((x)=>x.state==="waiting");
-  // working = live agent tab that's neither waiting nor blocked → soft pulse on its tab dot + dock chip
+  // working = live agent tab that's neither waiting nor blocked, or a shell streaming output for a command (tab.busy)
   const workingTabs=new Set(queue.filter((x)=>x.state==="working").map((x)=>x.tab));
+  const isWorking=(t)=>workingTabs.has(t)||(!t.agent&&!t.exited&&t.busy);
   sessions.forEach((sess)=>{
-    sess.tabs.forEach((t)=>t.wt.classList.toggle("working",workingTabs.has(t)));
-    sess.chip.classList.toggle("working",sess.tabs.some((t)=>workingTabs.has(t)));
+    sess.tabs.forEach((t)=>t.wt.classList.toggle("working",isWorking(t)));
+    sess.chip.classList.toggle("working",sess.tabs.some(isWorking));
   });
 
   agentBadge.className="agent-badge"+(hasAppr?" approval":(hasWait?" waiting":(queue.length?" working":"")));
@@ -2591,6 +2609,7 @@ function openTabWS(s,tab){
       // would re-match an approval prompt you ALREADY answered and fire a false red. The tail is
       // the current screen, so that's the only part that reflects live state.
       const scan=tab.replay?m.data.slice(-REPLAY_SCAN):m.data; tab.replay=false;
+      if(!tab.agent) noteShellOutput(s,tab);
       if(tab.agent&&!tab.evt){ armAgentIdle(s,tab); if(APPROVAL_RE.test(scan)) agentApproval(s,tab); }   // heuristics only until hook events take over   // (re)arm idle watch; a tool-approval prompt jumps straight to the louder red state
       // "command finished" heuristic: OSC 133;D (shell integration, reliable if configured),
       // a bell, or the prompt returning \u2014 trailing $ # % > covers bash/zsh/fish/PowerShell.
