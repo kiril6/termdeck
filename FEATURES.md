@@ -157,6 +157,17 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   / delete 🗑 (built-ins are fixed). Launches via the run-command-on-start path (same as SSH), spawning in
   the active project root; on agent exit you drop back to the local shell. Tabs launched this way are
   tagged as *agent* tabs (persisted across page reloads), which arms the waiting watch below.
+- 🖥️ **Resume agents after a reboot / dead shell** — agent tabs remember a *resume command*, persisted with
+  the tab and sent as its startup command on reload. The backend runs a startup command **only on a fresh
+  shell**, so a live reattach (reload, server restart under tmux) never re-fires it; after a machine reboot
+  (tmux gone) or on a host without tmux, the agent comes back instead of a bare shell. Built-ins: **Claude**
+  launches with a generated `--session-id <uuid>` and resumes exactly that session (`claude --resume <uuid>`,
+  correct even with several agents in one folder); **Codex** `codex resume --last`, **Gemini**
+  `gemini --resume latest`, **Copilot** `copilot --continue` (flags checked against each CLI's `--help`;
+  "last" forms are per-folder, so worktree tasks stay unambiguous). Resume is `<resume> || <cli>`: if there
+  is nothing to resume it starts the CLI clean — the original task prompt is never re-sent. *Add/Edit AI CLI
+  preset…* has an optional **Resume command** field (`{id}` is not substituted for custom presets). If you
+  exited the agent but left its shell open, a reboot will resume it again.
 - 🖥️ **Agent worktrees — one isolated checkout per task** (palette → *New agent task…*). Three agents
   loose in one repo overwrite each other, so a task gets its own `git worktree`: pick a **branch name**,
   an **AI CLI preset**, and an optional **prompt**, and the backend cuts a worktree off the project's repo
