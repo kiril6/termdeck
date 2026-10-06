@@ -2277,6 +2277,8 @@ function activeTab(s){return s.tabs.find((t)=>t.id===s.activeTabId)||s.tabs[0];}
    WS PER TAB
    ════════════════════════════════════════════════ */
 const doneCooldown=new Map();
+const PROMPT_END_RE=/[$#%>]\s*$/;
+const TRAIL_ESC_RE=/(?:\x1b\[[0-?]*[ -\/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\))+$/;   // trailing CSI / OSC sequences
 // ── long-run tracking: Enter starts a per-tab timer, done-heuristic clears it ──
 // Ceiling: heuristic. Interactive programs (vim, less, REPL, ssh) look "running" forever;
 // mitigated by nudging once per command and only for a tab you're not watching.
@@ -2632,13 +2634,17 @@ function openTabWS(s,tab){
       if(!tab.agent) noteShellOutput(s,tab);
       if(tab.agent&&!tab.evt){ armAgentIdle(s,tab); if(APPROVAL_RE.test(scan)) agentApproval(s,tab); }   // heuristics only until hook events take over   // (re)arm idle watch; a tool-approval prompt jumps straight to the louder red state
       // "command finished" heuristic: OSC 133;D (shell integration, reliable if configured),
-      // a bell, or the prompt returning \u2014 trailing $ # % > covers bash/zsh/fish/PowerShell.
+      // a bell, or the prompt returning \u2014 trailing $ # % > covers bash/zsh/fish/PowerShell. zsh and bash 5.1+
+      // end the prompt with escape codes (erase-line \x1b[K, bracketed paste \x1b[?2004h), so strip those first.
       const key=s.id+tab.id;
-      const done=!doneCooldown.get(key)&&(m.data.includes("\x1b]133;D")||m.data.includes("\x07")||/[$#%>]\s*$/.test(m.data));
+      const promptBack=m.data.includes("\x1b]133;D")||m.data.includes("\x07")||PROMPT_END_RE.test(m.data.replace(TRAIL_ESC_RE,""));
+      // The prompt coming back always ends the long-run timer; the 3s cooldown only throttles the notifications.
+      // (Gating clearRunning on it left a command run within 3s of the last prompt "running" until the 20s nudge.)
+      const dur=promptBack?clearRunning(s,tab):null;   // elapsed ms (null if untracked)
+      const done=promptBack&&!doneCooldown.get(key);
       const watching=focusedId===s.id&&s.activeTabId===tab.id&&!s.minimized&&s.project===activeProject&&document.hasFocus();
       if(done){
         doneCooldown.set(key,true); setTimeout(()=>doneCooldown.delete(key),3000);
-        const dur=clearRunning(s,tab);          // stop long-run timer; elapsed ms (null if untracked)
         if(gameMatches(s,tab)) gameOnTermDone(s.name,dur);
         if(!watching){
           markAttn(s,tab);
