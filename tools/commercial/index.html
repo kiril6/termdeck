@@ -1,0 +1,132 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>termdeck ad</title>
+<style>
+:root{--bg:#070b12;--fg:#e8f0f7;--dim:#7f90a3;--acc:#4fd8c0;--red:#ff6b6b;--amb:#f5b84a}
+*{box-sizing:border-box;margin:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:var(--bg);color:var(--fg);font:600 40px/1.1 -apple-system,"SF Pro Display",Inter,system-ui,sans-serif}
+#stage{position:absolute;inset:0;perspective:2200px;overflow:hidden}
+#grid{position:absolute;inset:-200px;background:
+ linear-gradient(rgba(79,216,192,.07) 1px,transparent 1px) 0 0/80px 80px,
+ linear-gradient(90deg,rgba(79,216,192,.07) 1px,transparent 1px) 0 0/80px 80px;transform:perspective(900px) rotateX(58deg) translateY(200px);mask:linear-gradient(#000 30%,transparent 90%)}
+#glow{position:absolute;width:1400px;height:1400px;border-radius:50%;background:radial-gradient(closest-side,rgba(79,216,192,.22),transparent);left:260px;top:-160px}
+.sc{position:absolute;inset:0;opacity:0;will-change:transform,opacity}
+.big{position:absolute;left:0;right:0;text-align:center;font-size:150px;font-weight:800;letter-spacing:-4px}
+.cap{position:absolute;left:120px;bottom:96px;font-size:76px;font-weight:800;letter-spacing:-2px;text-shadow:0 4px 30px #000}
+.cap small{display:block;margin-top:16px;font-size:34px;font-weight:500;color:var(--dim);letter-spacing:0}
+.acc{color:var(--acc)}.red{color:var(--red)}
+.shot{position:absolute;border-radius:18px;box-shadow:0 60px 140px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.08),0 0 120px rgba(79,216,192,.15);overflow:hidden;background:#0b1118}
+.shot img{display:block;position:absolute;left:0;top:0}
+.card{position:absolute;width:520px;height:250px;border-radius:22px;background:#0f1722;border:1px solid rgba(255,255,255,.1);padding:34px 38px;box-shadow:0 40px 100px rgba(0,0,0,.6)}
+.card b{display:block;font:700 34px ui-monospace,"SF Mono",Menlo,monospace}
+.card i{display:block;margin-top:22px;font:600 26px ui-monospace,Menlo,monospace;font-style:normal;letter-spacing:1px}
+.card em{display:block;margin-top:14px;font:500 24px ui-monospace,Menlo,monospace;font-style:normal;color:var(--dim)}
+.chip{position:absolute;padding:20px 34px;border-radius:999px;background:var(--acc);color:#04201b;font-weight:800;font-size:40px;box-shadow:0 0 80px rgba(79,216,192,.6)}
+.ring{position:absolute;width:40px;height:40px;margin:-20px;border-radius:50%;border:4px solid var(--acc)}
+#cmd{position:absolute;left:0;right:0;top:640px;text-align:center;font:600 46px ui-monospace,Menlo,monospace;color:var(--acc)}
+.cap::before{content:"";position:absolute;left:-120px;right:-1000px;top:-170px;bottom:-96px;background:linear-gradient(transparent,rgba(7,11,18,.95) 55%);z-index:-1}
+</style>
+<div id="stage">
+ <div id="glow"></div><div id="grid"></div>
+
+ <div class="sc" id="s1">
+  <div class="big" id="w1" style="top:250px">3 AI agents.</div>
+  <div class="big" id="w2" style="top:420px">1 repo.</div>
+  <div class="big red" id="w3" style="top:590px">Chaos?</div>
+ </div>
+
+ <div class="sc" id="s2">
+  <div class="shot" id="q" style="left:260px;top:120px;width:1400px;height:522px"><img src="../../docs/screenshots/agent-queue.png" width="1400"></div>
+  <div class="ring" id="ring"></div>
+  <div class="chip" id="ok" style="left:700px;top:330px">✓ Approved</div>
+  <div class="cap" id="c2">One queue. Every agent.<small>Approve, deny or always-allow — the moment an agent asks.</small></div>
+ </div>
+
+ <div class="sc" id="s3">
+  <div class="card" id="k1" style="left:150px;top:250px"><b>agent/retry-backoff</b><i style="color:var(--red)">● NEEDS APPROVAL</i><em>worktree · 361k tok</em></div>
+  <div class="card" id="k2" style="left:700px;top:250px"><b>agent/rate-limit</b><i style="color:var(--amb)">● WAITING</i><em>worktree · 1 commit</em></div>
+  <div class="card" id="k3" style="left:1250px;top:250px"><b>agent/webhook-signing</b><i style="color:var(--acc)">● WORKING</i><em>worktree · 184k tok</em></div>
+  <div id="cmd">git worktree add — one isolated checkout per task</div>
+  <div class="cap" id="c3">No collisions. No overwrites.<small>Every agent gets its own branch, folder and terminal.</small></div>
+ </div>
+
+ <div class="sc" id="s4">
+  <div class="shot" id="d" style="left:250px;top:90px;width:1420px;height:700px"><img id="dimg" src="../../docs/screenshots/review-changes.png" width="1420"></div>
+  <div class="cap" id="c4">Review the diff, not the chaos.<small>Read-only changes view. Send any selection straight to another agent.</small></div>
+ </div>
+
+ <div class="sc" id="s5">
+  <div class="shot" id="f" style="left:410px;top:110px;width:1100px;height:600px"><img id="fimg" src="../../docs/screenshots/finish-task.png" width="2000" style="left:-450px;top:-310px"></div>
+  <div class="chip" id="mg" style="left:640px;top:380px">✓ Merged · worktree cleaned</div>
+  <div class="cap" id="c5">Merge. Clean up. Ship.</div>
+ </div>
+
+ <div class="sc" id="s6">
+  <div class="big" id="l1" style="top:330px;font-size:130px">Term<span class="acc">Deck</span></div>
+  <div class="big" id="l2" style="top:510px;font-size:48px;font-weight:500;color:var(--dim);letter-spacing:0">Run AI agents in parallel. Stay in control.</div>
+  <div class="big" id="l3" style="top:680px;font-size:50px;font-family:ui-monospace,Menlo,monospace;font-weight:600;letter-spacing:0;color:var(--acc)">npx @kiril6/termdeck</div>
+ </div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const cl=x=>Math.max(0,Math.min(1,x));
+const seg=(t,a,b)=>cl((t-a)/(b-a));
+const oc=x=>1-Math.pow(1-x,3), io=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+// scene visibility: fade in over .35s, fade out over .35s
+function vis(el,t,a,b){const o=Math.min(seg(t,a,a+.35),1-seg(t,b-.35,b));el.style.opacity=o;return o>0}
+function pop(el,t,a,dy=60){const p=oc(seg(t,a,a+.6));el.style.opacity=p;el.style.transform=`translateY(${(1-p)*dy}px)`}
+window.DURATION=19;
+window.render=function(t){
+ $('grid').style.backgroundPosition=`0 ${t*60}px,${t*20}px 0`;
+ $('glow').style.transform=`translate(${Math.sin(t*.5)*120}px,${Math.cos(t*.4)*60}px)`;
+ // S1
+ if(vis($('s1'),t,0,3.2)){
+  [['w1',.2],['w2',1.0],['w3',1.9]].forEach(([id,a])=>{const p=oc(seg(t,a,a+.5));const e=$(id);e.style.opacity=p;e.style.transform=`translateY(${(1-p)*70}px) scale(${.9+.1*p})`;e.style.filter=`blur(${(1-p)*14}px)`});
+  if(t>2.0&&t<2.5)$('w3').style.transform+=` translateX(${Math.sin(t*90)*8}px)`;
+ }
+ // S2: tilt settle, push into approve button
+ if(vis($('s2'),t,3.0,7.4)){
+  const a=seg(t,3.0,4.2), z=io(seg(t,4.0,5.6));
+  const q=$('q');
+  q.style.transformOrigin='643px 192px';
+  q.style.transform=`rotateY(${(1-oc(a))*-28}deg) rotateX(${(1-oc(a))*14}deg) translateY(${(1-oc(a))*80}px) scale(${1+z*0.45}) translate(${-z*30}px,${z*10}px)`;
+  // approve button ≈ (644,192) in 1400px-wide image; ring/chip follow that point
+  const s=1+z*0.9, cx=260+643+(-z*30)*0+0, cy=120+192;
+  const rp=seg(t,5.6,6.2), ring=$('ring');
+  ring.style.left=(260+643-z*30*s*0)+'px';ring.style.top=(120+192+z*60)+'px';
+  ring.style.opacity=rp>0&&rp<1?1-rp:0;ring.style.transform=`scale(${1+rp*5})`;
+  const ok=$('ok');const op=oc(seg(t,5.9,6.4));ok.style.opacity=op;ok.style.left='1180px';ok.style.top=(60+(1-op)*30)+'px';
+  q.style.filter=t>5.8?'none':'none';
+  pop($('c2'),t,4.9);
+ }
+ // S3
+ if(vis($('s3'),t,7.0,11.2)){
+  ['k1','k2','k3'].forEach((id,i)=>{const p=oc(seg(t,7.2+i*.35,7.9+i*.35));const e=$(id);e.style.opacity=p;e.style.transform=`translateY(${(1-p)*120}px) rotateX(${(1-p)*30}deg)`;});
+  const k1=$('k1');if(t>9.2){const p=oc(seg(t,9.2,9.6));k1.querySelector('i').style.color='var(--acc)';k1.querySelector('i').textContent='● WORKING';}
+  const c=oc(seg(t,8.4,9));$('cmd').style.opacity=c;$('cmd').style.transform=`translateY(${(1-c)*30}px)`;
+  pop($('c3'),t,8.8);
+ }
+ // S4: diff panel, slow scroll + parallax
+ if(vis($('s4'),t,10.9,15.0)){
+  const a=oc(seg(t,10.9,12));const d=$('d');
+  d.style.transform=`rotateY(${(1-a)*22+seg(t,11,15)*-4}deg) rotateX(${(1-a)*10}deg) translateY(${(1-a)*90}px) scale(${1+seg(t,11,15)*.05})`;
+  $('dimg').style.top=(-seg(t,11.4,14.6)*187)+'px';
+  pop($('c4'),t,11.8);
+ }
+ // S5
+ if(vis($('s5'),t,14.7,17.1)){
+  const a=oc(seg(t,14.7,15.5));const f=$('f');
+  f.style.transform=`translateY(${(1-a)*80}px) scale(${.9+.1*a+seg(t,15.5,17)*.06})`;
+  const pulse=1+.04*Math.sin(t*14);
+  const mp=oc(seg(t,16.0,16.45));const mg=$('mg');mg.style.opacity=mp;mg.style.transform=`scale(${.7+.3*mp})`;
+  f.style.filter=mp>0?`brightness(${1-.7*mp})`:'none';
+  pop($('c5'),t,15.2);
+ }
+ // S6
+ if(vis($('s6'),t,16.9,19.01)){
+  const s=$('s6');s.style.opacity=seg(t,16.9,17.3);
+  [['l1',17.0],['l2',17.5],['l3',17.9]].forEach(([id,a])=>{const p=oc(seg(t,a,a+.5));const e=$(id);e.style.opacity=p;e.style.transform=`translateY(${(1-p)*40}px)`});
+ }
+};
+render(0);
+</script>

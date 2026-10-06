@@ -11,3 +11,6 @@ playwright-report/
 
 # Internal working docs — not for the public repo
 docs/internal/
+tools/commercial/*.mp4
+tools/commercial/*.wav
+tools/commercial/*.webm
