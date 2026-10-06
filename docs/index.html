@@ -46,6 +46,21 @@
   figure{margin:40px 0}
   .shot{width:100%;border:1px solid var(--line);border-radius:var(--radius);display:block;
     box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  .vwrap{position:relative;border-radius:var(--radius);overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  .vwrap .shot{aspect-ratio:16/9;box-shadow:none;background:#070b12}
+  .vplay{position:absolute;inset:0;width:100%;border:1px solid var(--line);border-radius:var(--radius);cursor:pointer;
+    background-size:cover;background-position:center;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+    font:600 1rem var(--sans);transition:opacity .25s}
+  .vplay[hidden]{display:none}
+  .vbtn{width:96px;height:96px;border-radius:50%;display:grid;place-items:center;color:#0d1117;
+    background:linear-gradient(135deg,var(--accent),#7c5cff);box-shadow:0 0 0 10px rgba(189,147,249,.22),0 18px 50px rgba(124,92,255,.5);
+    transition:transform .18s,box-shadow .18s}
+  .vbtn svg{width:42px;height:42px;margin-left:5px}
+  .vplay:hover .vbtn,.vplay:focus-visible .vbtn{transform:scale(1.08);box-shadow:0 0 0 14px rgba(189,147,249,.28),0 18px 60px rgba(124,92,255,.65)}
+  .vplay:focus-visible{outline:2px solid var(--accent2);outline-offset:3px}
+  .vlabel{text-shadow:0 2px 12px rgba(0,0,0,.7);letter-spacing:.01em}
+  @media (max-width:560px){.vbtn{width:68px;height:68px}.vbtn svg{width:30px;height:30px}.vplay{gap:12px}}
+  @media (prefers-reduced-motion:reduce){.vbtn,.vplay{transition:none}}
   figcaption{color:var(--mut);font-size:.85rem;text-align:center;margin-top:12px;font-family:var(--mono)}
   h2{font-size:1.5rem;margin:52px 0 6px;letter-spacing:-.01em}
   .sub{color:var(--mut);margin:0 0 20px}
@@ -206,8 +221,14 @@
   </figure>
 
   <figure>
-    <video class="shot" src="termdeck-ad.mp4" poster="screenshots/ad-poster.jpg" controls preload="none" playsinline aria-label="TermDeck in 19 seconds: one queue for every agent, a worktree per task, review the diff, merge and clean up"></video>
-    <figcaption>TermDeck in 19 seconds. <span style="opacity:.7">Sound on.</span></figcaption>
+    <div class="vwrap" id="ad">
+      <video class="shot" src="termdeck-ad.mp4" controls preload="none" playsinline aria-label="TermDeck in 19 seconds: one queue for every agent, a worktree per task, review the diff, merge and clean up"></video>
+      <button class="vplay" type="button" aria-label="Play the 19-second TermDeck tour" style="background-image:linear-gradient(rgba(13,17,23,.45),rgba(13,17,23,.7)),url(screenshots/ad-poster.jpg)">
+        <span class="vbtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg></span>
+        <span class="vlabel">Watch the 19-second tour</span>
+      </button>
+    </div>
+    <figcaption>Sound on for the full effect.</figcaption>
   </figure>
 
   <div class="chips-label">Works with what you already have</div>
@@ -407,6 +428,15 @@ fetch("https://api.npmjs.org/downloads/point/last-month/@kiril6/termdeck")
     .then(function(d){ render(d); try { sessionStorage.setItem(KEY, JSON.stringify({t:Date.now(), d:d.map(function(r){ return {tag_name:r.tag_name,published_at:r.published_at,html_url:r.html_url,body:r.body}; })})); } catch(e) {} })
     .catch(function(){ list.hidden = true; });
 })();
+</script>
+<script>
+  (function(){
+    var w=document.getElementById('ad'); if(!w) return;
+    var v=w.querySelector('video'), b=w.querySelector('.vplay');
+    v.controls=false;                                  // clean cover until clicked
+    b.addEventListener('click',function(){ b.hidden=true; v.controls=true; v.play().catch(function(){}); });
+    v.addEventListener('ended',function(){ v.controls=false; v.currentTime=0; b.hidden=false; });
+  })();
 </script>
 </body>
 </html>
