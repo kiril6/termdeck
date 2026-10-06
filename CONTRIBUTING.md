@@ -25,7 +25,7 @@ npm start          # start the server
 npm run build:demo # ONLY if you changed public/index.html — resync the GitHub Pages demo
 ```
 
-There's no linter or test suite yet — verify changes by hand in the browser. If you add tests or CI, keep them lightweight.
+There's no linter. `npm test` runs a small Playwright suite (demo mode + one live-server run, ~10 s; first time `npx playwright install chromium`). It also fails if `docs/app/index.html` is stale — run `npm run build:demo`. Verify UI changes by hand too, and keep any new tests lightweight.
 
 > **After editing `public/index.html`, run `npm run build:demo` and commit the result.** The hosted demo at `docs/app/` is a generated copy of the frontend; without a rebuild it drifts from the real app.
 

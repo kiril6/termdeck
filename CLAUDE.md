@@ -13,7 +13,7 @@ node install.js   # first-time setup — picks the right node-pty prebuilt per O
 npm start         # run server → http://localhost:3000
 ```
 
-- No build step, no linter, no tests.
+- No build step, no linter. Browser tests: `npm test` (Playwright, `tests/e2e.spec.js`; needs `npx playwright install chromium` once — or `PW_CHROMIUM=/path/to/chrome`). They start their own server on port 4783 with a throwaway `HOME`. Playwright is a devDependency only.
 - Debug page for shell-spawn failures: `http://localhost:3000/debug` (dumps env + tries each shell candidate).
 - Override port: `PORT=xxxx npm start`.
 
