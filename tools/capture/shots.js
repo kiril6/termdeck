@@ -1,0 +1,30 @@
+// README screenshots: agent-queue.png, review-changes.png, finish-task.png → docs/screenshots/.
+const path = require('path');
+const { boot, palette, sleep, OUT } = require('./lib');
+const { prepare, clearToasts } = require('./scene');
+(async () => {
+  const { page, ids, done } = await boot({ theme: 'console' });
+  await sleep(1000);
+  const { ask } = await prepare(page, ids);
+  const decision = ask();
+  await sleep(1500);
+  await clearToasts(page);
+  await page.locator('#agent-btn').click();
+  await sleep(800);
+  await page.screenshot({ path: path.join(OUT, 'agent-queue.png'), clip: { x: 0, y: 0, width: 1100, height: 410 } });
+  await page.getByRole('button', { name: 'Approve' }).click();
+  console.log('decision', await decision);
+  await page.keyboard.press('Escape');
+  await sleep(400);
+  await palette(page, 'Review agent changes');
+  await sleep(1500);
+  await page.screenshot({ path: path.join(OUT, 'review-changes.png') });
+  await page.keyboard.press('Escape');
+  await sleep(400);
+  await palette(page, 'Finish agent task');
+  await page.getByPlaceholder('npm test').waitFor();
+  await page.getByPlaceholder('npm test').fill('npm test');
+  await sleep(300);
+  await page.screenshot({ path: path.join(OUT, 'finish-task.png') });
+  await done();
+})();
