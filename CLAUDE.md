@@ -17,6 +17,7 @@ npm start         # run server → http://localhost:3000
 - Debug page for shell-spawn failures: `http://localhost:3000/debug` (dumps env + tries each shell candidate).
 - Override port: `PORT=xxxx npm start`.
 - README GIF + screenshots (`docs/screenshots/`): re-record with the scripts in `tools/capture/` after UI changes (see its README). Not shipped to npm.
+- Landing-page ad video: `docs/termdeck-ad.mp4` (19s, committed) is played by the click-to-play cover in `docs/index.html` (`#ad`, cover image `docs/screenshots/ad-cover.jpg`). Its **source lives only locally, git-ignored, in `tools/commercial/`** (`index.html` timeline, `audio.js` synth soundtrack, `render.js` frame-by-frame render → mp4). It may be absent on a fresh clone — don't expect it in git or recreate it unasked. To change the ad: edit there, run `FFMPEG=<ffmpeg with libx264+aac> PW_CHROMIUM=<chrome> node tools/commercial/render.js`, re-encode a small copy (`-crf 24`, ~3 MB) to `docs/termdeck-ad.mp4`, and commit only the `docs/` files. The ad uses screenshots from `docs/screenshots/`, so re-record those first after UI changes.
 
 ## Architecture
 
