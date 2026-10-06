@@ -1114,7 +1114,7 @@ modeEl.textContent = LIVE ? "· live" : "· demo";
 // Platform-correct shortcut labels: handlers accept metaKey||ctrlKey, so mac shows ⌘, others Ctrl.
 const MAX_TERMS = 12;    // terminals (windows) per project
 const MAX_PROJECTS = 10;  // project tabs
-const MAC = /Mac/i.test(navigator.platform);
+const MAC = /Mac/i.test(navigator.userAgentData?.platform||navigator.platform);
 const MOD = MAC?"⌘":"Ctrl";
 const OSKEY={"⌘":MOD,"⌃":MAC?"⌃":"Ctrl","⇧":MAC?"⇧":"Shift","⌥":MAC?"⌥":"Alt"};
 function kbd(...keys){return keys.map(k=>OSKEY[k]||k).join(MAC?"":"+");}
@@ -2311,7 +2311,7 @@ function maybeNudge(s,tab){
   const r=running.get(s.id+tab.id); if(!r||r.nudged)return; r.nudged=true;
   if(gameOv.classList.contains("open"))return;   // already playing — no offer needed
   // Note: fire even while you're watching the tab — waiting on a slow command IS the moment to offer a game.
-  toast(ICON.hourglass,"Still working…","\""+s.name+"\" running "+Math.round(NUDGE_MS/1000)+"s — play a game? ⌘ ⌥ G",6000,
+  toast(ICON.hourglass,"Still working…","\""+s.name+"\" running "+Math.round(NUDGE_MS/1000)+"s — play a game? "+kbd("⌘","⌥","G"),6000,
     ()=>{revealWindow(s);switchTab(s,tab.id);openGame();});   // toast() mirrors to an OS notification itself
 }
 function fmtDur(ms){const s=Math.round(ms/1000);return s<60?s+"s":s<3600?Math.floor(s/60)+"m"+String(s%60).padStart(2,"0")+"s":Math.floor(s/3600)+"h"+String(Math.floor(s%3600/60)).padStart(2,"0")+"m";}
@@ -3977,7 +3977,7 @@ document.getElementById("sc-fs").innerHTML=(MAC?["⌃","⌘","F"]:["F11"]).map(k
 if(!MAC){
   const map={"⌘":"Ctrl","⌃":"Ctrl","⇧":"Shift","⌥":"Alt"};
   const rep=t=>t.replace(/[⌘⌃⇧⌥](?=\S)/g,m=>map[m]+" ").replace(/[⌘⌃⇧⌥]/g,m=>map[m]);
-  document.querySelectorAll("#pal-btn,.ph-icon,.sc-keys kbd,.hint b").forEach(el=>{
+  document.querySelectorAll("#pal-btn,.ph-icon,.sc-keys kbd,.hint b,.kbd-inline").forEach(el=>{
     if(/[⌘⌃⇧⌥]/.test(el.textContent)) el.textContent=rep(el.textContent);
   });
   document.querySelectorAll("[title]").forEach(el=>{        // tooltips too
