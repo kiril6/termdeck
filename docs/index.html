@@ -46,6 +46,43 @@
   figure{margin:40px 0}
   .shot{width:100%;border:1px solid var(--line);border-radius:var(--radius);display:block;
     box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  .vwrap{position:relative;container-type:inline-size;border-radius:var(--radius);overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 1px var(--line)}
+  .vwrap .shot{aspect-ratio:16/9;border:0;border-radius:0;box-shadow:none;background:#070b12}
+  .vplay{position:absolute;inset:0;width:100%;padding:0;border:0;cursor:pointer;overflow:hidden;color:#fff;font:inherit;text-align:left;
+    background:radial-gradient(60cqw 40cqw at 85% 0%,rgba(189,147,249,.38),transparent 60%),radial-gradient(50cqw 36cqw at 0% 100%,rgba(139,233,253,.22),transparent 60%),#0a0e15;
+    transition:opacity .3s;--rx:0;--ry:0}
+  .vplay.go{opacity:0;pointer-events:none}.vplay[hidden]{display:none}
+  .vplay>span{display:block}
+  .vgrid{position:absolute;inset:0;background:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px) 0 0/4cqw 4cqw,linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px) 0 0/4cqw 4cqw;
+    -webkit-mask:radial-gradient(70% 70% at 50% 55%,#000,transparent);mask:radial-gradient(70% 70% at 50% 55%,#000,transparent)}
+  .vstage{position:absolute;left:50%;top:30%;width:78%;perspective:120cqw;transform:translateX(-50%)}
+  .vcard{display:block;width:100%;border-radius:1.4cqw;border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 5cqw 9cqw rgba(0,0,0,.6),0 0 12cqw rgba(189,147,249,.28);
+    transform:rotateX(calc(14deg + var(--ry)*-5deg)) rotateY(calc(-12deg + var(--rx)*7deg)) rotateZ(1.5deg);transition:transform .25s ease-out}
+  .vchip{position:absolute;display:flex;align-items:center;gap:.8cqw;padding:.9cqw 1.6cqw;border-radius:99px;font:600 1.5cqw var(--mono);letter-spacing:.04em;
+    background:rgba(13,17,23,.82);border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(8px);box-shadow:0 1.6cqw 4cqw rgba(0,0,0,.5);animation:vfloat 5s ease-in-out infinite}
+  .vchip i{width:1.1cqw;height:1.1cqw;border-radius:50%;background:currentColor;box-shadow:0 0 1.2cqw currentColor}
+  .vchip.a{color:#ff7b7b;right:7%;top:24%}.vchip.b{color:#f5c26b;left:5%;top:52%;animation-delay:-1.6s}.vchip.c{color:#50fa7b;right:12%;bottom:12%;animation-delay:-3.1s}
+  .vchip.d{color:var(--accent);left:8%;top:30%;animation-delay:-2.2s}
+  @keyframes vfloat{50%{transform:translateY(-1cqw)}}
+  .vtitle{position:absolute;left:5%;top:7%;right:30%}
+  .vkick,.vh{display:block}.vkick{font:600 1.45cqw var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--accent2)}
+  .vh{margin-top:1cqw;font:800 4.6cqw/1.05 var(--sans);letter-spacing:-.03em;text-shadow:0 .4cqw 3cqw rgba(0,0,0,.6)}
+  .vh em{font-style:normal;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .vscrim{position:absolute;left:0;right:0;bottom:0;height:42%;background:linear-gradient(transparent,#0a0e15 85%)}
+  .vbtn{position:absolute;left:50%;top:60%;width:11cqw;height:11cqw;margin:-5.5cqw 0 0 -5.5cqw;border-radius:50%;display:grid!important;place-items:center;color:#0d1117;
+    background:linear-gradient(135deg,#d6bcff,var(--accent) 45%,#7c5cff);box-shadow:0 0 0 .9cqw rgba(189,147,249,.25),0 2cqw 6cqw rgba(124,92,255,.65),inset 0 .2cqw .3cqw rgba(255,255,255,.55);
+    transition:transform .2s}
+  .vbtn::before,.vbtn::after{content:"";position:absolute;inset:0;border-radius:50%;border:.25cqw solid var(--accent);animation:vpulse 2.4s ease-out infinite}
+  .vbtn::after{animation-delay:1.2s}
+  @keyframes vpulse{from{transform:scale(1);opacity:.7}to{transform:scale(1.9);opacity:0}}
+  .vbtn svg{width:4.6cqw;height:4.6cqw;margin-left:.6cqw}
+  .vplay:hover .vbtn,.vplay:focus-visible .vbtn{transform:scale(1.1)}
+  .vplay:focus-visible{outline:2px solid var(--accent2);outline-offset:-4px}
+  .vmeta{position:absolute;left:0;right:0;bottom:5%;text-align:center;font:600 1.7cqw var(--sans);letter-spacing:.02em;text-shadow:0 .2cqw 1.4cqw #000}
+  .vmeta b{display:inline-block;margin-right:1cqw;padding:.3cqw 1cqw;border-radius:99px;background:rgba(255,255,255,.14);font:700 1.5cqw var(--mono)}
+  @media (max-width:560px){.vchip{display:none}.vh{font-size:6cqw}.vtitle{right:5%}.vkick{font-size:2.2cqw}.vmeta{font-size:2.6cqw}.vmeta b{font-size:2.3cqw}}
+  @media (prefers-reduced-motion:reduce){.vchip,.vbtn::before,.vbtn::after{animation:none}.vcard,.vplay,.vbtn{transition:none}}
   figcaption{color:var(--mut);font-size:.85rem;text-align:center;margin-top:12px;font-family:var(--mono)}
   h2{font-size:1.5rem;margin:52px 0 6px;letter-spacing:-.01em}
   .sub{color:var(--mut);margin:0 0 20px}
@@ -203,6 +240,24 @@
   <figure>
     <img class="shot" src="screenshots/hero.gif" alt="termdeck: three agents in separate git worktrees; one asks for approval, it is approved from the agent queue, its changes are reviewed and merged behind a passing test">
     <figcaption>Palette (⌘K) → New agent task → a git worktree per agent → red alert when one needs approval, amber when one is waiting → the agent queue jumps to it. <span style="opacity:.7">Real UI; the agent CLIs are scripted stand-ins.</span></figcaption>
+  </figure>
+
+  <figure>
+    <div class="vwrap" id="ad">
+      <video class="shot" src="termdeck-ad.mp4" controls preload="none" playsinline aria-label="TermDeck in 19 seconds: one queue for every agent, a worktree per task, review the diff, merge and clean up"></video>
+      <button class="vplay" type="button" aria-label="Play the 19-second TermDeck tour">
+        <span class="vgrid"></span>
+        <span class="vstage"><img class="vcard" src="screenshots/ad-cover.jpg" alt="" width="1500" height="559" decoding="async"></span>
+        <span class="vscrim"></span>
+        <span class="vchip a"><i></i>NEEDS APPROVAL</span>
+        <span class="vchip b"><i></i>WAITING</span>
+        <span class="vchip c"><i></i>WORKING</span>
+        <span class="vtitle"><span class="vkick">TermDeck · 19-second tour</span><span class="vh">Run AI agents in parallel. <em>Stay in control.</em></span></span>
+        <span class="vbtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg></span>
+        <span class="vmeta"><b>0:19</b>Watch the tour</span>
+      </button>
+    </div>
+    <figcaption>Sound on for the full effect.</figcaption>
   </figure>
 
   <div class="chips-label">Works with what you already have</div>
@@ -402,6 +457,24 @@ fetch("https://api.npmjs.org/downloads/point/last-month/@kiril6/termdeck")
     .then(function(d){ render(d); try { sessionStorage.setItem(KEY, JSON.stringify({t:Date.now(), d:d.map(function(r){ return {tag_name:r.tag_name,published_at:r.published_at,html_url:r.html_url,body:r.body}; })})); } catch(e) {} })
     .catch(function(){ list.hidden = true; });
 })();
+</script>
+<script>
+  (function(){
+    var w=document.getElementById('ad'); if(!w) return;
+    var v=w.querySelector('video'), b=w.querySelector('.vplay');
+    v.controls=false;                                  // clean cover until clicked
+    b.addEventListener('pointermove',function(e){      // subtle parallax tilt on the cover card
+      var r=b.getBoundingClientRect();
+      b.style.setProperty('--rx',((e.clientX-r.left)/r.width-.5).toFixed(3));
+      b.style.setProperty('--ry',((e.clientY-r.top)/r.height-.5).toFixed(3));
+    });
+    b.addEventListener('pointerleave',function(){ b.style.setProperty('--rx',0); b.style.setProperty('--ry',0); });
+    b.addEventListener('click',function(){
+      v.controls=true; v.play().catch(function(){});
+      b.classList.add('go'); setTimeout(function(){ b.hidden=true; },300);
+    });
+    v.addEventListener('ended',function(){ v.controls=false; v.currentTime=0; b.hidden=false; b.classList.remove('go'); });
+  })();
 </script>
 </body>
 </html>

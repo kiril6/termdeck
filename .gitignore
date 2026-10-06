@@ -11,3 +11,5 @@ playwright-report/
 
 # Internal working docs — not for the public repo
 docs/internal/
+# Ad-video source (HTML timeline, synth audio, render script) — local only; the shipped docs/termdeck-ad.mp4 is committed
+tools/commercial/
