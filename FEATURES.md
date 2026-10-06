@@ -232,6 +232,13 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   dialog says so). Afterwards the worktree's project tab and shells are closed (same confirm as any project
   delete). `GET/POST /api/git/finish`, behind `apiGuard`; the POST re-runs the preview and refuses anything
   the preview disallowed; one finish per repo at a time. Not available in demo mode.
+  **Pre-merge check (#119):** an optional *Check before landing* command (e.g. `npm test`), remembered per repo
+  (`td.checks.v1`, keyed by the main tree), runs **in the worktree** before Merge or PR, with `CI=1` so test runners
+  skip watch mode. A non-zero exit or a timeout (`TD_CHECK_TIMEOUT`, default 600 s; the whole process tree is
+  killed) **blocks landing** and shows the last 15 lines of output; *Land anyway* is a separate explicit click.
+  Empty = no check, as before. The command is only ever what you typed — never read from the repo.
+  **Cycle time:** a task launched with *New agent task…* records `launchedAt`; landing shows *"landed in 2h14m"*.
+  Projects from before this change show none (no guessing from git dates).
 - ⚠️ **Conflict radar** — warns when two agents' worktrees of the same repo change the **same file**, before
   you hit it at merge time. While ≥2 worktree projects have a live agent, the browser asks
   `POST /api/git/overlaps` every 10 s (paused while the tab is hidden); the server diffs each worktree against its

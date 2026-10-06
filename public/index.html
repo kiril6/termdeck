@@ -1423,7 +1423,7 @@ async function newAgentTask(){
   }catch(e){toast(ICON.warn,"Couldn’t create worktree",e.message,6000);return;}
   const p=addProject(v.branch);
   if(!p){toast(ICON.warn,"Worktree created, no project slot",j.path,6000);return;}
-  p.root=j.path; p.base=j.base; p.baseBranch=j.baseBranch||"";                    // base = commit the branch was cut from; the diff baseline
+  p.root=j.path; p.base=j.base; p.baseBranch=j.baseBranch||""; p.launchedAt=Date.now();   // base = commit the branch was cut from; the diff baseline; launchedAt → cycle time (#119)
   treeRoot=null; treeLastRoot=null; refreshTree();
   const preset=presets.find((x)=>x.cmd===v.cli)||{cmd:v.cli};
   if(preset.id) bumpAiUse(preset);
@@ -1564,6 +1564,8 @@ function positionSendBtn(){
 }
 // Finish task (#83): the "land" step. Preview → pick merge / PR / keep → optional cleanup → close the tab.
 // The server re-checks everything and refuses (with the reason) what isn't allowed; cleanup never forces.
+// Pre-merge check (#119): optional command run in the worktree before Merge / PR, remembered per repo (main tree).
+const CHECK_STORE="td.checks.v1";
 async function finishAgentTask(){
   if(!LIVE){toast(ICON.warn,"Demo mode","Finishing a task needs a backend \u2014 run termdeck locally",5000);return;}
   const pid=activeProject, p=projects.get(pid);
@@ -1580,26 +1582,44 @@ async function finishAgentTask(){
   if(j.pr.ok)    opts.push({value:"pr",label:"Push and open a pull request"});
   opts.push({value:"none",label:"Keep as is \u2014 just close the tab"});
   const why=[!j.merge.ok&&"Merge: "+j.merge.reason, !j.pr.ok&&"Pull request: "+j.pr.reason].filter(Boolean).join("\n");
+  const checks=(()=>{try{return JSON.parse(localStorage.getItem(CHECK_STORE)||"{}");}catch{return {};}})();
   const v=await inputModal("Finish "+j.branch,[
     {type:"note",label:j.ahead+" commit"+(j.ahead===1?"":"s")+" ahead of "+j.target+(p.baseBranch?"":" (base branch not recorded \u2014 using the main tree\u2019s)")},
     ...(why?[{type:"note",label:why}]:[]),
     {key:"action",label:"How to land",type:"select",options:opts},
+    ...(j.merge.ok||j.pr.ok?[{key:"check",label:"Check before landing (optional) \u2014 runs in the worktree, must exit 0",placeholder:"npm test",value:checks[j.main]||""}]:[]),
     {key:"cleanup",label:"Afterwards",type:"select",value:"no",options:[
       {value:"no",label:"Keep the worktree and branch"},
       {value:"yes",label:"Remove the worktree and delete the branch"}]},
   ],"Finish");
   if(!v)return;
+  if(v.check!==undefined&&v.check!==(checks[j.main]||"")){
+    if(v.check) checks[j.main]=v.check; else delete checks[j.main];
+    try{localStorage.setItem(CHECK_STORE,JSON.stringify(checks));}catch{}
+  }
+  const check=v.action!=="none"&&v.check||"";
   const cleanup=v.cleanup==="yes";
   if(cleanup&&!(await confirmModal("Remove worktree "+j.top+" and delete branch "+j.branch+"? Git refuses if work is unmerged or uncommitted.","Remove",true)))return;
+  const post=async(skipCheck)=>{
+    const r=await fetch("/api/git/finish",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({dir:p.root,baseBranch:p.baseBranch||"",action:v.action,cleanup,check,skipCheck})});
+    return {ok:r.ok,status:r.status,...await r.json().catch(()=>({}))};
+  };
   let out;
   try{
-    const r=await fetch("/api/git/finish",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({dir:p.root,baseBranch:p.baseBranch||"",action:v.action,cleanup})});
-    out=await r.json().catch(()=>({}));
-    if(!r.ok){toast(ICON.warn,"Not finished",out.error||("HTTP "+r.status),8000);return;}
+    if(check) toast(ICON.check,"Running check",check+" in "+j.branch,4000);
+    out=await post(false);
+    if(!out.ok&&out.checkFailed){   // the check blocked landing: show why, landing anyway is a separate explicit choice
+      const go=await inputModal(out.error+" \u2014 "+check,[{type:"note",label:out.output||"(no output)"}],"Land anyway");
+      if(!go)return;
+      out=await post(true);
+    }
+    if(!out.ok){toast(ICON.warn,"Not finished",out.error||("HTTP "+out.status),8000);return;}
   }catch(e){toast(ICON.warn,"Not finished",e.message,6000);return;}
-  if(out.merged) toast(ICON.check,"Merged",j.branch+" \u2192 "+j.target,5000);
-  if(out.url)    toast(ICON.branch,"Pull request opened",out.url,15000);
+  const took=p.launchedAt?" \u00b7 landed in "+fmtDur(Date.now()-p.launchedAt):"";
+  const passed=out.checked?" \u00b7 check passed":"";
+  if(out.merged) toast(ICON.check,"Merged",j.branch+" \u2192 "+j.target+passed+took,6000);
+  if(out.url)    toast(ICON.branch,"Pull request opened",out.url+passed+took,15000);
   if(out.cleaned)toast(ICON.check,"Cleaned up","Removed "+j.top+" and branch "+j.branch,6000);
   if(out.cleanupError) toast(ICON.warn,"Cleanup incomplete",out.cleanupError,9000);
   await deleteProject(pid);   // closes the tab + its shells (asks first if any are running)
@@ -2292,7 +2312,7 @@ function maybeNudge(s,tab){
   toast(ICON.hourglass,"Still working…","\""+s.name+"\" running "+Math.round(NUDGE_MS/1000)+"s — play a game? ⌘ ⌥ G",6000,
     ()=>{revealWindow(s);switchTab(s,tab.id);openGame();});   // toast() mirrors to an OS notification itself
 }
-function fmtDur(ms){const s=Math.round(ms/1000);return s<60?s+"s":Math.floor(s/60)+"m"+String(s%60).padStart(2,"0")+"s";}
+function fmtDur(ms){const s=Math.round(ms/1000);return s<60?s+"s":s<3600?Math.floor(s/60)+"m"+String(s%60).padStart(2,"0")+"s":Math.floor(s/3600)+"h"+String(Math.floor(s%3600/60)).padStart(2,"0")+"m";}
 // cwd badge text is ~-collapsed and CSS-truncated, so keep the full path in the hover title.
 function setCwdBadge(s,cwd){s.badgeCwd.textContent=tildePath(cwd); s.badgeCwd.title=cwd||"";}
 // Collapse the home dir to ~ for the cwd badge (Linux /home/<user>, macOS /Users/<user>).
@@ -3832,7 +3852,7 @@ function saveState(){
   if(!instanceActive) return;   // passive tab: never write — would clobber the active tab's layout
   try{
     const data={activeProject,
-      projects:projectOrder.map((pid)=>({id:pid,name:projects.get(pid).name,root:projects.get(pid).root||null,base:projects.get(pid).base||null,baseBranch:projects.get(pid).baseBranch||null,lastCwd:projects.get(pid).lastCwd||null})),
+      projects:projectOrder.map((pid)=>({id:pid,name:projects.get(pid).name,root:projects.get(pid).root||null,base:projects.get(pid).base||null,baseBranch:projects.get(pid).baseBranch||null,launchedAt:projects.get(pid).launchedAt||null,lastCwd:projects.get(pid).lastCwd||null})),
       sessions:order.map((id)=>{const s=sessions.get(id);if(!s)return null;const st=s.win.style;
         return{id:s.id,project:s.project,name:s.name,cwd:s.cwd,themeId:s.themeId||null,isLog:s.isLog||false,
                left:st.left,top:st.top,width:st.width,height:st.height,
@@ -3845,7 +3865,7 @@ function saveState(){
 function restoreState(){
   let data=null;try{data=JSON.parse(localStorage.getItem(STORE)||"null");}catch{}
   if(!data)return false;
-  if(data.projects?.length) data.projects.forEach((p)=>{addProject(p.name,p.id,true); const pr=projects.get(p.id); if(pr){if(p.root)pr.root=p.root; if(p.base)pr.base=p.base; if(p.baseBranch)pr.baseBranch=p.baseBranch; if(p.lastCwd)pr.lastCwd=p.lastCwd;}});
+  if(data.projects?.length) data.projects.forEach((p)=>{addProject(p.name,p.id,true); const pr=projects.get(p.id); if(pr){if(p.root)pr.root=p.root; if(p.base)pr.base=p.base; if(p.baseBranch)pr.baseBranch=p.baseBranch; if(p.launchedAt)pr.launchedAt=p.launchedAt; if(p.lastCwd)pr.lastCwd=p.lastCwd;}});
   else addProject("default",null,true);
   activeProject=projects.has(data.activeProject)?data.activeProject:projectOrder[0];
   projects.forEach((p)=>p.tab.classList.toggle("active",p.id===activeProject));

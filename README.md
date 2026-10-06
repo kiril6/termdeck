@@ -56,7 +56,7 @@ Three things set it apart:
 - **Working pulse** — a green pulsing dot on the tab and dock chip while an agent is working, or a shell command is streaming output; amber and red always take over.
 - **"Waiting on you" watch** — an agent tab that goes quiet flips to an amber pulse plus a notification, so a row of agents reads as a who-needs-me queue.
 - **Approval-prompt routing** — when an agent blocks on *"Allow this tool? (y/n)"* it jumps straight to a louder red alert, no idle wait. termdeck **never answers on its own** — it surfaces and jumps to the prompt, and with the optional [agent hooks](docs/agent-hooks.md) (Claude Code, Gemini CLI, Codex) the queue row shows the exact command with **Approve / Deny** buttons that answer only when you click, plus real working / waiting / approval state instead of guessing from output.
-- **Finish agent task** — palette → *Finish agent task…*: after reviewing, merge the branch into its base or open a PR, then optionally remove the worktree. Nothing is deleted without your confirm.
+- **Finish agent task** — palette → *Finish agent task…*: after reviewing, merge the branch into its base or open a PR, then optionally remove the worktree. Nothing is deleted without your confirm. An optional check command (e.g. `npm test`) runs first and blocks landing if it fails, and the result shows how long the task took from launch to landing.
 - **Resume after a reboot** — agent tabs remember how to resume: Claude Code resumes its exact session (`--resume <id>`, with hooks installed; otherwise `--continue`), Codex / Gemini / Copilot their "continue" form, your own presets an optional resume command. It runs only on a *fresh* shell, never on a live reattach, and falls back to a clean start if there's nothing to resume.
 - **Opt-in allow-rules** — *Always allow…* on an approval row creates a rule scoped to that repo/worktree (exact command, or its first two words with nothing chained after). Off by default, none shipped; a hard deny-list (`rm -rf`, `sudo`, force-push, curl-to-shell, secrets…) can never be covered. Every automatic answer is a toast and an audit entry; rules can be listed, deleted and paused.
 - **Token totals** — with hooks on, the queue shows what Claude Code and Codex *reported* per agent, per project and overall (new input + cache writes + output; cache reads shown separately; no dollar figures). Palette → *Reset usage* clears it.
@@ -171,6 +171,7 @@ Options are set via environment variable; `--port`, `--host` and `--no-open` als
 | `TD_BUFFER` | `1000000` | Per-terminal replay buffer in bytes on reconnect (1 MB). Positive number. |
 | `TD_MAX_PANELS` | `64` | Maximum live terminals server-side; refuses excess to prevent resource exhaustion. |
 | `TD_EDITOR` | `code` | Single executable name for the file tree's *Open in editor* action. |
+| `TD_CHECK_TIMEOUT` | `600` | Seconds the *Finish agent task* pre-merge check may run before it is killed and landing is blocked. |
 | `TD_LOG_DIR` | *(none)* | Directory to write clean session logs when shells terminate (off by default). |
 | `TD_ALLOWED_HOSTS` | *(none)* | Comma-separated exact hostnames for reverse proxies (e.g. `tailscale serve`). Enables access token. |
 
