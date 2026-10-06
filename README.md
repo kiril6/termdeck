@@ -18,6 +18,8 @@ termdeck runs Claude Code, Codex, Gemini and your own shells as windows in your 
 
 **[Try the live demo](https://kiril6.github.io/termdeck/app/?demo)** (UI only, no install) · [Showcase](https://kiril6.github.io/termdeck/) · [All features](FEATURES.md)
 
+[Quick start](#quick-start) · [Agent loop](#the-agent-loop) · [Security](#security-model) · [Features](#features) · [Install](#install-and-run) · [Configuration](#configuration) · [Shortcuts](#keyboard-shortcuts)
+
 ---
 
 ## Quick start
@@ -74,13 +76,13 @@ termdeck uses tmux under the hood when it's installed, so you keep tmux's durabi
 
 termdeck spawns real shells, so it is locked down by default:
 
-- **It never answers for you.** An agent's permission prompt is only answered when you click Approve, or by an allow-rule you created for that repo. Rules are off by default, and a hard deny-list (`rm -rf`, `sudo`, force-push, curl-to-shell, reading secrets…) can never be allowed automatically. The deny-list is a safety net, not a sandbox.
-- **Loopback only.** The server binds to `127.0.0.1`; nothing else on your network can reach it.
-- **Blocks malicious web pages.** Every API call and WebSocket checks the `Origin` and `Host` headers, so a website can't connect to your shells or read your files.
-- **Token when exposed.** Bind to another address and termdeck generates a random access token for that run.
+- **It never answers for you.** An agent's permission prompt is only answered when you click Approve, or by an allow-rule you created for that repo. Rules are off by default, and a hard deny-list (`rm -rf`, `sudo`, force-push, curl-to-shell, reading secrets…) can never be allowed automatically. The deny-list is a safety net, not a sandbox. Every decision, manual or by rule, is recorded in an audit log ([details](docs/agent-hooks.md)).
+- **Loopback only.** The server binds to `127.0.0.1`; nothing else on your network can reach it. There is no login on loopback, by design: a process already running as your user can start its own shell anyway.
+- **Blocks malicious web pages.** Every API call and WebSocket is rejected unless its `Origin` and `Host` headers resolve to a known localhost name (or a `TD_ALLOWED_HOSTS` entry). This blocks cross-site and DNS-rebinding attacks, so a website can't connect to your shells or read your files.
+- **Token when exposed.** Bind to another address (`HOST=0.0.0.0` or a specific IP) and termdeck prints a warning and a tokenized URL (`/?t=…`). Opening it once sets a cookie for that browser; everything else gets 401. Each restart creates a new token. For several users or the internet, put real authentication in front of it.
 - **Nothing phones home.** No telemetry, no CDN (xterm.js is served locally), no cloud service.
 
-Details in [Security](#security) and [Known limits](#known-limits).
+See also [Known limits](#known-limits).
 
 ---
 
@@ -179,20 +181,13 @@ termdeck is a local tool: a Node process that spawns real shells. Static hosts (
 
 ---
 
-## Security
-
-- **Loopback only** — binds `127.0.0.1`. To expose it deliberately (e.g. a trusted LAN), set `HOST=0.0.0.0` or a specific IP: the server prints a warning and a tokenized URL (`/?t=…`). Opening it once sets a cookie for that browser; everything else gets 401. Restarting creates a new token.
-- **Origin + Host validation** — the WebSocket upgrade and every `/api/*` route are rejected unless both headers resolve to a known localhost name (or a `TD_ALLOWED_HOSTS` entry). This blocks cross-site and DNS-rebinding attacks, the main browser threat to a localhost service.
-- **No login on loopback, by design** — a process already running as your user can start its own shell anyway, so a token there would add nothing. If you expose termdeck to several users or over the internet, put real authentication in front of it.
-- **Agent approvals** — see the [security model](#security-model) above and [docs/agent-hooks.md](docs/agent-hooks.md). Every decision, manual or by rule, is recorded in an audit log.
-
 ## Known limits
 
 What termdeck does *not* do, so none of it is a surprise:
 
 - **Reboots end shells.** tmux keeps shells alive across a server restart or crash, not a machine reboot. Layout and projects come back; the processes don't — except agent tabs, which relaunch their CLI in resume mode (Claude, Codex, Gemini, Copilot, or your own resume command).
 - **Agent state is a guess unless you install the hooks.** Without [agent hooks](docs/agent-hooks.md), "waiting" and "needs approval" come from output heuristics (idle time, a prompt pattern). The hooks are checked against each CLI's documented payloads, not yet against every CLI version.
-- **It never answers a prompt unless you set that up.** Approve / Deny (Claude Code and Codex, with hooks) acts only when you press it. Allow-rules are opt-in, and the deny-list is best-effort, not a sandbox. Without hooks it can only jump you to the prompt.
+- **Approve / Deny needs the hooks.** It works with Claude Code and Codex only; without hooks termdeck can only jump you to the prompt. See the [security model](#security-model).
 - **Remote access exposes a real shell.** The access token is a per-start secret, not multi-user auth. Keep the loopback bind, or use a tunnel.
 - **Limits:** 12 terminals per project, 10 projects, 64 live terminals server-wide (`TD_MAX_PANELS`).
 - **Windows:** works through ConPTY, but without tmux shells don't outlive the server, and the working-directory badge shows the spawn directory.
