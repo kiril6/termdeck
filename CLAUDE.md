@@ -24,7 +24,7 @@ Three files. Backend + frontend, no framework beyond Express.
 **`server.js`** — Express static server + `ws` WebSocket PTY multiplexer.
 - Loads node-pty by trying `node-pty` then `@homebridge/node-pty-prebuilt-multiarch` (Linux fork). If neither loads, tells user to run `install.js`.
 - One WS per terminal. Session keyed by client-supplied `id` (query param), tracked in the module-level `live` Map: `{ term, buffer, ws, killTimer, cwd, shellName, isLog }`.
-- **Reattach model**: on WS disconnect the PTY is NOT killed — a `GRACE_MS` (60s) `killTimer` starts. Reconnecting with the same `id` cancels the timer, rebinds the socket, and replays the last `BUFFER` (200KB) of output. This is what lets the browser refresh / drop connection without losing shells.
+- **Reattach model**: on WS disconnect the PTY is NOT killed — a `GRACE_MS` (60s, `TD_GRACE_MS`) `killTimer` starts. Reconnecting with the same `id` cancels the timer, rebinds the socket, and replays the last `BUFFER` (1 MB, `TD_BUFFER`) of output. This is what lets the browser refresh / drop connection without losing shells.
 - **Durable sessions (tmux)**: when `tmux` is on the host, the PTY is delegated to `tmux new-session -A` (attach-or-create, session name `td_<id>`) so shells survive the **server** dying, not just a browser refresh. Auto-off where tmux is missing (incl. Windows) or `NO_TMUX=1` → falls back to a raw shell. Session close does `tmux kill-session` (killing the pty alone would only detach).
 - Shell picked from `shellCandidates()`: `$SHELL`, then powershell (Windows), then zsh/bash/sh.
 - `log=1` query param = read-only terminal (input from client is ignored — `isLog` gate in `bindWsEvents`).
