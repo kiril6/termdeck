@@ -506,6 +506,29 @@ async function finishPreview(dir, baseBranch) {
   out.pr.ok = !out.pr.reason;
   return out;
 }
+// Pre-merge check (#119): a command the user typed in the Finish dialog (never read from the repo — same trust as
+// "Run command on start"), run in the worktree before Merge / PR. Non-zero exit or timeout blocks landing; the
+// client may resubmit with skipCheck after an explicit "Land anyway". CI=1 keeps test runners out of watch mode.
+const CHECK_TIMEOUT_MS = (+process.env.TD_CHECK_TIMEOUT || 600) * 1000;
+const runCheck = (cmd, cwd) => new Promise((resolve) => {
+  const child = spawn(cmd, { cwd, shell: true, detached: !isWindows, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, CI: '1', GIT_TERMINAL_PROMPT: '0' } });
+  let tail = '', timedOut = false;
+  const keep = (b) => { tail = (tail + b).slice(-8000); };
+  child.stdout.on('data', keep); child.stderr.on('data', keep);
+  const timer = setTimeout(() => {                                // kill the whole tree, not just the shell
+    timedOut = true;
+    if (isWindows) spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true });
+    else try { process.kill(-child.pid, 'SIGKILL'); } catch {}
+  }, CHECK_TIMEOUT_MS);
+  const done = (r) => { clearTimeout(timer); resolve(r); };
+  child.on('error', (e) => done({ ok: false, error: 'check could not start: ' + e.message, output: '' }));
+  child.on('close', (code) => done({
+    ok: code === 0 && !timedOut,
+    error: timedOut ? 'Check timed out after ' + CHECK_TIMEOUT_MS / 1000 + 's' : 'Check failed (exit ' + code + ')',
+    output: lines(tail.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')).slice(-15).join('\n'),
+  }));
+});
 const finishing = new Set();                                      // main trees with a finish in flight (double-click guard)
 app.get('/api/git/finish', apiGuard, async (req, res) => {
   const dir = expandDir(req.query.dir);
@@ -522,19 +545,28 @@ app.post('/api/git/finish', apiGuard, async (req, res) => {
   if (!safeDir(dir)) return res.status(400).json({ error: 'not a directory' });
   if (baseBranch && !GIT_BRANCH_RE.test(baseBranch)) return res.status(400).json({ error: 'invalid base branch' });
   if (!['merge', 'pr', 'none'].includes(action)) return res.status(400).json({ error: 'invalid action' });
+  const check = String(req.body?.check || '').trim();
+  if (check.length > 500) return res.status(400).json({ error: 'check command too long' });
   let p;
   try { p = await finishPreview(dir, baseBranch); } catch (e) { return res.status(400).json({ error: gitFail(e) }); }
   if (finishing.has(p.main)) return res.status(409).json({ error: 'another finish is already running for this repo' });
   finishing.add(p.main);
   try {
     const out = {};
+    if (action !== 'none') {
+      const gate = action === 'merge' ? p.merge : p.pr;
+      if (!gate.ok) return res.status(409).json({ error: gate.reason });
+      if (check && !req.body?.skipCheck) {
+        const c = await runCheck(check, p.top);
+        if (!c.ok) return res.status(409).json({ error: c.error, checkFailed: true, output: c.output });
+        out.checked = true;
+      }
+    }
     if (action === 'merge') {
-      if (!p.merge.ok) return res.status(409).json({ error: p.merge.reason });
       const m = await run('git', ['merge', '--no-ff', '--no-edit', p.branch], p.main);
       if (m.err) { await run('git', ['merge', '--abort'], p.main); return res.status(409).json({ error: 'merge failed: ' + (lines(m.stderr)[0] || lines(m.stdout)[0] || 'unknown') }); }
       out.merged = true;
     } else if (action === 'pr') {
-      if (!p.pr.ok) return res.status(409).json({ error: p.pr.reason });
       const push = await run('git', ['push', '-u', 'origin', p.branch], p.top);
       if (push.err) return res.status(409).json({ error: 'push failed: ' + (lines(push.stderr).pop() || 'unknown') });
       const args = ['pr', 'create', '--fill', '--head', p.branch, ...(baseBranch ? ['--base', baseBranch] : [])];
