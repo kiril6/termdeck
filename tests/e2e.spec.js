@@ -103,6 +103,15 @@ test.describe('live backend', () => {
     await expect.poll(() => frames.join('').includes('ok-42')).toBe(true);   // replayed from the server's ring buffer, not re-run
   });
 
+  test('prompt returning is detected: a finished command in an unwatched window toasts "Done"', async ({ page }) => {
+    await boot(page, '/');
+    await page.waitForTimeout(3500);                            // let the first prompt's 3 s notification cooldown pass
+    await page.locator('.win .xterm').first().click({ force: true });
+    await page.keyboard.type('sleep 2\n');
+    await page.locator('#new').click();                         // focus moves to a new window, so the first is unwatched
+    await expect(page.locator('.toast', { hasText: 'Done' })).toContainText('finished in', { timeout: 8000 });   // zsh/bash wrap the prompt in escape codes
+  });
+
   test('new agent task: bad branch name is rejected, a good one creates a worktree project', async ({ page }) => {
     await boot(page, '/');
     await page.locator('#folder').click();                       // pick the repo dir → becomes the project's cwd

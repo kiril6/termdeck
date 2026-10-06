@@ -381,7 +381,10 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   (opt-in via browser permission). Hovering a toast **pauses its auto-hide** (so you can read or
   click it, e.g. the game offer); moving the pointer away re-arms the countdown. ✕ dismisses now.
 - 🖥️ **Command-done alerts** — a shell you're not watching finishing (prompt returns `$ # % >`,
-  bell, or OSC 133;D shell-integration mark) fires a toast/notification. 3s per-tab cooldown.
+  bell, or OSC 133;D shell-integration mark) fires a toast/notification. 3s per-tab cooldown on the
+  notification only. Trailing escape codes after the prompt (zsh's erase-line, bash/zsh bracketed-paste
+  switch) are ignored, so zsh and bash 5.1+ prompts are recognised — before, the prompt was often missed,
+  so no *Done* toast came and the long-run nudge fired for commands that had already finished.
 - 🖥️ Attention indicators on tabs/dock chips for background output.
 
 ## Appearance & layout
