@@ -256,6 +256,11 @@ app.get('/api/read', apiGuard, (req, res) => {       // read a text file for the
 const rules = require('./scripts/approval-rules');
 const AGENT_EVT_TYPES = new Set(['prompt_submit', 'tool_start', 'tool_end', 'permission_request', 'stop', 'error']);
 const cap = (v, n) => typeof v === 'string' && v ? v.slice(0, n) : undefined;
+const notify = (() => {   // #84: optional outgoing webhook; off unless TD_NOTIFY_URL is set
+  const n = require('./scripts/notify');
+  try { return n.createNotifier(n.configFrom(process.env)); }
+  catch (e) { console.error(`  TD_NOTIFY_URL ignored: ${e.message}`); return () => {}; }
+})();
 app.post('/api/agent-events', apiGuard, (req, res) => {
   const b = req.body;
   if (!b || typeof b !== 'object' || typeof b.id !== 'string' || !AGENT_EVT_TYPES.has(b.type)) return res.status(400).end();
@@ -302,6 +307,7 @@ app.post('/api/agent-events', apiGuard, (req, res) => {
     res.on('close', () => { if (pendingApprovals.get(b.id) === p) settleApproval(b.id, null, 'terminal'); });   // helper gone: the CLI was answered or died
   }
   s.agentEvt = ev;                                                // replayed to a reattaching browser
+  notify(b.id, ev, { project: path.basename(s.cwd || '') || 'termdeck', link: `${req.get('x-forwarded-proto') || req.protocol}://${req.get('host')}/#t=${encodeURIComponent(b.id)}` });
   if (s.ws) send(s.ws, { type: 'agent', event: ev });
   if (!held) res.status(204).end();
 });

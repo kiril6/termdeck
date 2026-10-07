@@ -18,7 +18,7 @@ termdeck runs Claude Code, Codex, Gemini and your own shells as windows in your 
 
 **[Try the live demo](https://kiril6.github.io/termdeck/app/?demo)** (UI only, no install) · [Showcase](https://kiril6.github.io/termdeck/) · [All features](FEATURES.md)
 
-[Quick start](#quick-start) · [Agent loop](#the-agent-loop) · [Security](#security-model) · [Features](#features) · [Install](#install-and-run) · [Configuration](#configuration) · [Shortcuts](#keyboard-shortcuts)
+[Quick start](#quick-start) · [Agent loop](#the-agent-loop) · [Phone](#away-from-your-desk) · [Security](#security-model) · [Features](#features) · [Install](#install-and-run) · [Configuration](#configuration) · [Shortcuts](#keyboard-shortcuts)
 
 ---
 
@@ -72,6 +72,22 @@ termdeck uses tmux under the hood when it's installed, so you keep tmux's durabi
 
 ---
 
+## Away from your desk
+
+Agents block on approvals while you're elsewhere. Two optional pieces cover that, and both stay off unless you set them up:
+
+1. **Reach it from your phone** over [Tailscale Serve](docs/remote-access.md) (private to your devices; the server stays on loopback) or an SSH tunnel. Remote access turns the access token on.
+2. **Get pinged** when an agent needs you: set `TD_NOTIFY_URL` to an [ntfy](https://ntfy.sh) topic or any webhook. Tap the push, land on that terminal, tap **Approve**.
+
+```bash
+TD_ALLOWED_HOSTS=mybox.tail1234.ts.net TD_NOTIFY_URL=https://ntfy.sh/my-unguessable-topic npx @kiril6/termdeck
+tailscale serve --bg 3000
+```
+
+Needs the [agent hooks](docs/agent-hooks.md) for Approve and the exact state. Alerts include the command unless `TD_NOTIFY_DETAIL=0`. Full steps: [remote access](docs/remote-access.md).
+
+---
+
 ## Security model
 
 termdeck spawns real shells, so it is locked down by default:
@@ -108,6 +124,7 @@ See also [Known limits](#known-limits).
 
 **Productivity**
 - Command palette (`⌘K`), snippets, broadcast input to every shell in a project, safe multi-line paste.
+- **Phone alerts:** set `TD_NOTIFY_URL` (e.g. an [ntfy](https://ntfy.sh) topic) and get a push when an agent is blocked on an approval — tap it to open that terminal. [Setup](docs/remote-access.md#phone-notifications).
 - Notifications when a background command finishes or an agent needs you — in-app, and native when the window isn't focused.
 - A first-run tour, and a game to play while a long command runs.
 
@@ -160,6 +177,7 @@ Set via environment variable; `--port`, `--host` and `--no-open` also exist as f
 | `TD_CHECK_TIMEOUT` | `600` | Seconds the *Finish agent task* check may run before landing is blocked. |
 | `TD_LOG_DIR` | *(none)* | Write session logs (and the approval audit log) here. Off by default. |
 | `TD_ALLOWED_HOSTS` | *(none)* | Extra exact hostnames for a reverse proxy (e.g. `tailscale serve`). Enables the access token. |
+| `TD_NOTIFY_URL` | *(none)* | Webhook POSTed when an agent needs you (ntfy-ready). Also `TD_NOTIFY_EVENTS` (default `permission_request`), `TD_NOTIFY_DETAIL=0`. See [remote access](docs/remote-access.md#phone-notifications). |
 
 ### Updating
 
