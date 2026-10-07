@@ -35,7 +35,8 @@
     "install.js",
     "public",
     "scripts",
-    "FEATURES.md"
+    "FEATURES.md",
+    "CHANGELOG.md"
   ],
   "repository": {
     "type": "git",

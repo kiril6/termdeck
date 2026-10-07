@@ -271,6 +271,14 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   when any of its tabs is waiting, **red** when any is blocked on an approval (red wins). Recomputed as tab
   state changes, on session close, and when a session moves between projects; cleared when the last flagged
   tab/session goes away.
+- 🆕 **Version, What's new and update check** — the app version shows in the empty-desktop footer and the Help
+  sheet (hidden in the hosted demo). Help → *What's new* renders the bundled `CHANGELOG.md` (served by
+  `/api/changelog`, works offline; rendered with the escaping Markdown renderer). When the version differs from the
+  last one seen (`td.seenVersion.v1` in `localStorage`) a one-time *Updated to vX* toast opens it; first visit
+  stays quiet. Help → *Check for updates* is **click-only**: the server (never the browser) asks the npm registry
+  via `GET /api/update-check` (5 s timeout, successes cached 6 h, `TD_UPDATE_URL` overrides the source) and the
+  result line says *up to date* / *vX is available — run `npx @kiril6/termdeck@latest`* / *couldn't reach npm*.
+  No background network calls.
 - 🧭 **Cross-project agent queue** — a toolbar button (⋯ overflow menu below 1200px) opens a popover
   listing **every agent tab across all projects** in one who-needs-me queue, ranked
   **needs approval → waiting → working**, ties broken alphabetically by project, session, then tab.

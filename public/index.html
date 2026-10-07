@@ -318,6 +318,13 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
 .fv-body .d-add{color:#46d17f;} .fv-body .d-del{color:#e0655f;}
 .fv-body .d-hunk{color:var(--accent);} .fv-body .d-meta{color:var(--muted);}
 .fv-body .d-file{color:var(--text);font-weight:600;}
+#sc-whatsnew{padding:0 20px 14px;}
+#sc-whatsnew summary{cursor:pointer;font-size:12px;color:var(--muted);}
+#sc-whatsnew summary:hover{color:var(--text);}
+#sc-whatsnew .md{max-height:240px;overflow-y:auto;font:12px/1.55 system-ui,-apple-system,sans-serif;color:var(--text);margin-top:8px;}
+#sc-whatsnew .md h2{font-size:12.5px;margin:1em 0 .3em;border:0;}
+#sc-whatsnew .md h1{display:none;}
+.upd-res{margin-left:6px;}
 /* rendered markdown (file viewer) */
 .fv-tog{margin:0 12px 0 auto;font:600 10.5px var(--mono);letter-spacing:0;text-transform:none;color:var(--text);
   background:var(--panel-2);border:1px solid var(--muted);border-radius:5px;padding:2px 8px;cursor:pointer;}
@@ -843,7 +850,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
     <p>No sessions yet</p>
     <p>Press <b class="hint-kbd">⌘K</b> or click <b>New terminal</b> <span class="hint-kbd" id="hint-newkbd"></span></p>
     <p><a class="hint-link" id="about-link">What is this?</a> &nbsp;·&nbsp; <a class="hint-link" id="hint-tour" tabindex="0" role="button">Take the tour</a></p>
-    <div class="copyr">© 2026 <a href="https://github.com/kiril6" target="_blank" rel="noopener" class="sc-credit">kiril6</a> · MIT</div>
+    <div class="copyr">© 2026 <a href="https://github.com/kiril6" target="_blank" rel="noopener" class="sc-credit">kiril6</a> · MIT<span id="copyr-ver"></span></div>
   </div>
   <div class="petfield" id="petfield"></div>
   <div class="snap-preview" id="snap"></div>
@@ -928,6 +935,8 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
       into <b>projects</b>, and drive it all from <b class="kbd-inline">⌘K</b>. <span style="opacity:.85"><span id="app-ver"></span><a href="https://github.com/kiril6/termdeck" target="_blank" rel="noopener" class="sc-credit">GitHub</a> · © 2026 <a href="https://github.com/kiril6" target="_blank" rel="noopener" class="sc-credit">kiril6</a> · MIT</span>
     </div>
     <div class="sc-about" style="padding-top:0;border-top:0"><a class="hint-link" id="tour-link" tabindex="0" role="button" style="opacity:.85">Take the tour</a> — a 5-step walkthrough of the main features.</div>
+    <div class="sc-about" id="sc-upd" style="padding-top:0;border-top:0" hidden><a class="hint-link" id="upd-btn" tabindex="0" role="button" style="opacity:.85">Check for updates</a> — asks npm only when you click.<span class="upd-res" id="upd-res" role="status"></span></div>
+    <details id="sc-whatsnew" hidden><summary>What's new</summary><div class="md" id="wn-body"></div></details>
     <div class="sc-about" style="padding-top:0;border-top:0">Feedback, ideas or a bug? <a href="https://github.com/kiril6/termdeck/discussions" target="_blank" rel="noopener" class="sc-credit">Discussions</a> · <a href="https://github.com/kiril6/termdeck/issues/new/choose" target="_blank" rel="noopener" class="sc-credit">Report an issue</a> — even a one-line "I use it for X" helps.</div>
     <div class="sc-section">
       <div class="sc-section-label">Global</div>
@@ -4157,7 +4166,31 @@ document.getElementById("new").title="New terminal ("+kbd("⌘","⌥","T")+")";
 document.getElementById("hint-newkbd").textContent=kbd("⌘","⌥","T");
 document.getElementById("sc-btn").title="Help & keyboard shortcuts (?)";
 // Show app version in help modal (from backend package.json). Silent in demo/no-backend.
-fetch("/api/version").then(r=>r.ok?r.json():null).then(d=>{if(d&&d.version)document.getElementById("app-ver").innerHTML="v"+d.version+" · ";}).catch(()=>{});
+const wnBody=document.getElementById("wn-body"), wnBox=document.getElementById("sc-whatsnew"), updRes=document.getElementById("upd-res");
+let wnLoaded=false;
+function loadWhatsNew(){   // bundled CHANGELOG.md, served locally — works offline; rendered by the escaping markdown renderer
+  if(wnLoaded) return; wnLoaded=true;
+  fetch("/api/changelog").then(r=>r.ok?r.text():Promise.reject()).then(t=>{wnBody.innerHTML=mdToHtml(t);}).catch(()=>{wnBody.textContent="Changelog unavailable."; wnLoaded=false;});
+}
+wnBox.addEventListener("toggle",()=>{if(wnBox.open) loadWhatsNew();});
+function openWhatsNew(){openShortcuts(); wnBox.open=true; loadWhatsNew(); wnBox.scrollIntoView({block:"nearest"});}
+document.getElementById("upd-btn").addEventListener("click",async()=>{
+  updRes.textContent="Checking\u2026";
+  try{
+    const r=await fetch("/api/update-check"); if(!r.ok) throw 0; const d=await r.json();
+    updRes.textContent=d.updateAvailable?"v"+d.latest+" is available \u2014 run: npx @kiril6/termdeck@latest":"You\u2019re up to date (v"+d.current+").";
+  }catch{updRes.textContent="Couldn\u2019t reach npm (offline?).";}
+});
+// Version (Help + footer), changelog and the once-per-version "updated" toast. Silent in demo/no-backend.
+if(LIVE) fetch("/api/version").then(r=>r.ok?r.json():null).then(d=>{
+  if(!d||!d.version) return;
+  document.getElementById("app-ver").textContent="v"+d.version+" \u00b7 ";
+  document.getElementById("copyr-ver").textContent=" \u00b7 v"+d.version;
+  document.getElementById("sc-upd").hidden=false; wnBox.hidden=false;
+  let seen=null; try{seen=localStorage.getItem("td.seenVersion.v1");}catch{}
+  try{localStorage.setItem("td.seenVersion.v1",d.version);}catch{}
+  if(seen&&seen!==d.version) toast(ICON.check,"Updated to v"+d.version,"Click to see what\u2019s new",9000,openWhatsNew);   // first visit (no stored version) stays quiet — the tour covers it
+}).catch(()=>{});
 themeBtn.addEventListener("click",(e)=>{e.stopPropagation();openThemePop(null,themeBtn);});
 function themeFilter(){const q=themeSearch.value.trim();themeClear.style.display=q?"":"none";renderThemeGrid(q);}
 themeSearch.addEventListener("input",themeFilter);

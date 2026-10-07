@@ -132,6 +132,44 @@ test.describe('live backend', () => {
     await expect(page.locator('.win .badge.cmd').first()).toHaveText('$ echo hey');
   });
 
+  test('version shown; no toast on first visit; "Updated" toast once per version opens What\'s new (#88)', async ({ page, request }) => {
+    const { version } = await (await request.get('/api/version')).json();
+    await boot(page, '/');
+    await expect(page.locator('.hint .copyr')).toContainText('v' + version);
+    await page.waitForTimeout(500);
+    await expect(page.locator('.toast', { hasText: 'Updated to' })).toHaveCount(0);        // first visit stays quiet
+    expect(await page.evaluate(() => localStorage.getItem('td.seenVersion.v1'))).toBe(version);
+
+    await page.evaluate(() => localStorage.setItem('td.seenVersion.v1', '0.0.1'));         // simulate an upgrade
+    await page.reload();
+    await page.locator('.toast', { hasText: 'Updated to v' + version }).click();
+    await expect(page.locator('#sc-overlay.open')).toBeVisible();
+    await expect(page.locator('#sc-whatsnew')).toHaveJSProperty('open', true);
+    await expect(page.locator('#wn-body')).toContainText('Phone notifications');           // bundled CHANGELOG.md, no network
+    await page.reload();
+    await page.waitForTimeout(500);
+    await expect(page.locator('.toast', { hasText: 'Updated to' })).toHaveCount(0);        // once per version
+  });
+
+  test('Help → Check for updates reports available / current / unreachable (#88)', async ({ page }) => {
+    await boot(page, '/');
+    await page.locator('#sc-btn').click();
+    const res = page.locator('#upd-res');
+    const reply = (body, status = 200) => page.route('**/api/update-check', (r) => r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) }));
+    await reply({ current: '1.18.0', latest: '9.9.9', updateAvailable: true });
+    await page.locator('#upd-btn').click();
+    await expect(res).toContainText('v9.9.9 is available');
+    await expect(res).toContainText('npx @kiril6/termdeck@latest');
+    await page.unroute('**/api/update-check');
+    await reply({ current: '1.18.0', latest: '1.18.0', updateAvailable: false });
+    await page.locator('#upd-btn').click();
+    await expect(res).toContainText('up to date');
+    await page.unroute('**/api/update-check');
+    await reply({ error: 'x' }, 502);
+    await page.locator('#upd-btn').click();
+    await expect(res).toContainText('Couldn');
+  });
+
   test('terminal runs a command; reload reattaches and replays the buffer', async ({ page }) => {
     const frames = [];
     page.on('websocket', (ws) => ws.on('framereceived', (f) => frames.push(String(f.payload))));
