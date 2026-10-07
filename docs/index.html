@@ -4,16 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>termdeck — a browser cockpit for AI coding agents and shells</title>
-<meta name="description" content="A local-first browser cockpit for running AI coding agents (Claude Code, Codex, Gemini) — and any shell — in floating, draggable windows, each backed by a real PTY. Git worktree per agent, approval alerts across projects, sessions that survive restarts.">
+<meta name="description" content="Run Claude Code, Codex and Gemini side by side in your browser. Each agent works on its own git branch, and you're alerted when one needs approval. Local-first.">
 <meta property="og:title" content="termdeck">
-<meta property="og:description" content="Run Claude Code, Codex and Gemini side by side in floating browser windows — git worktree per agent, approval alerts, sessions that survive restarts.">
+<meta property="og:description" content="Run Claude Code, Codex and Gemini side by side in your browser — each on its own git branch, with an alert when one needs your approval. Runs locally.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://kiril6.github.io/termdeck/">
 <meta property="og:image" content="https://kiril6.github.io/termdeck/social.png">
 <meta property="og:image:alt" content="termdeck: floating shells tiling into a grid, theme picker, filesystem tree, command palette.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="termdeck">
-<meta name="twitter:description" content="Run Claude Code, Codex and Gemini side by side in floating browser windows — git worktree per agent, approval alerts, sessions that survive restarts.">
+<meta name="twitter:description" content="Run Claude Code, Codex and Gemini side by side in your browser — each on its own git branch, with an alert when one needs your approval. Runs locally.">
 <meta name="twitter:image" content="https://kiril6.github.io/termdeck/social.png">
 <style>
   :root{
@@ -223,7 +223,7 @@
     <h1>One screen for <span class="hl">every coding agent.</span></h1>
     <p class="lead">A local-first browser cockpit for running <strong>AI coding agents</strong> —
       Claude Code, Codex, Gemini — and plain shells side by side. Each window is a
-      <strong>real shell (PTY)</strong> on your machine; give every agent its own git worktree,
+      <strong>real shell</strong> on your machine; give every agent its own git worktree (a separate checkout on its own branch),
       get alerted when one needs approval, and reconnect without losing a session.</p>
     <div class="cta">
       <a class="btn primary" href="app/?demo">▶ Try the demo</a>
@@ -336,17 +336,17 @@
     <div class="it"><b>SSH hosts</b><span>Save targets, one-click connect; drop back to a local shell on disconnect.</span></div>
     <div class="it"><b>Command snippets</b><span>Reusable commands from the palette or each terminal's footer.</span></div>
     <div class="it"><b>Run on start</b><span>Spawn a shell that immediately runs <code>npm run dev</code>, <code>ssh …</code>, anything.</span></div>
-    <div class="it"><b>Live working directory</b><span>Each window's cwd badge follows the shell as it <code>cd</code>s — no shell config.</span></div>
+    <div class="it"><b>Live working directory</b><span>Each window's footer follows the shell as it <code>cd</code>s and shows the last command and any detected dev-server <code>:PORT</code> — no shell config.</span></div>
     <div class="it"><b>Send to agent</b><span>Select text in the file viewer, a diff or any terminal’s output and send it as a prompt to another terminal — no copy-paste.</span></div>
     <div class="it"><b>Layout presets</b><span>Palette → Layout: auto-tile or a fixed 1×1, 2×1, 1×2, 2×2 or 3×2 grid; extra windows are minimized, not closed. <code>⌥1</code>–<code>9</code> jumps to the Nth window.</span></div>
     <div class="it"><b>Phone alerts</b><span>Set <code>TD_NOTIFY_URL</code> to an ntfy topic (or any webhook) and your phone buzzes when an agent needs approval; tapping it opens that terminal. Off unless you set it. <a href="https://github.com/kiril6/termdeck/blob/master/docs/remote-access.md#phone-notifications">Setup</a></span></div>
     <div class="it"><b>Desktop right-click menu</b><span>Right-click the empty desktop for a context-aware launcher: new terminal or agent task, open file, tile, restore, broadcast.</span></div>
     <div class="it"><b>File &amp; Markdown viewer</b><span>Click a file in the tree or use ⌘K → Open file; .md renders formatted. Reveal in Finder/Explorer, or open it in your editor (<code>TD_EDITOR</code>, default <code>code</code>).</span></div>
-    <div class="it"><b>Find &amp; save output</b><span>Scrollback search with match counts; download any terminal as a <code>.log</code>.</span></div>
+    <div class="it"><b>Find &amp; save output</b><span>Search a terminal's history with match counts; download any terminal as a <code>.log</code>.</span></div>
     <div class="it"><b>24 themes</b><span>17 dark + 7 light, per-terminal or dashboard-wide, searchable.</span></div>
     <div class="it"><b>Mini-game while you wait</b><span>Dino or Snake, auto-armed on long runs, with a “still working…” nudge and a done-toast with duration.</span></div>
     <div class="it"><b>Desktop notifications</b><span>Command-done alerts when a shell you're not watching returns to its prompt.</span></div>
-    <div class="it"><b>Local-first &amp; offline</b><span>Loopback bind, WS Origin/Host validation, xterm served locally — no CDN.</span></div>
+    <div class="it"><b>Local-first &amp; offline</b><span>Local-only bind, WS Origin/Host validation, xterm served locally — no CDN.</span></div>
     <div class="it"><b>Safe remote access</b><span>Random access token whenever it’s reachable off-loopback; <code>TD_ALLOWED_HOSTS</code> for <code>tailscale serve</code>. <a href="https://github.com/kiril6/termdeck/blob/master/docs/remote-access.md">Setup guide</a></span></div>
     <div class="it"><b>Session logs</b><span>Set <code>TD_LOG_DIR</code> and each shell’s output is saved when it exits — an audit trail for long agent runs.</span></div>
     <div class="it"><b>Autostart</b><span>One command, <code>termdeck autostart install</code>, sets up a launchd agent or systemd user unit — preview with <code>--dry-run</code>. Needs a global install (<code>npm i -g</code>) or a clone. <a href="https://github.com/kiril6/termdeck/tree/master/docs/autostart">Details</a></span></div>

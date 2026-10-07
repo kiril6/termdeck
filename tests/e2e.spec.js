@@ -121,6 +121,17 @@ test.describe('live backend', () => {
     await expect(page.locator('.win.blink')).toHaveCount(1);
   });
 
+  test('footer shows the last command and a detected localhost port (#22)', async ({ page }) => {
+    await boot(page, '/');
+    await page.locator('.win .xterm').first().click({ force: true });
+    await page.keyboard.type("node -e \"console.log('listening on http://localhost:4321');setTimeout(()=>{},3000)\"\n");
+    await expect(page.locator('.win .badge.cmd').first()).toContainText('listening on');
+    await expect(page.locator('.win .badge.port').first()).toHaveText(':4321');
+    await expect(page.locator('.win .badge.port').first()).toHaveText('', { timeout: 8000 });   // prompt back → server gone
+    await page.keyboard.type('echo hi\x7fey\n');                                           // backspace edits are honoured
+    await expect(page.locator('.win .badge.cmd').first()).toHaveText('$ echo hey');
+  });
+
   test('terminal runs a command; reload reattaches and replays the buffer', async ({ page }) => {
     const frames = [];
     page.on('websocket', (ws) => ws.on('framereceived', (f) => frames.push(String(f.payload))));
