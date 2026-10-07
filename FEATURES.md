@@ -505,6 +505,12 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   that the server will move), network exposure / token state, wildcard `TD_ALLOWED_HOSTS`, `TD_*` numbers that would
   silently fall back to defaults, and `TD_LOG_DIR` writability. Each problem prints its fix. Exit 0 = all good,
   1 = any warning/failure. No network calls; plain text when piped or `NO_COLOR` is set.
+- 🖥️ **Layout presets + Alt+N (#51)** — palette commands *Layout 1×1 / 2×1 / 1×2 / 2×2 / 3×2* (columns × rows) arrange the active
+  project's windows in a fixed grid with no overlap (*Tile windows* still picks a grid automatically; floating stays the
+  default). Windows beyond the cell count are **minimized** (focused one kept), never closed; *Restore minimized* brings
+  them back. `⌥/Alt+1–9` focuses (and un-minimizes, switching project if needed) the Nth window of the active project in
+  creation order. Rule: plain Alt+digit is ignored while typing in an input or a terminal (it's a readline Meta key there);
+  `⌘⌥/Ctrl+Alt+1–9` works everywhere, including inside a terminal. Matched by `e.code`, so macOS Option works. In the Help overlay.
 - 🔌 **`npx` runnable** — `npx github:kiril6/termdeck` fetches deps and launches the server with no clone (`bin: termdeck`, shebang on `server.js`). Runs correctly as an installed dependency (npx / `npm i -g`), not just from a repo clone: `/vendor/*` assets resolve xterm via `require.resolve` (deps get hoisted to a parent `node_modules`, so `__dirname/node_modules` would 404), and node-pty's `spawn-helper` is `chmod +x`'d at startup on macOS (installs that skip `install.js` leave it non-executable → `posix_spawnp failed`). tmux/durable-session support only if `tmux` is on the host (offered for install on first interactive run — see Durable sessions).
 - 🔌 **Auto port fallback** — default port is 3000. If it's busy and `PORT` wasn't set, the server walks up to the next free port automatically (3001, 3002, … up to 20 tries) and prints which one it landed on — so `npx` still works when 3000 is taken. If you **explicitly** set `PORT`, it's respected: a clash fails loudly with a `PORT=<n+1>` hint rather than silently moving. `HOST=0.0.0.0` (or a LAN IP) still binds where you ask.
 

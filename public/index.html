@@ -933,6 +933,8 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
       <div class="sc-row"><span>Search sessions</span><div class="sc-keys"><kbd>⌘</kbd><kbd>F</kbd></div></div>
       <div class="sc-row"><span>Toggle directory tree</span><div class="sc-keys"><kbd>⌘</kbd><kbd>B</kbd></div></div>
       <div class="sc-row"><span>Tile all windows</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>⇧</kbd><kbd>T</kbd></div></div>
+      <div class="sc-row"><span>Focus Nth window of project</span><div class="sc-keys"><kbd>⌥</kbd><kbd>1–9</kbd></div></div>
+      <div class="sc-row"><span>…same, from inside a terminal</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>1–9</kbd></div></div>
       <div class="sc-row"><span>Broadcast input to all shells</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>B</kbd></div></div>
       <div class="sc-row"><span>Play game (Dino runner)</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>G</kbd></div></div>
       <div class="sc-row"><span>Open file</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>O</kbd></div></div>
@@ -2909,15 +2911,25 @@ function setBroadcast(on){
 bcastBtn.addEventListener("click",()=>setBroadcast(!broadcastOn));
 function tileable(){return order.some((id)=>{const s=sessions.get(id);return s&&s.project===activeProject&&!s.minimized;});}
 function syncTileBtn(){tileBtn.disabled=!tileable();}
-function tileAll(){
-  const vis=order.map((id)=>sessions.get(id)).filter((s)=>s&&s.project===activeProject&&!s.minimized);
+function tileGrid(cols,rows,label){
+  let vis=order.map((id)=>sessions.get(id)).filter((s)=>s&&s.project===activeProject&&!s.minimized);
   if(!vis.length)return;
+  const n=cols*rows;
+  if(vis.length>n){                       // more windows than cells: keep the focused one, minimize the rest
+    const f=vis.indexOf(sessions.get(focusedId));
+    if(f>=n)[vis[0],vis[f]]=[vis[f],vis[0]];
+    vis.slice(n).forEach(minimize); vis=vis.slice(0,n);
+  }
   const dr=desktop.getBoundingClientRect();
-  const cols=Math.ceil(Math.sqrt(vis.length)),rows=Math.ceil(vis.length/cols);
   const gap=8,cw=(dr.width-gap*(cols+1))/cols,ch=(dr.height-gap*(rows+1))/rows;
   vis.forEach((s,i)=>{const c=i%cols,r=Math.floor(i/cols);s.maximized=false;s.win.classList.remove("max");Object.assign(s.win.style,{left:(gap+c*(cw+gap))+"px",top:(gap+r*(ch+gap))+"px",width:cw+"px",height:ch+"px"});refitActive(s);});
-  scheduleSave(); toast(ICON.grid,"Tiled",vis.length+" windows arranged",2500);
+  scheduleSave(); toast(ICON.grid,label||"Tiled",vis.length+" windows arranged",2500);
 }
+function tileAll(){
+  const k=order.filter((id)=>{const s=sessions.get(id);return s&&s.project===activeProject&&!s.minimized;}).length;
+  const cols=Math.ceil(Math.sqrt(k));tileGrid(cols,Math.ceil(k/cols));
+}
+const LAYOUT_PRESETS=[[1,1],[2,1],[1,2],[2,2],[3,2]];   // [columns, rows]
 
 /* ════════════════════════════════════════════════
    SNAP + ALIGN
@@ -3152,6 +3164,7 @@ const PAL_CMDS=[
   {icon:ICON.terminal,label:"New terminal",sub:"Open a shell window",kbd:"\u2318\u2325T",run:()=>createSession({cwd:curCwd()})},
   {icon:ICON.log,label:"New log panel",sub:"Read-only output monitor",kbd:"\u2318\u2325L",run:()=>createSession({cwd:curCwd()},true)},
   {icon:ICON.grid,label:"Tile windows",sub:"Arrange into a grid",kbd:"\u2318\u2325\u21e7T",run:tileAll},
+  ...LAYOUT_PRESETS.map(([c,r])=>({icon:ICON.grid,label:"Layout "+c+"\u00d7"+r,sub:"Fixed grid; extra windows are minimized",run:()=>tileGrid(c,r,"Layout "+c+"\u00d7"+r)})),
   {icon:ICON.sidebar,label:"Toggle directory tree",sub:"Show/hide sidebar",kbd:"\u2318B",run:toggleSidebar},
   {icon:ICON.search,label:"Search sessions",sub:"Filter by name or path",kbd:"\u2318F",run:()=>{closePalette();openSessSearch();}},
   {icon:ICON.theme,label:"Change theme",sub:"Open theme picker",kbd:"\u2318\u21e7P",run:()=>{closePalette();openThemePop(null,themeBtn);}},
@@ -3698,6 +3711,12 @@ document.addEventListener("keydown",(e)=>{
     scOverlay.classList.contains("open")?scOverlay.classList.remove("open"):openShortcuts(); return;
   }
   if(mod&&e.key==="k"){e.preventDefault(); palette.classList.contains("open")?closePalette():openPalette(); return;}
+  // Alt/⌥+1–9 → Nth window of the active project. Plain Alt is left alone while typing (inputs, terminals: Alt+digit is
+  // a readline/Meta key there); ⌘⌥/Ctrl+Alt+1–9 works everywhere. e.code, because mac Option rewrites e.key.
+  if(e.altKey&&!e.shiftKey&&/^Digit[1-9]$/.test(e.code)&&(mod||!e.target.closest("input,textarea,select,[contenteditable]"))){
+    const s=order.map((id)=>sessions.get(id)).filter((w)=>w&&w.project===activeProject)[+e.code.slice(5)-1];
+    if(s){e.preventDefault(); revealWindow(s);} return;
+  }
   // ⌘⌥/Ctrl+Alt combos below use e.code (not e.key): mac Alt rewrites e.key (⌥T→"†").
   // These moved off plain ⌘/Ctrl because the browser/OS hard-owns those (new-tab, omnibox, etc.).
   if(mod&&e.altKey&&!e.shiftKey&&e.code==="KeyT"){e.preventDefault(); createSession({cwd:curCwd()}); return;}       // new terminal (⌘T = browser new-tab)
