@@ -3163,8 +3163,8 @@ function openThemePop(scoped,anchor){
 const PAL_CMDS=[
   {icon:ICON.terminal,label:"New terminal",sub:"Open a shell window",kbd:"\u2318\u2325T",run:()=>createSession({cwd:curCwd()})},
   {icon:ICON.log,label:"New log panel",sub:"Read-only output monitor",kbd:"\u2318\u2325L",run:()=>createSession({cwd:curCwd()},true)},
-  {icon:ICON.grid,label:"Tile windows",sub:"Arrange into a grid",kbd:"\u2318\u2325\u21e7T",run:tileAll},
-  ...LAYOUT_PRESETS.map(([c,r])=>({icon:ICON.grid,label:"Layout "+c+"\u00d7"+r,sub:"Fixed grid; extra windows are minimized",run:()=>tileGrid(c,r,"Layout "+c+"\u00d7"+r)})),
+  {layout:1,icon:ICON.grid,label:"Tile windows",sub:"Auto-arrange into the best-fit grid",kbd:"\u2318\u2325\u21e7T",run:tileAll},
+  ...LAYOUT_PRESETS.map(([c,r])=>({layout:1,icon:ICON.grid,label:"Layout "+c+"\u00d7"+r,sub:c+" column"+(c>1?"s":"")+" \u00d7 "+r+" row"+(r>1?"s":"")+" \u2014 extra windows are minimized",run:()=>tileGrid(c,r,"Layout "+c+"\u00d7"+r)})),
   {icon:ICON.sidebar,label:"Toggle directory tree",sub:"Show/hide sidebar",kbd:"\u2318B",run:toggleSidebar},
   {icon:ICON.search,label:"Search sessions",sub:"Filter by name or path",kbd:"\u2318F",run:()=>{closePalette();openSessSearch();}},
   {icon:ICON.theme,label:"Change theme",sub:"Open theme picker",kbd:"\u2318\u21e7P",run:()=>{closePalette();openThemePop(null,themeBtn);}},
@@ -3187,10 +3187,10 @@ const PAL_CMDS=[
 ];
 
 // Category of each built-in command; unlisted ones fall under Workspace. Snippets/SSH/AI presets/sessions map to the other tabs.
-const PAL_CATS=["All","Terminals","Agents","Workspace","Saved","Sessions"];
+const PAL_CATS=["All","Terminals","Agents","Layout","Workspace","Saved","Sessions"];
 const PAL_CAT_OF={"New terminal":"Terminals","New log panel":"Terminals","Add SSH host\u2026":"Terminals",
   "New agent task\u2026":"Agents","Review agent changes\u2026":"Agents","Add AI CLI preset\u2026":"Agents","Reset agent order":"Agents","Reset usage":"Agents","Save snippet\u2026":"Saved"};
-PAL_CMDS.forEach((c)=>{c.cat=PAL_CAT_OF[c.label]||"Workspace";});
+PAL_CMDS.forEach((c)=>{c.cat=PAL_CAT_OF[c.label]||(c.layout?"Layout":"Workspace");});
 let palCat="All", aiMore=false;   // aiMore: "More agents" expanded
 const inCat=(c)=>palCat==="All"||palCat===c;
 const palCats=document.getElementById("pal-cats");

@@ -62,6 +62,8 @@ test.describe('layout presets + Alt+N (#51)', () => {
     await page.locator('#new').click();
     await expect(page.locator('.win')).toHaveCount(3);
     await openPalette(page);
+    await page.locator('.pal-cat', { hasText: 'Layout' }).click();
+    await expect(page.locator('.pal-item')).toHaveCount(6);           // Tile windows + 5 presets
     await page.keyboard.type('Layout 2×2');
     await page.keyboard.press('Enter');
     await expect(page.locator('.win:visible')).toHaveCount(3);        // 3 windows fit a 2×2
