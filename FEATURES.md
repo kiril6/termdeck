@@ -63,7 +63,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   their alt text, so a file can't inject markup or trigger requests. Not full CommonMark (no nested lists /
   reference links). In the hosted demo the tree's `README.md` and the palette command open a sample document.
 - 🧭 **First-run tour** — a 5-step spotlight walkthrough (⌘K palette → New agent task → agent queue → projects & dock → Help) that auto-shows once on a first visit (not on narrow/touch screens) and never again once closed (`td-tour-done` in `localStorage`). Replay: palette → *Take the tour*, the Help sheet, or the empty-desktop link. Esc closes, ←/→ step, focus stays in the card; no layout shift, no network, animation off under `prefers-reduced-motion`. Works in the hosted demo.
-- 🗂️ **Palette categories** — a chip row under the ⌘K input (*All · Terminals · Agents · Workspace · Saved · Sessions*) narrows the list; click a chip or press **Tab / Shift+Tab** to cycle, and the search text still applies inside the chosen category. Resets to *All* each time the palette opens. A **×** in the input (or **Ctrl+U**) clears the typed text.
+- 🗂️ **Palette categories** — a chip row under the ⌘K input (*All · Terminals · Agents · Layout · Workspace · Saved · Sessions*; *Layout* holds Tile windows and the fixed-grid presets) narrows the list; click a chip or press **Tab / Shift+Tab** to cycle, and the search text still applies inside the chosen category. Resets to *All* each time the palette opens. A **×** in the input (or **Ctrl+U**) clears the typed text.
 - ⌨️ **Palette shortcut hints** — every palette command that has a shortcut shows it, matching the real binding.
   Frequent actions get one (*Open file* `⌘⌥O`, *New agent task* `⌘⌥R`, *Review agent changes* `⌘⌥D`); one-off setup
   dialogs (*Add SSH host*, *Add AI CLI preset*, *Set scrollback*) deliberately stay palette-only. *Maximize / restore*
@@ -505,6 +505,12 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   that the server will move), network exposure / token state, wildcard `TD_ALLOWED_HOSTS`, `TD_*` numbers that would
   silently fall back to defaults, and `TD_LOG_DIR` writability. Each problem prints its fix. Exit 0 = all good,
   1 = any warning/failure. No network calls; plain text when piped or `NO_COLOR` is set.
+- 🖥️ **Layout presets + Alt+N (#51)** — palette commands *Layout 1×1 / 2×1 / 1×2 / 2×2 / 3×2* (columns × rows) arrange the active
+  project's windows in a fixed grid with no overlap (*Tile windows* still picks a grid automatically; floating stays the
+  default). Windows beyond the cell count are **minimized** (focused one kept), never closed; *Restore minimized* brings
+  them back. `⌥/Alt+1–9` focuses (and un-minimizes, switching project if needed) the Nth window of the active project in
+  creation order. Rule: plain Alt+digit is ignored while typing in an input or a terminal (it's a readline Meta key there);
+  `⌘⌥/Ctrl+Alt+1–9` works everywhere, including inside a terminal. Matched by `e.code`, so macOS Option works. In the Help overlay.
 - 🔌 **Phone notifications webhook (#84)** — `TD_NOTIFY_URL=<http(s) url>` makes the server POST one short JSON body
   (`event, project, session, tool, detail, url`) when an agent hook event matches `TD_NOTIFY_EVENTS` (default
   `permission_request`; also `stop`, `error`, …). Works with ntfy.sh (sends `Title`/`Click` headers, so a tap opens

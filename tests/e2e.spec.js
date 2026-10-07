@@ -55,6 +55,29 @@ test.describe('demo mode (no backend)', () => {
   });
 });
 
+test.describe('layout presets + Alt+N (#51)', () => {
+  test('1×1 minimizes extras; Alt+2 restores/focuses the 2nd window', async ({ page }) => {
+    await boot(page, '/?demo');
+    await page.locator('#new').click();
+    await page.locator('#new').click();
+    await expect(page.locator('.win')).toHaveCount(3);
+    await openPalette(page);
+    await page.locator('.pal-cat', { hasText: 'Layout' }).click();
+    await expect(page.locator('.pal-item')).toHaveCount(6);           // Tile windows + 5 presets
+    await page.keyboard.type('Layout 2×2');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.win:visible')).toHaveCount(3);        // 3 windows fit a 2×2
+    await openPalette(page);
+    await page.keyboard.type('Layout 1×1');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.win:visible')).toHaveCount(1);        // extras minimized, not closed
+    await expect(page.locator('.win')).toHaveCount(3);
+    await page.locator('body').click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press('Alt+2');
+    await expect(page.locator('.win:visible')).toHaveCount(2);        // Alt+2 restored the 2nd window
+  });
+});
+
 test('hosted demo copy matches a fresh npm run build:demo', () => {
   const f = path.join(ROOT, 'docs', 'app', 'index.html');
   const before = fs.readFileSync(f, 'utf8');

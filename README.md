@@ -105,7 +105,8 @@ See also [Known limits](#known-limits).
 ## Features
 
 **Terminals & layout**
-- Floating, draggable, resizable windows; tile into a grid, snap and glue windows together, tabs per window.
+- Floating, draggable, resizable windows; snap and glue windows together, tabs per window.
+- **Layouts:** auto-tile, or pick a fixed grid (1×1, 2×1, 1×2, 2×2, 3×2) from the palette's *Layout* tab — extra windows are minimized, not closed. `⌥1`–`9` jumps to the Nth window.
 - **Projects** group windows; each remembers its folder. A **file tree** (`⌘B`) with a built-in file and Markdown viewer.
 - **Live working directory** on every window, clickable links and `file:line` paths, find in scrollback, GPU rendering.
 - 24 themes (17 dark, 7 light), per terminal or for the whole dashboard.
@@ -236,6 +237,7 @@ On Windows/Linux, `⌘` = `Ctrl` and `⌥` = `Alt`. Press `?` in the app for the
 | Search sessions | `⌘F` |
 | Toggle directory tree | `⌘B` |
 | Tile all windows | `⌘⌥⇧T` |
+| Jump to the Nth window of the project | `⌥1`–`⌥9` (`⌘⌥1`–`9` also inside a terminal) |
 | Broadcast input to all shells | `⌘⌥B` |
 | Play game (Dino / Snake) | `⌘⌥G` |
 | Open directory | `⌘⇧O` |
