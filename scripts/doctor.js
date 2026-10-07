@@ -113,6 +113,13 @@ async function portFree(port, host) {
     catch { add('warn', 'TD_LOG_DIR', `${dir} is not writable — session logs will not be saved`, 'fix permissions or the path'); }
   }
 
+  if (process.env.TD_NOTIFY_URL) {   // #84: validate only, never sends anything
+    try {
+      const c = require('./notify').configFrom(process.env);
+      add('pass', 'TD_NOTIFY_URL', `webhook on → ${c.url.origin}, events: ${[...c.events].join(',')}${c.detail ? '' : ', detail off'}`);
+    } catch (e) { add('warn', 'TD_NOTIFY_URL', `${e.message} — notifications are off`, 'use a full http(s) URL, e.g. https://ntfy.sh/my-topic'); }
+  }
+
   // Report
   const w = Math.max(...rows.map((r) => r.name.length));
   console.log(`\n  termdeck doctor — v${require('../package.json').version}\n`);
