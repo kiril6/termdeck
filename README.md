@@ -108,6 +108,7 @@ See also [Known limits](#known-limits).
 
 **Productivity**
 - Command palette (`⌘K`), snippets, broadcast input to every shell in a project, safe multi-line paste.
+- **Phone alerts:** set `TD_NOTIFY_URL` (e.g. an [ntfy](https://ntfy.sh) topic) and get a push when an agent is blocked on an approval — tap it to open that terminal. [Setup](docs/remote-access.md#phone-notifications).
 - Notifications when a background command finishes or an agent needs you — in-app, and native when the window isn't focused.
 - A first-run tour, and a game to play while a long command runs.
 
