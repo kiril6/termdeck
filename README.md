@@ -18,7 +18,7 @@ termdeck runs Claude Code, Codex, Gemini and your own shells as windows in your 
 
 **[Try the live demo](https://kiril6.github.io/termdeck/app/?demo)** (UI only, no install) · [Showcase](https://kiril6.github.io/termdeck/) · [All features](FEATURES.md)
 
-[Quick start](#quick-start) · [Agent loop](#the-agent-loop) · [Security](#security-model) · [Features](#features) · [Install](#install-and-run) · [Configuration](#configuration) · [Shortcuts](#keyboard-shortcuts)
+[Quick start](#quick-start) · [Agent loop](#the-agent-loop) · [Phone](#away-from-your-desk) · [Security](#security-model) · [Features](#features) · [Install](#install-and-run) · [Configuration](#configuration) · [Shortcuts](#keyboard-shortcuts)
 
 ---
 
@@ -69,6 +69,22 @@ termdeck uses tmux under the hood when it's installed, so you keep tmux's durabi
 ![Finish agent task dialog: merge into main, run npm test first, keep the worktree](https://raw.githubusercontent.com/kiril6/termdeck/master/docs/screenshots/finish-task.png)
 
 **Supported agents:** Claude Code, Codex, Gemini, Copilot, Cursor Agent, OpenCode, Qwen Code, Aider — or any CLI you add as a preset. Hooks report exact state for Claude Code and Codex (Gemini CLI is supported but not yet verified); Approve / Deny works with Claude Code and Codex. Without hooks, termdeck estimates state from terminal output.
+
+---
+
+## Away from your desk
+
+Agents block on approvals while you're elsewhere. Two optional pieces cover that, and both stay off unless you set them up:
+
+1. **Reach it from your phone** over [Tailscale Serve](docs/remote-access.md) (private to your devices; the server stays on loopback) or an SSH tunnel. Remote access turns the access token on.
+2. **Get pinged** when an agent needs you: set `TD_NOTIFY_URL` to an [ntfy](https://ntfy.sh) topic or any webhook. Tap the push, land on that terminal, tap **Approve**.
+
+```bash
+TD_ALLOWED_HOSTS=mybox.tail1234.ts.net TD_NOTIFY_URL=https://ntfy.sh/my-unguessable-topic npx @kiril6/termdeck
+tailscale serve --bg 3000
+```
+
+Needs the [agent hooks](docs/agent-hooks.md) for Approve and the exact state. Alerts include the command unless `TD_NOTIFY_DETAIL=0`. Full steps: [remote access](docs/remote-access.md).
 
 ---
 
