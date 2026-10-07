@@ -271,12 +271,12 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   when any of its tabs is waiting, **red** when any is blocked on an approval (red wins). Recomputed as tab
   state changes, on session close, and when a session moves between projects; cleared when the last flagged
   tab/session goes away.
-- 🔲 **Live overview** — palette → *Live overview* opens a full-screen, read-only grid with one tile per
+- 🔲 **Live overview** — toolbar grid button (⋯ menu below 1260px) or palette → *Live overview* opens a full-screen, read-only grid with one tile per
   tab across all projects (grouped by project): the tab's last ~9 output lines plus its state (needs approval /
   waiting / running / idle / exited; dot and border tinted). Refreshes every 1.5 s **only while open** (timer
   stops on close); output is rendered as text, no input. Click a tile (or Enter) to jump to that window and
   tab; Esc or ✕ closes. Reads the already-streamed xterm buffer — no extra endpoint or WebSocket.
-- 🧭 **Cross-project agent queue** — a toolbar button (⋯ overflow menu below 1200px) opens a popover
+- 🧭 **Cross-project agent queue** — a toolbar button (⋯ overflow menu below 1260px) opens a popover
   listing **every agent tab across all projects** in one who-needs-me queue, ranked
   **needs approval → waiting → working**, ties broken alphabetically by project, session, then tab.
   Clicking a row jumps straight to it: switches project, reveals the window, focuses the tab, closes the
@@ -397,7 +397,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   Text on accent-filled surfaces (the primary dialog button, hovered menu rows) is picked per theme as near-black or white, whichever contrasts more with that theme's accent (≥4.7:1 across all 24), via the `--on-accent` variable.
 - 🖥️ Dock — bottom session bar with activity/attention indicators, overflow edge hints, and pointer-event drag-and-drop reordering (desktop: immediate; touch: long-press ~250ms to drag, so swiping over chips scrolls the dock).
 - 🖥️ Tiling (`⌘⌥⇧T`), fullscreen (`F11`).
-- 🖥️ **Responsive toolbar** — below ~1200px the secondary toolbar buttons (Tree, Search, Tile, Cast,
+- 🖥️ **Responsive toolbar** — below ~1260px the secondary toolbar buttons (Tree, Search, Tile, Cast,
   Dir, Theme, Fullscreen, Help) collapse into a single **⋯** overflow menu; the brand, connection
   status, `⌘K`, and **New terminal** stay on the bar. Prevents the toolbar overflowing off narrow windows.
 - 🖥️ Muted `© 2026 kiril6 · MIT` credit, bottom-right of the empty desktop only (hides with the

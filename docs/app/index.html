@@ -47,7 +47,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);overflow:hid
 .status.demo .led{background:var(--demo);box-shadow:0 0 8px var(--demo);}
 .bar-actions{display:flex;align-items:center;gap:8px;}
 .btn.menu-btn{display:none;font-size:15px;line-height:1;padding:6px 10px;}
-@media (max-width:1200px){ /* full inline toolbar needs ~1167px; collapse before it overflows */
+@media (max-width:1260px){ /* full inline toolbar needs ~1215px; collapse before it overflows */
   .btn.menu-btn{display:inline-flex;align-items:center;}
   .bar-actions{position:absolute;top:calc(100% + 6px);right:10px;z-index:6000;
     flex-direction:column;align-items:stretch;gap:4px;min-width:190px;padding:6px;
@@ -779,6 +779,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
   <button class="kbdhint" id="pal-btn">⌘ K</button>
   <div class="bar-actions" id="bar-actions">
     <button class="btn ico" id="sb-btn" data-label="Tree"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 7v12M4.5 12h4M4.5 19h4"/><rect x="2.5" y="3" width="4" height="4" rx="1"/><rect x="8.5" y="10" width="4" height="4" rx="1"/><rect x="8.5" y="17" width="4" height="4" rx="1"/><path d="M8.5 5H21M14.5 12H21M14.5 19H21"/></svg></button>
+    <button class="btn ico" id="ov-btn" data-label="Overview" title="Live overview of all sessions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z"/></svg></button>
     <button class="btn ico" id="agent-btn" data-label="Agents" title="Agent overview (queue across all projects)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg><span class="agent-badge" id="agent-badge"></span></button>
     <button class="btn ico" id="search-btn" data-label="Search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></button>
     <button class="btn" id="tile"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>Tile</button>
@@ -3268,6 +3269,7 @@ function renderOverview(){
 function openOverview(){closeModals("ov"); ovOverlay.classList.add("open"); renderOverview(); clearInterval(ovTimer); ovTimer=setInterval(renderOverview,1500);}
 function closeOverview(){ovOverlay.classList.remove("open"); clearInterval(ovTimer); ovTimer=null;}
 document.getElementById("ov-close").addEventListener("click",closeOverview);
+document.getElementById("ov-btn").addEventListener("click",()=>ovOverlay.classList.contains("open")?closeOverview():openOverview());
 
 /* ════════════════════════════════════════════════
    COMMAND PALETTE
