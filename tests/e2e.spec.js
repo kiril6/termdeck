@@ -164,6 +164,7 @@ test.describe('live backend', () => {
     const ask = async (branch) => {
       await openPalette(page);
       await page.locator('#pal-input').fill('New agent task');
+      await expect(page.locator('.pal-item.hi', { hasText: 'New agent task' })).toBeVisible();   // Enter only runs the highlighted row once filtering has settled (slow CI)
       await page.keyboard.press('Enter');
       await page.getByPlaceholder('agent/fix-login').fill(branch);
       await page.getByRole('button', { name: 'Create' }).click();
