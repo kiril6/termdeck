@@ -58,7 +58,7 @@ termdeck uses tmux under the hood when it's installed, so you keep tmux's durabi
 
 ![Agent queue: one agent needs approval for a command, one is waiting, one is working; two of them change the same lines of client.js](https://raw.githubusercontent.com/kiril6/termdeck/master/docs/screenshots/agent-queue.png)
 
-**3. Unblock.** With the optional [agent hooks](docs/agent-hooks.md) (`termdeck hooks install`), the queue shows the exact command an agent wants to run with **Approve / Deny** buttons. termdeck never answers on its own — only when you click, or through an allow-rule you created yourself.
+**3. Unblock.** With the optional [agent hooks](docs/agent-hooks.md) (small scripts your agent CLI runs to report what it's doing; `termdeck hooks install` sets them up and asks first), the queue shows the exact command an agent wants to run with **Approve / Deny** buttons. termdeck never answers on its own — only when you click, or through an allow-rule you created yourself.
 
 **4. Review.** *Review agent changes…* shows a read-only diff of everything the agent changed since its branch was cut — committed and uncommitted work in one view.
 
@@ -108,7 +108,7 @@ See also [Known limits](#known-limits).
 - Floating, draggable, resizable windows; snap and glue windows together, tabs per window.
 - **Layouts:** auto-tile, or pick a fixed grid (1×1, 2×1, 1×2, 2×2, 3×2) from the palette's *Layout* tab — extra windows are minimized, not closed. `⌥1`–`9` jumps to the Nth window.
 - **Projects** group windows; each remembers its folder. A **file tree** (`⌘B`) with a built-in file and Markdown viewer.
-- **Live working directory** on every window, clickable links and `file:line` paths, find in scrollback, GPU rendering.
+- **Live working directory, last command and dev-server port** in every window's footer (click the `:PORT` to open it when running locally), clickable links and `file:line` paths, find in scrollback, GPU rendering.
 - 24 themes (17 dark, 7 light), per terminal or for the whole dashboard.
 
 ![Four terminals tiled with the file tree open, in the GitHub Light theme](https://raw.githubusercontent.com/kiril6/termdeck/master/docs/screenshots/workspace-light.png)
