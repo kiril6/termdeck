@@ -28,13 +28,13 @@ termdeck runs Claude Code, Codex, Gemini and your own shells as windows in your 
 npx @kiril6/termdeck
 ```
 
-Needs **Node.js 18+**. It opens **http://localhost:3000** in your browser. Optional: install **tmux** (`brew install tmux` / `sudo apt install tmux`) so shells survive a server restart. Other ways to install are [below](#install-and-run).
+Needs **Node.js 18+**. It opens **http://localhost:3000** in your browser. Optional: install **tmux** (a terminal session manager that keeps shells alive across restarts; `brew install tmux` / `sudo apt install tmux`) so shells survive a server restart. Other ways to install are [below](#install-and-run).
 
 ---
 
 ## Why termdeck
 
-- **Built for agents.** One git worktree per agent, a single queue showing who needs you, one-click approvals, review and merge — the whole loop in one place.
+- **Built for agents.** One git worktree per agent (its own checkout of your repo on its own branch, so agents can't overwrite each other), a single queue showing who needs you, one-click approvals, review and merge — the whole loop in one place.
 - **Private by default.** Bound to `127.0.0.1`. Your shells and their output never leave your machine: no telemetry, no cloud service.
 - **Zero setup.** One command. A handful of npm packages (Express, ws, node-pty, xterm.js), installed automatically, no compiler needed. Works offline after install.
 - **A real GUI.** Free-floating, resizable windows, projects, a file tree and 24 themes — not a grid of panes you drive by keyboard.
@@ -58,7 +58,7 @@ termdeck uses tmux under the hood when it's installed, so you keep tmux's durabi
 
 ![Agent queue: one agent needs approval for a command, one is waiting, one is working; two of them change the same lines of client.js](https://raw.githubusercontent.com/kiril6/termdeck/master/docs/screenshots/agent-queue.png)
 
-**3. Unblock.** With the optional [agent hooks](docs/agent-hooks.md) (small scripts your agent CLI runs to report what it's doing; `termdeck hooks install` sets them up and asks first), the queue shows the exact command an agent wants to run with **Approve / Deny** buttons. termdeck never answers on its own — only when you click, or through an allow-rule you created yourself.
+**3. Unblock.** With the optional [agent hooks](docs/agent-hooks.md) (small scripts your agent CLI runs to report what it's doing; `termdeck hooks install` sets them up and asks first), the queue shows the exact command an agent wants to run with **Approve / Deny** buttons. termdeck never answers on its own — only when you click, or through an allow-rule you created yourself (a saved pattern such as `npm test` that may run without asking).
 
 **4. Review.** *Review agent changes…* shows a read-only diff of everything the agent changed since its branch was cut — committed and uncommitted work in one view.
 
@@ -76,7 +76,7 @@ termdeck uses tmux under the hood when it's installed, so you keep tmux's durabi
 
 Agents block on approvals while you're elsewhere. Two optional pieces cover that, and both stay off unless you set them up:
 
-1. **Reach it from your phone** over [Tailscale Serve](docs/remote-access.md) (private to your devices; the server stays on loopback) or an SSH tunnel. Remote access turns the access token on.
+1. **Reach it from your phone** over [Tailscale Serve](docs/remote-access.md) (private to your devices; the server keeps listening only on your own machine) or an SSH tunnel. Remote access turns the access token on.
 2. **Get pinged** when an agent needs you: set `TD_NOTIFY_URL` to an [ntfy](https://ntfy.sh) topic or any webhook. Tap the push, land on that terminal, tap **Approve**.
 
 ```bash
@@ -93,7 +93,7 @@ Needs the [agent hooks](docs/agent-hooks.md) for Approve and the exact state. Al
 termdeck spawns real shells, so it is locked down by default:
 
 - **It never answers for you.** An agent's permission prompt is only answered when you click Approve, or by an allow-rule you created for that repo. Rules are off by default, and a hard deny-list (`rm -rf`, `sudo`, force-push, curl-to-shell, reading secrets…) can never be allowed automatically. The deny-list is a safety net, not a sandbox. Every decision, manual or by rule, is recorded in an audit log ([details](docs/agent-hooks.md)).
-- **Loopback only.** The server binds to `127.0.0.1`; nothing else on your network can reach it. There is no login on loopback, by design: a process already running as your user can start its own shell anyway.
+- **Local only.** The server listens on `127.0.0.1` ("loopback"), so nothing else on your network can reach it. There is no login in this mode, by design: a process already running as your user can start its own shell anyway.
 - **Blocks malicious web pages.** Every API call and WebSocket is rejected unless its `Origin` and `Host` headers resolve to a known localhost name (or a `TD_ALLOWED_HOSTS` entry). This blocks cross-site and DNS-rebinding attacks, so a website can't connect to your shells or read your files.
 - **Token when exposed.** Bind to another address (`HOST=0.0.0.0` or a specific IP) and termdeck prints a warning and a tokenized URL (`/?t=…`). Opening it once sets a cookie for that browser; everything else gets 401. Each restart creates a new token. For several users or the internet, put real authentication in front of it.
 - **Nothing phones home.** No telemetry, no CDN (xterm.js is served locally), no cloud service.
@@ -108,7 +108,7 @@ See also [Known limits](#known-limits).
 - Floating, draggable, resizable windows; snap and glue windows together, tabs per window.
 - **Layouts:** auto-tile, or pick a fixed grid (1×1, 2×1, 1×2, 2×2, 3×2) from the palette's *Layout* tab — extra windows are minimized, not closed. `⌥1`–`9` jumps to the Nth window.
 - **Projects** group windows; each remembers its folder. A **file tree** (`⌘B`) with a built-in file and Markdown viewer.
-- **Live working directory, last command and dev-server port** in every window's footer (click the `:PORT` to open it when running locally), clickable links and `file:line` paths, find in scrollback, GPU rendering.
+- **Live working directory, last command and dev-server port** in every window's footer (click the `:PORT` to open it when running locally), clickable links and `file:line` paths, search the terminal's history, GPU-accelerated rendering.
 - 24 themes (17 dark, 7 light), per terminal or for the whole dashboard.
 
 ![Four terminals tiled with the file tree open, in the GitHub Light theme](https://raw.githubusercontent.com/kiril6/termdeck/master/docs/screenshots/workspace-light.png)
@@ -196,7 +196,7 @@ The running version is shown in the app's **? Help** panel; see [Releases](https
 
 ### Running it somewhere else
 
-termdeck is a local tool: a Node process that spawns real shells. Static hosts (GitHub Pages, Netlify) can't run it — opened that way it falls back to a UI-only demo. To use it from another device, keep the loopback bind and use a tunnel such as Tailscale Serve or SSH: see [docs/remote-access.md](docs/remote-access.md).
+termdeck is a local tool: a Node process that spawns real shells. Static hosts (GitHub Pages, Netlify) can't run it — opened that way it falls back to a UI-only demo. To use it from another device, keep the default local-only bind and use a tunnel such as Tailscale Serve or SSH: see [docs/remote-access.md](docs/remote-access.md).
 
 ---
 
@@ -207,10 +207,10 @@ What termdeck does *not* do, so none of it is a surprise:
 - **Reboots end shells.** tmux keeps shells alive across a server restart or crash, not a machine reboot. Layout and projects come back; the processes don't — except agent tabs, which relaunch their CLI in resume mode (Claude, Codex, Gemini, Copilot, or your own resume command).
 - **Agent state is a guess unless you install the hooks.** Without [agent hooks](docs/agent-hooks.md), "waiting" and "needs approval" come from output heuristics (idle time, a prompt pattern). The hooks are checked against each CLI's documented payloads, not yet against every CLI version.
 - **Approve / Deny needs the hooks.** It works with Claude Code and Codex only; without hooks termdeck can only jump you to the prompt. See the [security model](#security-model).
-- **Remote access exposes a real shell.** The access token is a per-start secret, not multi-user auth. Keep the loopback bind, or use a tunnel.
+- **Remote access exposes a real shell.** The access token is a per-start secret, not multi-user auth. Keep the default local-only bind, or use a tunnel.
 - **Limits:** 12 terminals per project, 10 projects, 64 live terminals server-wide (`TD_MAX_PANELS`).
 - **Windows:** works through ConPTY, but without tmux shells don't outlive the server, and the working-directory badge shows the spawn directory.
-- **The hosted demo has no backend** — a fake shell, no real PTYs or files.
+- **The hosted demo has no backend** — a fake shell, no real terminals or files.
 - **Viewer:** the Markdown viewer is not full CommonMark (no nested lists or reference links); clickable paths only link files that exist, and only in live mode.
 - **Worktrees are kept until you remove them.** *Finish agent task* removes a worktree only if you opt in.
 
