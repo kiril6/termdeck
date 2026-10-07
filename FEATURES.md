@@ -271,6 +271,11 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   when any of its tabs is waiting, **red** when any is blocked on an approval (red wins). Recomputed as tab
   state changes, on session close, and when a session moves between projects; cleared when the last flagged
   tab/session goes away.
+- 🔲 **Live overview** — palette → *Live overview* opens a full-screen, read-only grid with one tile per
+  tab across all projects (grouped by project): the tab's last ~9 output lines plus its state (needs approval /
+  waiting / running / idle / exited; dot and border tinted). Refreshes every 1.5 s **only while open** (timer
+  stops on close); output is rendered as text, no input. Click a tile (or Enter) to jump to that window and
+  tab; Esc or ✕ closes. Reads the already-streamed xterm buffer — no extra endpoint or WebSocket.
 - 🧭 **Cross-project agent queue** — a toolbar button (⋯ overflow menu below 1200px) opens a popover
   listing **every agent tab across all projects** in one who-needs-me queue, ranked
   **needs approval → waiting → working**, ties broken alphabetically by project, session, then tab.
