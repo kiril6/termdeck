@@ -1951,7 +1951,7 @@ function createSession(desc, isLog){
   if(LIVE&&!isLog){badgeShell.classList.add("pick"); badgeShell.title="Change shell"; badgeShell.onclick=(e)=>{e.stopPropagation(); const sx=sessions.get(id); if(sx) openShellMenu(sx,badgeShell);};}
   const badgeCwd=el("span","badge cwd"); badgeCwd.textContent=desc.cwd||"~";
   const badgeCmd=el("span","badge cmd"), badgePort=el("span","badge port");   // last command + detected dev-server port of the active tab (#22)
-  badgePort.onclick=(e)=>{e.stopPropagation(); const t=activeTab(sessions.get(id)); if(t?.port) window.open("http://"+(location.hostname||"localhost")+":"+t.port,"_blank","noopener");};
+  badgePort.onclick=(e)=>{e.stopPropagation(); const t=activeTab(sessions.get(id)); if(t?.port&&LOCAL_PAGE) window.open("http://localhost:"+t.port,"_blank","noopener");};   // remote (tunnel/proxy): that port isn't reachable from here, so it's info only
   if(isLog){const bl=el("span","badge log"); bl.textContent="read-only"; foot.append(bl);}
   const uptimeEl=el("span","uptime"); uptimeEl.textContent="00:00";
   const footGame=el("span","foot-game"); footGame.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="11" x2="10" y2="11"/><line x1="8" y1="9" x2="8" y2="13"/><line x1="15" y1="12" x2="15.01" y2="12"/><line x1="18" y1="10" x2="18.01" y2="10"/><rect x="2" y="6" width="20" height="12" rx="2"/></svg>'; footGame.title="Play a game while this runs ("+kbd("⌘","⌥","G")+")";
@@ -2345,10 +2345,12 @@ function trackInput(tab,d){
     else if(ch>=" ")tab.line+=ch;
   }
 }
+const LOCAL_PAGE=/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 function updateCmdBadges(s){
   const t=activeTab(s); if(!t)return;
   s.badgeCmd.textContent=t.lastCmd?"$ "+t.lastCmd:""; s.badgeCmd.title=t.lastCmd?"Last command: "+t.lastCmd:"";
-  s.badgePort.textContent=t.port?":"+t.port:""; s.badgePort.title=t.port?"Open localhost:"+t.port:"";
+  s.badgePort.textContent=t.port?":"+t.port:""; s.badgePort.title=t.port?(LOCAL_PAGE?"Open localhost:"+t.port:"Port "+t.port+" on the termdeck host"):"";
+  s.badgePort.style.cursor=LOCAL_PAGE?"":"default";
 }
 function setCwdBadge(s,cwd){s.badgeCwd.textContent=tildePath(cwd); s.badgeCwd.title=cwd||"";}
 // Collapse the home dir to ~ for the cwd badge (Linux /home/<user>, macOS /Users/<user>).
