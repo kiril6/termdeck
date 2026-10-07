@@ -112,6 +112,15 @@ test.describe('live backend', () => {
     await expect(page.locator('.agent-row')).toHaveCount(1);
   });
 
+  test('#t=<id> deep link focuses that terminal', async ({ page }) => {
+    const ids = [];
+    page.on('websocket', (ws) => { const m = /[?&]id=([^&]+)/.exec(ws.url()); if (m) ids.push(decodeURIComponent(m[1])); });
+    await boot(page, '/');
+    await expect.poll(() => ids.length).toBe(1);
+    await page.evaluate((id) => { location.hash = '#t=' + id; }, ids[0]);
+    await expect(page.locator('.win.blink')).toHaveCount(1);
+  });
+
   test('terminal runs a command; reload reattaches and replays the buffer', async ({ page }) => {
     const frames = [];
     page.on('websocket', (ws) => ws.on('framereceived', (f) => frames.push(String(f.payload))));

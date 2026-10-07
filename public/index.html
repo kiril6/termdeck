@@ -4179,6 +4179,10 @@ if(held && held.id!==myTab){
   if(!restoreState()){addProject("default",null,true);switchProject(projectOrder[0]);createSession();}
   else{toast('<span class="led live"></span>',"Restored","Layout loaded from last session",3500);}
   updateDockEdges(); updateProjEdges(); updateAgentOverview(); updateUsageViews();
+  // #84: a notification link (#t=<terminal id>) jumps to that terminal; unknown id = no-op.
+  const jumpToHash=()=>{const m=/^#t=(.+)$/.exec(location.hash);if(!m)return;const id=decodeURIComponent(m[1]);  // server id = <window id>-<tab id>
+    for(const s of sessions.values()){const tab=s.tabs.find((t)=>s.id+"-"+t.id===id);if(tab){revealWindow(s);switchTab(s,tab.id);return;}}};
+  jumpToHash(); addEventListener("hashchange",jumpToHash);
 }
 
 /* ═══ mini-games: dino runner + snake ═══
