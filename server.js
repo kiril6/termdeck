@@ -190,6 +190,10 @@ function expandDir(d) {                              // "" / "~" / "~/x" → abs
 }
 const APP_VERSION = require('./package.json').version;  // single source of truth
 app.get('/api/version', (_req, res) => res.json({ version: APP_VERSION }));
+const checkUpdate = require('./scripts/update-check').createChecker(APP_VERSION, process.env.TD_UPDATE_URL || undefined);
+app.get('/api/update-check', apiGuard, (_req, res) =>             // click-initiated only; the server (not the browser) asks npm
+  checkUpdate().then((r) => res.json(r), () => res.status(502).json({ error: 'registry unreachable' })));
+app.get('/api/changelog', (_req, res) => res.type('text/plain').sendFile(path.join(__dirname, 'CHANGELOG.md'), (e) => { if (e && !res.headersSent) res.status(404).end(); }));
 app.get('/api/ls', apiGuard, (req, res) => {
   const dir = expandDir(req.query.dir);
   if (!safeDir(dir)) return res.status(404).json({ error:'not a directory', dir });
