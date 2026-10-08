@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // termdeck agent-event hook helper (#40). Wire it into an agent CLI's hooks and it reports the
 // agent's lifecycle to the termdeck terminal it runs in:   node "$TD_HOOK" <agent>
-// Reads the hook JSON from stdin (Claude Code / Gemini CLI / Codex share this shape).
+// Reads the hook JSON from stdin (Claude Code / Gemini CLI / Codex / Copilot CLI share this shape).
 // SAFE TO LEAVE INSTALLED: silent no-op outside termdeck (no TD_ID/TD_URL), never blocks the agent
 // (short timeout) and always exits 0 — a hook must not break the agent's turn. The ONE exception (#44):
 // a PermissionRequest is held until you click Approve/Deny in termdeck (or ~2 min / you answer in the
@@ -26,6 +26,9 @@ const EVENTS = {
 };
 
 function toEvent(h, agent) {
+  if (h.hookName === 'permissionRequest') {          // Copilot CLI: this one event arrives camelCase and without hook_event_name (captured, #139)
+    h = { hook_event_name: 'PermissionRequest', session_id: h.sessionId, cwd: h.cwd, tool_name: h.toolName === 'bash' ? 'Bash' : h.toolName, tool_input: h.toolInput };
+  }
   let type = EVENTS[h.hook_event_name];
   if (h.hook_event_name === 'Notification' && /permission/i.test(h.notification_type || h.message || '')) type = 'permission_request';
   if (!type) return null;
@@ -106,8 +109,11 @@ process.stdin.on('end', () => {
       res.on('end', () => {
         if (ev.wait && res.statusCode === 200) {
           let d; try { d = JSON.parse(out).decision; } catch {}
-          if (d === 'allow' || d === 'deny') process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PermissionRequest',
-            decision: d === 'allow' ? { behavior: 'allow' } : { behavior: 'deny', ...(ev.agent === 'codex' ? { message: 'Denied from termdeck' } : {}) } } }));
+          if (d === 'allow' || d === 'deny') {
+            const decision = d === 'allow' ? { behavior: 'allow' } : { behavior: 'deny', ...(ev.agent === 'codex' || ev.agent === 'copilot' ? { message: 'Denied from termdeck' } : {}) };
+            // Copilot CLI only honours the decision at the top level; the Claude-style wrapper is silently ignored (verified on 1.0.93).
+            process.stdout.write(JSON.stringify(ev.agent === 'copilot' ? decision : { hookSpecificOutput: { hookEventName: 'PermissionRequest', decision } }));
+          }
         }
         process.exit(0);
       });

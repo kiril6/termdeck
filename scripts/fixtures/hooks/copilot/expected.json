@@ -1,0 +1,27 @@
+{
+  "user-prompt-submit": {
+    "type": "prompt_submit"
+  },
+  "pre-tool-use-bash": {
+    "type": "tool_start",
+    "tool": "Bash",
+    "detail": "echo hello-from-copilot"
+  },
+  "post-tool-use-bash": {
+    "type": "tool_end",
+    "tool": "Bash",
+    "detail": "echo hello-from-copilot"
+  },
+  "permission-request-bash": {
+    "type": "permission_request",
+    "tool": "Bash",
+    "detail": "echo hello-from-copilot"
+  },
+  "notification-permission": {
+    "type": "permission_request",
+    "detail": "Run command: echo hello-from-copilot"
+  },
+  "stop": {
+    "type": "stop"
+  }
+}

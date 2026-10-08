@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// `termdeck hooks install|uninstall` (#63): set up the agent hooks (docs/agent-hooks.md) without hand-editing JSON.
-//   termdeck hooks install   [--agent claude|gemini|codex|all] [--dry-run] [--yes]
+// `termdeck hooks install|uninstall` (#63; Copilot CLI #139): set up the agent hooks (docs/agent-hooks.md) without hand-editing JSON.
+//   termdeck hooks install   [--agent claude|gemini|codex|copilot|all] [--dry-run] [--yes]
 //   termdeck hooks uninstall [--agent …] [--dry-run] [--yes]
 // MERGES into the CLI's config (never overwrites), is idempotent, shows only OUR entries (other settings may hold
-// secrets), backs the file up and writes atomically. Only ever touches the three known paths, only on this command.
+// secrets), backs the file up and writes atomically. Only ever touches the four known paths, only on this command.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -14,13 +14,18 @@ const CLIS = {
   claude: { dir: '.claude', file: 'settings.json', events: ['UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'PermissionRequest', 'Notification', 'Stop'] },
   gemini: { dir: '.gemini', file: 'settings.json', events: ['BeforeAgent', 'BeforeTool', 'AfterTool', 'Notification', 'AfterAgent'] },
   codex:  { dir: '.codex',  file: 'hooks.json',    events: ['UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'PermissionRequest', 'Stop'] },
+  // Copilot CLI (#139): its own file under ~/.copilot/hooks (every *.json there is loaded), flat entries, PascalCase keys = Claude-style payloads.
+  copilot: { dir: '.copilot', file: path.join('hooks', 'termdeck.json'), flat: true, events: ['UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'PermissionRequest', 'Notification', 'Stop'] },
 };
 const MARK = '$TD_HOOK';                                   // identifies our entries
 // Guarded: outside termdeck $TD_HOOK is unset and a bare `node ""` runs node on stdin (SyntaxError, exit 1 → an error
 // on every hook event in the agent). Found by running the real CLIs (#46). Fixed string — nothing user-supplied is interpolated.
 const commandFor = (agent) => `[ -z "${MARK}" ] || node "${MARK}" ${agent}`;
 const legacyCommandFor = (agent) => `node "${MARK}" ${agent}`;   // what earlier versions wrote; upgraded in place on install
-const isOurs = (h) => h && typeof h.command === 'string' && h.command.includes(MARK);
+const psCommandFor = (agent) => `if ($env:TD_HOOK) { node $env:TD_HOOK ${agent} }`;   // Copilot on Windows runs the powershell field
+const isOurs = (h) => h && [h.command, h.bash].some((c) => typeof c === 'string' && c.includes(MARK));
+// A PermissionRequest hook is held open until you click, so Copilot must not time it out first (our hold is ~125 s).
+const flatEntry = (agent, ev) => ({ type: 'command', bash: commandFor(agent), powershell: psCommandFor(agent), timeoutSec: ev === 'PermissionRequest' ? 130 : 5 });
 
 class Abort extends Error {}
 
@@ -32,23 +37,26 @@ function parseJson(file, raw) {
 // Pure: returns { next, added:[event], present:[event], removed:[event] } without mutating `obj`.
 function plan(obj, agent, action) {
   if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) throw new Abort('config is not a JSON object — left untouched');
-  const next = JSON.parse(JSON.stringify(obj));
+  let next = JSON.parse(JSON.stringify(obj));
   const added = [], present = [], removed = [], updated = [];
   if (next.hooks !== undefined && (next.hooks === null || typeof next.hooks !== 'object' || Array.isArray(next.hooks)))
     throw new Abort('"hooks" is not an object — left untouched');
+  const flat = !!CLIS[agent].flat;                           // flat: entries sit directly in the event list (Copilot); else grouped under {hooks:[…]}
+  const entriesOf = (list) => (flat ? list : list.flatMap((g) => (Array.isArray(g?.hooks) ? g.hooks : [])));
   if (action === 'install') {
     next.hooks = next.hooks || {};
+    if (flat && next.version === undefined) next = { version: 1, ...next };
     for (const ev of CLIS[agent].events) {
       if (next.hooks[ev] !== undefined && !Array.isArray(next.hooks[ev])) throw new Abort(`hooks.${ev} is not a list — left untouched`);
       const groups = next.hooks[ev] = next.hooks[ev] || [];
-      const ours = groups.flatMap((g) => (Array.isArray(g?.hooks) ? g.hooks : [])).filter(isOurs);
+      const ours = entriesOf(groups).filter(isOurs);
       if (ours.length) {
         const stale = ours.filter((h) => h.command === legacyCommandFor(agent));   // only our exact old string — never a hand-edited one
         stale.forEach((h) => { h.command = commandFor(agent); });
         (stale.length ? updated : present).push(ev);
         continue;
       }
-      groups.push({ hooks: [{ type: 'command', command: commandFor(agent) }] });
+      groups.push(flat ? flatEntry(agent, ev) : { hooks: [{ type: 'command', command: commandFor(agent) }] });
       added.push(ev);
     }
     return { next, added, present, removed, updated };
@@ -56,7 +64,8 @@ function plan(obj, agent, action) {
   for (const ev of Object.keys(next.hooks || {})) {          // uninstall: scan every event, not just the table's
     if (!Array.isArray(next.hooks[ev])) continue;
     const before = next.hooks[ev].length;
-    next.hooks[ev] = next.hooks[ev].map((g) => {
+    if (flat) next.hooks[ev] = next.hooks[ev].filter((h) => !isOurs(h));
+    else next.hooks[ev] = next.hooks[ev].map((g) => {
       if (!Array.isArray(g?.hooks)) return g;
       return { ...g, hooks: g.hooks.filter((h) => !isOurs(h)) };
     }).filter((g) => !Array.isArray(g?.hooks) || g.hooks.length > 0);
@@ -101,7 +110,7 @@ async function main(argv) {
     else if (flag === '--agent') agent = inline !== undefined ? inline : argv[++i];
     else usage(`unknown argument "${argv[i]}"`);
   }
-  if (agent !== 'all' && !CLIS[agent]) usage(`--agent must be claude, gemini, codex or all (got "${agent ?? ''}")`);
+  if (agent !== 'all' && !CLIS[agent]) usage(`--agent must be claude, gemini, codex, copilot or all (got "${agent ?? ''}")`);
   const explicit = agent !== 'all';
   const targets = explicit ? [agent] : Object.keys(CLIS);
   const home = os.homedir();
@@ -143,6 +152,11 @@ async function main(argv) {
   for (const w of work) {
     fs.mkdirSync(path.dirname(w.file), { recursive: true });
     if (w.raw !== undefined) fs.copyFileSync(fs.realpathSync(w.file), `${w.file}.termdeck-bak-${stamp()}`);
+    if (action === 'uninstall' && CLIS[w.a].flat && Object.keys(w.p.next).every((k) => k === 'version')) {   // our own file, nothing left in it
+      fs.unlinkSync(fs.realpathSync(w.file));
+      console.log(`  ✓ ${w.label} removed (backup kept)`);
+      continue;
+    }
     writeAtomic(w.file, serialize(w.p.next, w.raw));
     console.log(`  ✓ ${w.label} updated`);
   }
@@ -151,9 +165,9 @@ async function main(argv) {
 }
 
 function usage(msg) {
-  process.stderr.write(`termdeck hooks: ${msg}\n\nUsage:\n  termdeck hooks install   [--agent claude|gemini|codex|all] [--dry-run] [--yes]\n  termdeck hooks uninstall [--agent claude|gemini|codex|all] [--dry-run] [--yes]\n`);
+  process.stderr.write(`termdeck hooks: ${msg}\n\nUsage:\n  termdeck hooks install   [--agent claude|gemini|codex|copilot|all] [--dry-run] [--yes]\n  termdeck hooks uninstall [--agent claude|gemini|codex|copilot|all] [--dry-run] [--yes]\n`);
   process.exit(2);
 }
 
 if (require.main === module) main(process.argv.slice(2)).catch((e) => { console.error('  ✗', e.message); process.exit(1); });
-module.exports = { CLIS, plan, commandFor, isOurs };
+module.exports = { CLIS, plan, commandFor, psCommandFor, isOurs };

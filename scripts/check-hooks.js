@@ -23,8 +23,13 @@ function runHook(cli, payload, env, url) {
 
 (async () => {
   const got = [];
+  let answer = null;   // set → the mock behaves like termdeck after an Approve/Deny click
   const srv = http.createServer((req, res) => {
-    let b = ''; req.on('data', (c) => { b += c; }).on('end', () => { got.push(JSON.parse(b)); res.statusCode = 204; res.end(); });
+    let b = ''; req.on('data', (c) => { b += c; }).on('end', () => {
+      got.push(JSON.parse(b));
+      if (answer) { res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ decision: answer })); }
+      res.statusCode = 204; res.end();
+    });
   });
   await new Promise((r) => srv.listen(0, '127.0.0.1', r));
   const url = 'http://127.0.0.1:' + srv.address().port;
@@ -50,6 +55,21 @@ function runHook(cli, payload, env, url) {
       if (problems.length) { console.error(`✗ ${cli}/${name}: ${problems.join('; ')}`); bad++; } else console.log(`✓ ${cli}/${name}`);
     }
   }
+  // Decision output (#44/#139): what the CLI reads back from stdout after a click. Copilot only honours a top-level
+  // {behavior}; Claude/Codex want the hookSpecificOutput wrapper. Each shape was checked against the real CLI.
+  for (const cli of fs.readdirSync(ROOT).filter((d) => fs.existsSync(path.join(ROOT, d, 'permission-request-bash.json')))) {
+    const payload = fs.readFileSync(path.join(ROOT, cli, 'permission-request-bash.json'), 'utf8');
+    for (const d of ['allow', 'deny']) {
+      answer = d; n++;
+      const r = await runHook(cli, payload, { TD_ID: 't1', TD_URL: url });
+      let out; try { out = JSON.parse(r.out); } catch { out = null; }
+      const dec = cli === 'copilot' ? out : out?.hookSpecificOutput?.decision;
+      const wrapped = !!out?.hookSpecificOutput;
+      if (!dec || dec.behavior !== d || wrapped !== (cli !== 'copilot') || (d === 'deny' && cli === 'copilot' && !dec.message)) { console.error(`✗ ${cli}/decision-${d}: ${JSON.stringify(r.out)}`); bad++; }
+      else console.log(`✓ ${cli}/decision-${d}`);
+    }
+  }
+  answer = null;
   srv.close();
   console.log(bad ? `${bad} of ${n} failed` : `all ${n} payloads ok`);
   process.exit(bad ? 1 : 0);

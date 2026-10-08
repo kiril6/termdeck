@@ -30,12 +30,14 @@ Payloads were captured from real sessions and are replayed through the helper in
 |---|---|---|
 | Claude Code | 2.1.195 | ✅ every event in the snippet; `"$TD_HOOK"` expands; silent and error-free outside termdeck |
 | Codex | codex-cli 0.160.0 | ✅ with one setting (below): all events incl. approval; `apply_patch` files are read from the patch text (it arrives in `tool_input.command`). No `Notification` hook exists |
+| GitHub Copilot CLI | 1.0.93 | ✅ every event in the snippet, incl. Approve / Deny (decision verified: allowed and blocked a real command). `PermissionRequest` arrives camelCase without `hook_event_name`; only a top-level `{"behavior":…}` answer is honoured |
 | Gemini CLI | — | ⚠️ not verified yet (needs a signed-in install); the snippet follows its docs |
 
-**Two things the real CLIs taught us** (both fixed here):
+**Things the real CLIs taught us** (all fixed here):
 - A bare `node "$TD_HOOK" …` **fails outside termdeck** — `$TD_HOOK` is empty, `node ""` runs node on stdin and the hook
   exits 1 with a SyntaxError on every event. The snippets below guard it (`[ -z "$TD_HOOK" ] || node …`), and
   `termdeck hooks install` upgrades older entries in place.
+- **Copilot CLI's permission hook is different** from the other events: camelCase fields (`toolName`, `toolInput`, `sessionId`), no `hook_event_name`, and its answer must be top-level `{"behavior":"allow|deny"}` — the Claude-style `hookSpecificOutput` wrapper is silently ignored (the command then falls through to Copilot's normal prompt). The helper handles both; `check-hooks.js` pins them.
 - **Codex hooks run with a reduced environment**: `TD_ID`/`TD_URL`/`TD_HOOK` arrive empty unless
   `~/.codex/config.toml` has `[shell_environment_policy] inherit = "all"`. (Codex's default excludes variables whose
   names contain `KEY`/`SECRET`/`TOKEN`, so with remote access on `TD_TOKEN` is dropped too.)
@@ -51,7 +53,7 @@ never estimated, and **no dollar figure** (neither transcript has one; termdeck 
 - **Claude Code** repeats one message once per streamed block in the transcript; a naive sum **double-counts (~2×)**, so
   the helper sums per message id. Main conversation only — sub-agent runs are not in that file. `scripts/check-usage.js` pins this in CI.
 - **Codex** `token_count` is cumulative: the helper takes the last one (input − cached input + output).
-- **Gemini CLI**: unchecked, shows nothing. Unreadable / missing / oversized transcripts show nothing (never a `0`).
+- **Copilot CLI / Gemini CLI**: not read, show nothing. Unreadable / missing / oversized transcripts show nothing (never a `0`).
 
 ## Quick setup
 
@@ -61,7 +63,7 @@ termdeck hooks install               # asks, backs up, then merges   (--yes to s
 termdeck hooks uninstall             # removes only termdeck's entries
 ```
 
-It detects Claude Code, Gemini CLI and Codex (`--agent claude|gemini|codex|all`), **merges** into their existing
+It detects Claude Code, Gemini CLI, Codex and GitHub Copilot CLI (`--agent claude|gemini|codex|copilot|all`), **merges** into their existing
 config without touching your other hooks or settings, is idempotent, writes a timestamped
 `<file>.termdeck-bak-…` backup first, and refuses (changing nothing) on a file it can't parse. Prefer to edit by
 hand? The snippets below are exactly what it writes.
@@ -125,7 +127,67 @@ inherit = "all"
 }
 ```
 
-The three CLIs share the same stdin shape (`hook_event_name`, `tool_name`, `tool_input`), so one helper
+## GitHub Copilot CLI
+
+`~/.copilot/hooks/termdeck.json` — a file of its own, so removing it (or `termdeck hooks uninstall`) is clean. Copilot loads every `*.json` in that folder. The `PermissionRequest` entry needs a timeout above termdeck's ~125 s approval hold:
+
+```json
+{
+  "version": 1,
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "bash": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" copilot",
+        "powershell": "if ($env:TD_HOOK) { node $env:TD_HOOK copilot }",
+        "timeoutSec": 5
+      }
+    ],
+    "PreToolUse": [
+      {
+        "type": "command",
+        "bash": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" copilot",
+        "powershell": "if ($env:TD_HOOK) { node $env:TD_HOOK copilot }",
+        "timeoutSec": 5
+      }
+    ],
+    "PostToolUse": [
+      {
+        "type": "command",
+        "bash": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" copilot",
+        "powershell": "if ($env:TD_HOOK) { node $env:TD_HOOK copilot }",
+        "timeoutSec": 5
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "type": "command",
+        "bash": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" copilot",
+        "powershell": "if ($env:TD_HOOK) { node $env:TD_HOOK copilot }",
+        "timeoutSec": 130
+      }
+    ],
+    "Notification": [
+      {
+        "type": "command",
+        "bash": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" copilot",
+        "powershell": "if ($env:TD_HOOK) { node $env:TD_HOOK copilot }",
+        "timeoutSec": 5
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "bash": "[ -z \"$TD_HOOK\" ] || node \"$TD_HOOK\" copilot",
+        "powershell": "if ($env:TD_HOOK) { node $env:TD_HOOK copilot }",
+        "timeoutSec": 5
+      }
+    ]
+  }
+}
+```
+
+The CLIs share the same stdin shape (`hook_event_name`, `tool_name`, `tool_input`), so one helper
 serves all of them. Other CLIs: any hook that can pipe that JSON into `node "$TD_HOOK" <name>` works, or
 POST directly:
 
