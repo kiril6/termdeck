@@ -2,6 +2,9 @@
 
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
+## 1.20.0
+- **GitHub Copilot CLI hooks** — `termdeck hooks install --agent copilot` gives Copilot tabs exact working / waiting / needs-approval state, Approve / Deny from the queue and phone alerts. Verified against Copilot CLI 1.0.93.
+
 ## 1.19.0
 - **Live overview** — palette or toolbar button: a read-only tile per session across all projects with its latest output and state; click a tile to jump to it.
 - **What's new and updates** — the version shows in the footer and Help, Help lists this changelog offline, a one-time toast appears after an upgrade, and *Check for updates* asks npm only when you click.
