@@ -2,6 +2,11 @@
 
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
+## 1.19.0
+- **Live overview** — palette or toolbar button: a read-only tile per session across all projects with its latest output and state; click a tile to jump to it.
+- **What's new and updates** — the version shows in the footer and Help, Help lists this changelog offline, a one-time toast appears after an upgrade, and *Check for updates* asks npm only when you click.
+- The toolbar collapses into the ⋯ menu below 1260px (was 1200px) to fit the new button.
+
 ## 1.18.0
 - **Phone notifications** — set `TD_NOTIFY_URL` (ntfy-ready) to get a push when an agent needs approval.
 - **Layout presets** — 1×1, 2×1, 1×2, 2×2 and 3×2 in the palette; `Alt+1–9` jumps to the Nth window.
