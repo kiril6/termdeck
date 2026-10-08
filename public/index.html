@@ -1368,6 +1368,7 @@ const AICLI_BUILTIN=[
   {id:"cursor",   label:"Cursor Agent", cmd:"cursor-agent"},
   {id:"opencode", label:"OpenCode",     cmd:"opencode", pflag:"--prompt"},
   {id:"qwen",     label:"Qwen Code",    cmd:"qwen",     pflag:"-i"},
+  {id:"agy",      label:"Antigravity",  cmd:"agy",      pflag:"-i", resume:"command agy --continue"},   // Google's successor to Gemini CLI for personal accounts; -i / --continue from `agy --help` (1.2.16)
   {id:"aider",    label:"Aider",        cmd:"aider",    noPrompt:true},
 ];
 const AICLI_SLOTS=4;   // built-in agents shown before "More agents"; custom presets always show

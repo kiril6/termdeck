@@ -68,7 +68,7 @@ termdeck uses tmux under the hood when it's installed, so you keep tmux's durabi
 
 ![Finish agent task dialog: merge into main, run npm test first, keep the worktree](https://raw.githubusercontent.com/kiril6/termdeck/master/docs/screenshots/finish-task.png)
 
-**Supported agents:** Claude Code, Codex, Gemini, Copilot, Cursor Agent, OpenCode, Qwen Code, Aider — or any CLI you add as a preset. Hooks report exact state for Claude Code, Codex and GitHub Copilot CLI (Gemini CLI is supported but not yet verified); Approve / Deny works with Claude Code, Codex and Copilot. Without hooks, termdeck estimates state from terminal output.
+**Supported agents:** Claude Code, Codex, Gemini, Copilot, Cursor Agent, OpenCode, Qwen Code, Antigravity, Aider — or any CLI you add as a preset. Hooks report exact state for Claude Code, Codex and GitHub Copilot CLI (Gemini CLI is supported but not yet verified); Approve / Deny works with Claude Code, Codex and Copilot. Without hooks, termdeck estimates state from terminal output.
 
 ---
 
