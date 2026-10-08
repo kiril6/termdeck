@@ -158,7 +158,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   window. Targets accept full args (`-p 2222 user@host`). Stored per-browser in `localStorage`
   (`td.ssh.v1`), not synced across devices.
 - 🖥️ **AI CLI presets** — one-click launch of an AI coding CLI in a fresh terminal, from the palette's
-  **AI CLI** group. Built-ins: Claude Code, Codex, Gemini, Copilot, plus Cursor Agent, OpenCode, Qwen Code and Aider. Only the top 4 built-ins show; the rest sit behind a **More agents (N)** row (always expanded while you search). Agents are **ranked by use** (decayed launch count in `localStorage` `td.aicli.use.v1`, half-life 14 days; order only changes after 3 launches; palette → *Reset agent order* clears it) and your own presets always show. Each CLI gets its prompt the way it expects (`--prompt` for OpenCode, `-i` for Qwen Code, first argument for the rest; Aider can't pre-fill one, so *New agent task…* launches it bare and tells you). Add your own (palette → *Add AI CLI
+  **AI CLI** group. Built-ins: Claude Code, Codex, Gemini, Copilot, plus Cursor Agent, OpenCode, Qwen Code, Antigravity (`agy`) and Aider. Only the top 4 built-ins show; the rest sit behind a **More agents (N)** row (always expanded while you search). Agents are **ranked by use** (decayed launch count in `localStorage` `td.aicli.use.v1`, half-life 14 days; order only changes after 3 launches; palette → *Reset agent order* clears it) and your own presets always show. Each CLI gets its prompt the way it expects (`--prompt` for OpenCode, `-i` for Qwen Code and Antigravity, first argument for the rest; Aider can't pre-fill one, so *New agent task…* launches it bare and tells you). Add your own (palette → *Add AI CLI
   preset…*) — label + command, stored per-browser in `localStorage` (`td.aicli.v1`), with per-row edit ✎
   / delete 🗑 (built-ins are fixed). Launches via the run-command-on-start path (same as SSH), spawning in
   the active project root; on agent exit you drop back to the local shell. Tabs launched this way are
@@ -179,7 +179,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   custom presets). If you exited the agent but left its shell open, a reboot will resume it again.
   **Verified with real Claude Code 2.1.195:** a conversation survived a killed tmux session + reload and
   remembered its context, `--resume <id>` restored an interactive session, a plain reload did not re-run it.
-  *Not verified:* Codex / Gemini / Copilot resume flows. A Claude that opens its agent dashboard on bare
+  *Not verified:* Codex / Gemini / Copilot / Antigravity (`agy --continue`) resume flows. A Claude that opens its agent dashboard on bare
   `claude` can't `--resume` a running background agent (falls back to a clean start).
 - 🖥️ **Agent worktrees — one isolated checkout per task** (palette → *New agent task…*). Three agents
   loose in one repo overwrite each other, so a task gets its own `git worktree`: pick a **branch name**,
