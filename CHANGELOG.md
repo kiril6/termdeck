@@ -2,6 +2,10 @@
 
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
+## 1.21.0
+- **Antigravity** (`agy`, Google's successor to Gemini CLI for personal accounts) is now a built-in agent under *More agents*, with prompt pre-fill and resume.
+- Docs spell out exactly which Gemini CLI hook events are verified (settings format and session events on 0.62.0).
+
 ## 1.20.0
 - **GitHub Copilot CLI hooks** — `termdeck hooks install --agent copilot` gives Copilot tabs exact working / waiting / needs-approval state, Approve / Deny from the queue and phone alerts. Verified against Copilot CLI 1.0.93.
 
