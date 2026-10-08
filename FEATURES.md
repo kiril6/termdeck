@@ -337,7 +337,13 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   rules file cannot cover it. It is best-effort, **not a sandbox**; CI (`scripts/check-rules.js`) pins matcher
   and deny-list behaviour. Same trust as terminal input: a local process that can already drive termdeck could
   also create a rule, so keep the loopback bind / access token. Rules only act through hooks (Claude Code,
-  Codex) and need no browser open.
+  Codex, Copilot) and need no browser open.
+- 🤖 **GitHub Copilot CLI hooks (#139)** — `termdeck hooks install --agent copilot` writes `~/.copilot/hooks/termdeck.json`
+  (PascalCase events → Claude-style payloads), giving Copilot tabs exact working / waiting / needs-approval state, the
+  current tool, **Approve / Deny** from the queue and phone alerts. Verified on Copilot CLI 1.0.93: its
+  `PermissionRequest` payload is camelCase with no `hook_event_name`, and only a **top-level** `{"behavior":…}`
+  decision is honoured (the Claude-style wrapper is ignored) — both handled in `scripts/td-hook.js` and pinned by
+  `scripts/check-hooks.js`. Token totals are not read for Copilot.
 - 🔌 **Agent event bridge** — an agent CLI's lifecycle hooks report real state instead of the idle/regex
   guesses. Every PTY gets `TD_ID`, `TD_URL`, `TD_HOOK` (and `TD_TOKEN` when the access token is on) in its
   environment (tmux ≥ 3.2 via `-e`); the server also writes its current URL (and token, if on) to `~/.termdeck/server.json` (0600, removed on exit) and the helper falls back to it when `TD_URL` is unreachable, so tmux-kept shells keep reporting after a restart on another port; `scripts/td-hook.js` — a dependency-free, silent, never-blocking
@@ -348,8 +354,8 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   → *working* (also clears a red flag once you answered). The queue row shows the current tool and file
   (and cost, if an agent supplies one; token totals have their own entry below). A tab that receives events is auto-tagged as an agent and
   its output heuristics stand down; the 8s idle watch becomes a 120s safety net (an Esc-interrupt fires
-  no Stop hook). **Without hooks nothing changes.** Setup for Claude Code, Gemini CLI and Codex:
-  [docs/agent-hooks.md](docs/agent-hooks.md). **Verified against real Claude Code and Codex sessions (#46):**
+  no Stop hook). **Without hooks nothing changes.** Setup for Claude Code, Gemini CLI, Codex and GitHub Copilot CLI:
+  [docs/agent-hooks.md](docs/agent-hooks.md). **Verified against real Claude Code, Codex and Copilot CLI sessions (#46, #139):**
   captured payloads live in `scripts/fixtures/hooks/` and CI (`scripts/check-hooks.js`) replays them through
   the helper, so a CLI changing its hook format fails the build instead of silently breaking the queue
   (Gemini CLI still unverified). Running the real CLIs surfaced and fixed: the hook command is now guarded
@@ -503,8 +509,8 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   as the equivalent env vars *before* the server boots and win over existing ones; a bad value or unknown flag prints
   help and exits 2; works through `npm start -- --port 4000` too). No argument-parsing dependency (`scripts/cli.js`).
 - 🔌 **`termdeck hooks install|uninstall`** — sets up the agent hooks without hand-editing JSON (`scripts/hooks.js`).
-  Detects Claude Code (`~/.claude/settings.json`), Gemini CLI (`~/.gemini/settings.json`) and Codex
-  (`~/.codex/hooks.json`) by their config dir (`--agent` forces one and creates its file). **Merges** the
+  Detects Claude Code (`~/.claude/settings.json`), Gemini CLI (`~/.gemini/settings.json`), Codex
+  (`~/.codex/hooks.json`) and GitHub Copilot CLI (its own file `~/.copilot/hooks/termdeck.json`, deleted again on uninstall) by their config dir (`--agent` forces one and creates its file). **Merges** the
   `node "$TD_HOOK" <agent>` entries into each event's list — your existing hooks and every other key are kept, a
   second run is a no-op, `uninstall` removes only our entries. Shows **only our entries** (never other settings,
   which may hold secrets), asks to confirm (`--yes` skips, `--dry-run` writes nothing, a non-terminal without

@@ -10,6 +10,7 @@ instead of the agent queue silently going quiet.
 |---|---|---|
 | Claude Code | 2.1.195 (interactive + `-p`) | all six hook events |
 | Codex | codex-cli 0.160.0 (interactive TUI) | no `Notification` hook exists |
+| GitHub Copilot CLI | 1.0.93 (`copilot -p`, user hooks) | prompt, pre/post tool, permission request (camelCase, no `hook_event_name`), notification, stop |
 | Gemini CLI | **not captured yet** — needs a signed-in install | — |
 
 To add a CLI or refresh one: record the hook's stdin (any hook command that writes stdin to a file),

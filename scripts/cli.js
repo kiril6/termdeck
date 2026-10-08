@@ -10,7 +10,7 @@ const HELP = `termdeck ${VERSION} — browser cockpit for terminals and AI codin
 Usage:
   termdeck [options]       start the server
   termdeck doctor          check this machine (offline) and exit; 0 = all good, 1 = warnings/failures
-  termdeck hooks install   set up agent hooks for Claude Code / Gemini CLI / Codex (also: uninstall, --dry-run, --yes)
+  termdeck hooks install   set up agent hooks for Claude Code / Gemini CLI / Codex / Copilot (also: uninstall, --dry-run, --yes)
   termdeck autostart install   start termdeck at login (launchd / systemd user unit; also: uninstall, --port, --dry-run)
 
 Options:

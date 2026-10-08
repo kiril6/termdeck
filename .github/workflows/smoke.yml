@@ -20,6 +20,9 @@ jobs:
       - run: node server.js --help
       - run: node scripts/check-hooks-docs.js
       - run: node scripts/check-hooks.js
+      - run: node scripts/hooks.test.js
+      - run: node scripts/notify.test.js
+      - run: node scripts/update-check.test.js
       - run: node scripts/check-rules.js
       - run: node scripts/check-usage.js
       - run: node server.js autostart install --dry-run

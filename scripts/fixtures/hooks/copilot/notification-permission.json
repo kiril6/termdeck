@@ -1,0 +1,9 @@
+{
+  "sessionId": "00000000-0000-4000-8000-000000000000",
+  "timestamp": 1767225600000,
+  "cwd": "/home/user/project",
+  "message": "Run command: echo hello-from-copilot",
+  "title": "Permission needed",
+  "hook_event_name": "Notification",
+  "notification_type": "permission_prompt"
+}
