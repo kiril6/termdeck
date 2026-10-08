@@ -109,6 +109,7 @@ See also [Known limits](#known-limits).
 - **Layouts:** auto-tile, or pick a fixed grid (1×1, 2×1, 1×2, 2×2, 3×2) from the palette's *Layout* tab — extra windows are minimized, not closed. `⌥1`–`9` jumps to the Nth window.
 - **Projects** group windows; each remembers its folder. A **file tree** (`⌘B`) with a built-in file and Markdown viewer.
 - **Live working directory, last command and dev-server port** in every window's footer (click the `:PORT` to open it when running locally), clickable links and `file:line` paths, search the terminal's history, GPU-accelerated rendering.
+- **Version, What's new and update check:** the version shows in the footer and Help; Help → *What's new* lists the changelog offline, a one-time toast appears after an upgrade, and *Check for updates* asks npm only when you click.
 - 24 themes (17 dark, 7 light), per terminal or for the whole dashboard.
 
 ![Four terminals tiled with the file tree open, in the GitHub Light theme](https://raw.githubusercontent.com/kiril6/termdeck/master/docs/screenshots/workspace-light.png)
