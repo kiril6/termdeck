@@ -358,7 +358,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   [docs/agent-hooks.md](docs/agent-hooks.md). **Verified against real Claude Code, Codex and Copilot CLI sessions (#46, #139):**
   captured payloads live in `scripts/fixtures/hooks/` and CI (`scripts/check-hooks.js`) replays them through
   the helper, so a CLI changing its hook format fails the build instead of silently breaking the queue
-  (Gemini CLI still unverified). Running the real CLIs surfaced and fixed: the hook command is now guarded
+  (Gemini CLI only partly verified: settings format and `SessionStart`/`SessionEnd` payloads on 0.62.0; its turn events need a non-personal login to capture). Running the real CLIs surfaced and fixed: the hook command is now guarded
   (`[ -z "$TD_HOOK" ] || node …`) because a bare `node ""` errored on every event when the agent ran **outside**
   termdeck — `termdeck hooks install` upgrades old entries in place and leaves hand-edited ones alone; Codex
   `apply_patch` shows the patched file(s) instead of the raw patch text; and Codex needs
