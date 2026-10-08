@@ -47,7 +47,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);overflow:hid
 .status.demo .led{background:var(--demo);box-shadow:0 0 8px var(--demo);}
 .bar-actions{display:flex;align-items:center;gap:8px;}
 .btn.menu-btn{display:none;font-size:15px;line-height:1;padding:6px 10px;}
-@media (max-width:1200px){ /* full inline toolbar needs ~1167px; collapse before it overflows */
+@media (max-width:1260px){ /* full inline toolbar needs ~1215px; collapse before it overflows */
   .btn.menu-btn{display:inline-flex;align-items:center;}
   .bar-actions{position:absolute;top:calc(100% + 6px);right:10px;z-index:6000;
     flex-direction:column;align-items:stretch;gap:4px;min-width:190px;padding:6px;
@@ -276,6 +276,29 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
 .pal-item .pi-del:hover{background:#3a1a1c;color:#ff9b93;}
 .pal-item .pi-del.pi-edit:hover{background:var(--btn-bg);color:var(--accent);}   /* edit = neutral, not the red delete tint */
 .pal-empty{padding:32px;text-align:center;color:var(--muted);font-size:12px;}
+
+/* ── live grid overview (#25) ── */
+.ov-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9991;display:none;flex-direction:column;padding:3vh 3vw;}
+.ov-overlay.open{display:flex;}
+.ov-head{display:flex;align-items:center;justify-content:space-between;color:var(--text);font-size:13px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;margin-bottom:12px;}
+.ov-head small{color:var(--muted);letter-spacing:0;text-transform:none;font-weight:400;margin-left:10px;}
+.ov-x{cursor:pointer;color:var(--muted);display:flex;}.ov-x:hover{color:var(--text);}
+.ov-x svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;}
+.ov-body{overflow-y:auto;flex:1;}
+.ov-proj{color:var(--muted);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin:14px 2px 8px;}
+.ov-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;}
+.ov-tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;}
+.ov-tile:hover,.ov-tile:focus{border-color:var(--accent,#7aa2f7);outline:none;}
+.ov-tile.approval{border-color:#e5484d;}.ov-tile.waiting{border-color:#e6a23c;}
+.ov-tile-h{display:flex;align-items:center;gap:7px;padding:7px 10px;border-bottom:1px solid var(--line);font-size:12px;}
+.ov-tile-h .ov-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
+.ov-tile-h .ov-state{color:var(--muted);font-size:11px;}
+.ov-tile.approval .ov-state{color:#ff9b93;}.ov-tile.waiting .ov-state{color:#e6a23c;}
+.ov-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex:0 0 auto;opacity:.7;}
+.ov-tile.approval .ov-dot{background:#e5484d;opacity:1;}.ov-tile.waiting .ov-dot{background:#e6a23c;opacity:1;}
+.ov-tile.run .ov-dot{background:#3fb950;opacity:1;}
+.ov-out{margin:0;padding:8px 10px;height:170px;overflow:hidden;font:11px/1.35 ui-monospace,Menlo,Consolas,monospace;color:var(--text);white-space:pre;opacity:.9;}
+.ov-empty{color:var(--muted);text-align:center;padding:48px;font-size:13px;}
 
 /* ── keyboard shortcuts overlay ── */
 .sc-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9992;
@@ -763,6 +786,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
   <button class="kbdhint" id="pal-btn">⌘ K</button>
   <div class="bar-actions" id="bar-actions">
     <button class="btn ico" id="sb-btn" data-label="Tree"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 7v12M4.5 12h4M4.5 19h4"/><rect x="2.5" y="3" width="4" height="4" rx="1"/><rect x="8.5" y="10" width="4" height="4" rx="1"/><rect x="8.5" y="17" width="4" height="4" rx="1"/><path d="M8.5 5H21M14.5 12H21M14.5 19H21"/></svg></button>
+    <button class="btn ico" id="ov-btn" data-label="Overview" title="Live overview of all sessions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z"/></svg></button>
     <button class="btn ico" id="agent-btn" data-label="Agents" title="Agent overview (queue across all projects)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg><span class="agent-badge" id="agent-badge"></span></button>
     <button class="btn ico" id="search-btn" data-label="Search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></button>
     <button class="btn" id="tile"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>Tile</button>
@@ -925,6 +949,11 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
   </div>
 </div>
 
+<!-- ═══ LIVE GRID OVERVIEW (#25) ═══ -->
+<div class="ov-overlay" id="ov-overlay">
+  <div class="ov-head"><span>Live overview<small>read-only · click a tile to jump · Esc closes</small></span><span class="ov-x" id="ov-close" title="Close (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></span></div>
+  <div class="ov-body" id="ov-body"></div>
+</div>
 <!-- ═══ KEYBOARD SHORTCUTS ═══ -->
 <div class="sc-overlay" id="sc-overlay">
   <div class="sc-box">
@@ -3205,6 +3234,53 @@ function openThemePop(scoped,anchor){
 }
 
 /* ════════════════════════════════════════════════
+   LIVE GRID OVERVIEW (#25) — read-only tiles of every tab's last output lines
+   ════════════════════════════════════════════════ */
+const ovOverlay=document.getElementById("ov-overlay"), ovBody=document.getElementById("ov-body");
+let ovTimer=null;
+function tabTail(tab,n){
+  const b=tab.term.buffer.active, out=[];
+  for(let y=b.length-1;y>=0&&out.length<n;y--){
+    const t=b.getLine(y)?.translateToString(true)||"";
+    if(t.trim()||out.length) out.unshift(t);   // drop trailing blank rows only
+  }
+  return out.join("\n");
+}
+function renderOverview(){
+  const byProj=new Map();
+  sessions.forEach((s)=>{ if(s.status==="pending") return; s.tabs.forEach((tab)=>{
+    if(tab.closedByUser) return;
+    const a=byProj.get(s.project)||[]; a.push({s,tab}); byProj.set(s.project,a);
+  });});
+  const q=new Map(getAgentQueue().map((x)=>[x.tab,x.state]));
+  ovBody.innerHTML="";
+  if(!byProj.size){const e=el("div","ov-empty"); e.textContent="No sessions yet"; ovBody.append(e); return;}
+  byProj.forEach((items,pid)=>{
+    const h=el("div","ov-proj"); h.textContent=projects.get(pid)?.name||pid||"project";
+    const grid=el("div","ov-grid");
+    items.forEach(({s,tab})=>{
+      const st=tab.exited?"exited":(q.get(tab)||(tab.busy?"run":"idle"));
+      const tile=el("div","ov-tile "+st); tile.tabIndex=0;
+      const hd=el("div","ov-tile-h"), dot=el("span","ov-dot"), nm=el("span","ov-name"), sl=el("span","ov-state");
+      nm.textContent=(s.name||"session")+" \u00b7 "+(tab.name||"tab");
+      sl.textContent=st==="approval"?"needs approval":st==="run"?"running":st;
+      hd.append(dot,nm,sl);
+      const pre=el("pre","ov-out"); pre.textContent=tabTail(tab,9);   // textContent only \u2014 output is untrusted
+      tile.append(hd,pre);
+      const go=()=>{closeOverview(); revealWindow(s); switchTab(s,tab.id);};
+      tile.addEventListener("click",go);
+      tile.addEventListener("keydown",(e)=>{if(e.key==="Enter"){e.preventDefault();go();}});
+      grid.append(tile);
+    });
+    ovBody.append(h,grid);
+  });
+}
+function openOverview(){closeModals("ov"); ovOverlay.classList.add("open"); renderOverview(); clearInterval(ovTimer); ovTimer=setInterval(renderOverview,1500);}
+function closeOverview(){ovOverlay.classList.remove("open"); clearInterval(ovTimer); ovTimer=null;}
+document.getElementById("ov-close").addEventListener("click",closeOverview);
+document.getElementById("ov-btn").addEventListener("click",()=>ovOverlay.classList.contains("open")?closeOverview():openOverview());
+
+/* ════════════════════════════════════════════════
    COMMAND PALETTE
    ════════════════════════════════════════════════ */
 const PAL_CMDS=[
@@ -3212,6 +3288,7 @@ const PAL_CMDS=[
   {icon:ICON.log,label:"New log panel",sub:"Read-only output monitor",kbd:"\u2318\u2325L",run:()=>createSession({cwd:curCwd()},true)},
   {layout:1,icon:ICON.grid,label:"Tile windows",sub:"Auto-arrange into the best-fit grid",kbd:"\u2318\u2325\u21e7T",run:tileAll},
   ...LAYOUT_PRESETS.map(([c,r])=>({layout:1,icon:ICON.grid,label:"Layout "+c+"\u00d7"+r,sub:c+" column"+(c>1?"s":"")+" \u00d7 "+r+" row"+(r>1?"s":"")+" \u2014 extra windows are minimized",run:()=>tileGrid(c,r,"Layout "+c+"\u00d7"+r)})),
+  {icon:ICON.grid,label:"Live overview",sub:"Read-only tiles of every session's latest output",run:()=>{closePalette();openOverview();}},
   {icon:ICON.sidebar,label:"Toggle directory tree",sub:"Show/hide sidebar",kbd:"\u2318B",run:toggleSidebar},
   {icon:ICON.search,label:"Search sessions",sub:"Filter by name or path",kbd:"\u2318F",run:()=>{closePalette();openSessSearch();}},
   {icon:ICON.theme,label:"Change theme",sub:"Open theme picker",kbd:"\u2318\u21e7P",run:()=>{closePalette();openThemePop(null,themeBtn);}},
@@ -3236,7 +3313,7 @@ const PAL_CMDS=[
 // Category of each built-in command; unlisted ones fall under Workspace. Snippets/SSH/AI presets/sessions map to the other tabs.
 const PAL_CATS=["All","Terminals","Agents","Layout","Workspace","Saved","Sessions"];
 const PAL_CAT_OF={"New terminal":"Terminals","New log panel":"Terminals","Add SSH host\u2026":"Terminals",
-  "New agent task\u2026":"Agents","Review agent changes\u2026":"Agents","Add AI CLI preset\u2026":"Agents","Reset agent order":"Agents","Reset usage":"Agents","Save snippet\u2026":"Saved"};
+  "New agent task\u2026":"Agents","Review agent changes\u2026":"Agents","Add AI CLI preset\u2026":"Agents","Reset agent order":"Agents","Reset usage":"Agents","Live overview":"Agents","Save snippet\u2026":"Saved"};
 PAL_CMDS.forEach((c)=>{c.cat=PAL_CAT_OF[c.label]||(c.layout?"Layout":"Workspace");});
 let palCat="All", aiMore=false;   // aiMore: "More agents" expanded
 const inCat=(c)=>palCat==="All"||palCat===c;
@@ -3383,6 +3460,7 @@ function closeModals(except){
   if(except!=="palette"&&palette.classList.contains("open")) closePalette();
   if(except!=="game"&&gameOv.classList.contains("open")) closeGame();
   if(except!=="sess"&&sessSearchOpen) closeSessSearch();
+  if(except!=="ov"&&ovOverlay.classList.contains("open")) closeOverview();
   if(except!=="sc") scOverlay.classList.remove("open");
   if(except!=="file"&&fileOverlay.classList.contains("open")) closeFileViewer();
   if(except!=="theme") themePop.classList.remove("open");
@@ -3811,6 +3889,7 @@ document.addEventListener("keydown",(e)=>{
     if(movePop.classList.contains("open")){movePop.classList.remove("open");return;}
     if(cwdPop.classList.contains("open")){cwdPop.classList.remove("open");return;}
     if(agentPop&&agentPop.classList.contains("open")){agentPop.classList.remove("open");return;}
+    if(ovOverlay.classList.contains("open")){closeOverview();return;}
     if(scOverlay.classList.contains("open")){scOverlay.classList.remove("open");return;}
     if(sessSearchOpen){closeSessSearch();return;}
   }
