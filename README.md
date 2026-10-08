@@ -44,7 +44,7 @@ Needs **Node.js 18+**. It opens **http://localhost:3000** in your browser. Optio
 | Layout | Floating windows, projects, file tree | Panes inside one terminal | One terminal per page |
 | Knows which agent needs you | ✅ working / waiting / needs approval | — | — |
 | Worktree per agent → review → merge | ✅ built in | By hand | — |
-| Answer an agent's permission prompt from a list | ✅ Claude Code, Codex (via hooks) | — | — |
+| Answer an agent's permission prompt from a list | ✅ Claude Code, Codex, Copilot (via hooks) | — | — |
 
 termdeck uses tmux under the hood when it's installed, so you keep tmux's durability and get the dashboard on top.
 
@@ -208,7 +208,7 @@ What termdeck does *not* do, so none of it is a surprise:
 
 - **Reboots end shells.** tmux keeps shells alive across a server restart or crash, not a machine reboot. Layout and projects come back; the processes don't — except agent tabs, which relaunch their CLI in resume mode (Claude, Codex, Gemini, Copilot, or your own resume command).
 - **Agent state is a guess unless you install the hooks.** Without [agent hooks](docs/agent-hooks.md), "waiting" and "needs approval" come from output heuristics (idle time, a prompt pattern). The hooks are checked against each CLI's documented payloads, not yet against every CLI version.
-- **Approve / Deny needs the hooks.** It works with Claude Code and Codex only; without hooks termdeck can only jump you to the prompt. See the [security model](#security-model).
+- **Approve / Deny needs the hooks.** It works with Claude Code, Codex and GitHub Copilot CLI; without hooks termdeck can only jump you to the prompt. See the [security model](#security-model).
 - **Remote access exposes a real shell.** The access token is a per-start secret, not multi-user auth. Keep the default local-only bind, or use a tunnel.
 - **Limits:** 12 terminals per project, 10 projects, 64 live terminals server-wide (`TD_MAX_PANELS`).
 - **Windows:** works through ConPTY, but without tmux shells don't outlive the server, and the working-directory badge shows the spawn directory.
