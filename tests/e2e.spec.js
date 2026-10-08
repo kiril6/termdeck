@@ -132,6 +132,26 @@ test.describe('live backend', () => {
     await expect(page.locator('.win .badge.cmd').first()).toHaveText('$ echo hey');
   });
 
+  test('live overview shows each session\'s output as a tile; click jumps; Esc closes (#25)', async ({ page }) => {
+    await boot(page, '/');
+    await page.locator('.win .xterm').first().click({ force: true });
+    await page.keyboard.type('echo OVERVIEW_$((6*7))\n');
+    await openPalette(page);
+    await page.locator('#pal-input').fill('Live overview');
+    await expect(page.locator('.pal-item.hi', { hasText: 'Live overview' })).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#ov-overlay.open .ov-tile')).toHaveCount(1);
+    await expect(page.locator('.ov-out').first()).toContainText('OVERVIEW_42', { timeout: 5000 });
+    await page.locator('.ov-tile').first().click();
+    await expect(page.locator('#ov-overlay.open')).toHaveCount(0);
+    await openPalette(page);
+    await page.locator('#pal-input').fill('Live overview');
+    await expect(page.locator('.pal-item.hi', { hasText: 'Live overview' })).toBeVisible();
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#ov-overlay.open')).toHaveCount(0);
+  });
+
   test('terminal runs a command; reload reattaches and replays the buffer', async ({ page }) => {
     const frames = [];
     page.on('websocket', (ws) => ws.on('framereceived', (f) => frames.push(String(f.payload))));
