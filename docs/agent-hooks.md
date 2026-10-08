@@ -31,7 +31,7 @@ Payloads were captured from real sessions and are replayed through the helper in
 | Claude Code | 2.1.195 | ✅ every event in the snippet; `"$TD_HOOK"` expands; silent and error-free outside termdeck |
 | Codex | codex-cli 0.160.0 | ✅ with one setting (below): all events incl. approval; `apply_patch` files are read from the patch text (it arrives in `tool_input.command`). No `Notification` hook exists |
 | GitHub Copilot CLI | 1.0.93 | ✅ every event in the snippet, incl. Approve / Deny (decision verified: allowed and blocked a real command). `PermissionRequest` arrives camelCase without `hook_event_name`; only a top-level `{"behavior":…}` answer is honoured |
-| Gemini CLI | — | ⚠️ not verified yet (needs a signed-in install); the snippet follows its docs |
+| Gemini CLI | 0.62.0 | ⚠️ partly: the settings format, project-level hook loading (needs a trusted folder) and the common payload fields (`session_id`, `transcript_path`, `cwd`, `hook_event_name`, `timestamp`) were captured from real `SessionStart` / `SessionEnd` events. `BeforeAgent`, `BeforeTool`, `AfterTool`, `AfterAgent` and `Notification` are **not verified**: they only fire during a model turn, and Google's personal-account sign-in (Gemini Code Assist for individuals) is rejected by 0.62.0 (*"no longer supported … migrate to Antigravity"*), so no turn could run. Needs an API-key, Vertex or Workspace login to finish |
 
 **Things the real CLIs taught us** (all fixed here):
 - A bare `node "$TD_HOOK" …` **fails outside termdeck** — `$TD_HOOK` is empty, `node ""` runs node on stdin and the hook
