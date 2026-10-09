@@ -284,7 +284,8 @@ test.describe('live backend', () => {
     await page.locator('.chip').nth(3).click();                     // beta
     await expect(here).toHaveAttribute('data-path', /follow-proj\/beta$/);
     await expect(here).toHaveCount(1);
-    await page.locator('#sb-follow-btn').click();                 // off → highlight gone
+    await page.locator('#sb-follow-btn').click();                 // off → highlight gone, auto-opened folders collapse
     await expect(here).toHaveCount(0);
+    await expect(page.locator('.tn.dir-node.open')).toHaveCount(0);   // folders follow opened are collapsed again
   });
 });

@@ -81,6 +81,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   `prefers-reduced-motion`). It never re-roots, collapses or
   re-renders unrelated folders, and does nothing when the cwd is unknown or outside the shown root. It uses the
   shell's **live** cwd (see *Live working directory*), so it also follows a `cd` in the focused terminal.
+  Turning it off collapses the folders it expanded (ones you opened yourself stay open).
   Live mode only; off keeps the project-anchored behaviour below.
 - 🖥️ **Breadcrumb navigation** — the sidebar header is a clickable path breadcrumb; click any ancestor
   segment to re-root the tree there (step back / up), **⌂** resets to the project root, and **📌** pins the

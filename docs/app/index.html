@@ -3794,6 +3794,7 @@ function mountTree(container,dir){ fillNode(container,dir,0); }
 
 // ── follow focused terminal: reveal its cwd in the tree (expand ancestors, highlight, scroll) — never re-roots ──
 let followTerm=localStorage.getItem("td-follow")==="1", hereDir=null, treeHome=null, hereBlink=false;
+const followOpened=new Set();   // folders follow-mode expanded itself (not the user) — collapsed again when follow is turned off
 function markHere(){
   treeEl.querySelectorAll(".tn.here").forEach((n)=>n.classList.remove("here"));
   if(!hereDir) return;
@@ -3813,7 +3814,7 @@ function followTree(){
   const rel=cwd&&/^([\/\\]|[A-Za-z]:)/.test(root)&&cwd.startsWith(root)&&(cwd.length===root.length||/[\\/]/.test(cwd[root.length]))?cwd.slice(root.length):null;
   if(rel===null){hereDir=null; markHere(); return;}  // unknown cwd / outside the shown root: leave the tree alone
   let acc=root, fresh=false;
-  for(const seg of rel.split(/[\\/]/).filter(Boolean)){acc=joinPath(acc,seg); if(!treeOpen.has(acc)){treeOpen.add(acc);fresh=true;}}
+  for(const seg of rel.split(/[\\/]/).filter(Boolean)){acc=joinPath(acc,seg); if(!treeOpen.has(acc)){treeOpen.add(acc);followOpened.add(acc);fresh=true;}}
   hereDir=acc; hereBlink=true;
   if(!rel.replace(/[\\/]/g,"")){hereDir=null; hereBlink=false; treeEl.scrollTop=0;}   // terminal sits in the root itself: no row, so show the top
   if(fresh||treeEl.firstChild===null) refreshTree(); else markHere();   // markHere also runs after each lazy fill
@@ -3915,7 +3916,7 @@ syncHiddenBtn();
 const sbFollowBtn=document.getElementById("sb-follow-btn"); sbFollowBtn.innerHTML=ICON.locate;
 function syncFollowBtn(){sbFollowBtn.classList.toggle("on",followTerm);sbFollowBtn.title=followTerm?"Stop following focused terminal":"Follow focused terminal";}
 syncFollowBtn();
-sbFollowBtn.addEventListener("click",()=>{followTerm=!followTerm;localStorage.setItem("td-follow",followTerm?"1":"0");syncFollowBtn();if(!followTerm)hereDir=null;followTree();});
+sbFollowBtn.addEventListener("click",()=>{followTerm=!followTerm;localStorage.setItem("td-follow",followTerm?"1":"0");syncFollowBtn();if(!followTerm){hereDir=null;followOpened.forEach((d)=>treeOpen.delete(d));followOpened.clear();}followTree();});
 sbHiddenBtn.addEventListener("click",()=>{showHidden=!showHidden;localStorage.setItem("td-hidden",showHidden?"1":"0");syncHiddenBtn();refreshTree();});
 
 /* ════════════════════════════════════════════════
