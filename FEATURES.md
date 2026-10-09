@@ -73,7 +73,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   *New terminal here · Open as new project · Set as project root · Copy path · Open in editor · Reveal in file manager*;
   on a file — *Open file · Copy path · Open in editor · Reveal*. *Open in editor* (`/api/open-editor`) spawns `TD_EDITOR` (default `code`) on the path with no shell; a missing editor shows a toast. The tree is the primary picker, no path-typing needed.
 - 🖥️ **Header tools** — the tree header stays light so the breadcrumb keeps its room: **↑** up one level,
-  **↻ Refresh** (re-reads the tree, new files/dirs appear, **expanded folders stay open** — open state is
+  **↻ Refresh** (re-reads the tree, the icon spins once as feedback, new files/dirs appear, **expanded folders stay open** — open state is
   tracked by path and restored after any refresh/project-switch), **⋯ More** and the collapse button. The
   **⋯ menu** holds the settings: **Follow focused terminal** and **Show hidden files** (dotfiles via
   `/api/ls?all=1`) as check-marked toggles (persisted in `localStorage`), plus — once you've re-rooted —

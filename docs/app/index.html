@@ -470,6 +470,8 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
 .tn.here{background:var(--btn-bg);box-shadow:inset 2px 0 0 var(--accent);}
 .tn.here.blink{animation:tnblink .35s ease-in-out 3;}
 @keyframes tnblink{50%{background:color-mix(in srgb,var(--accent) 45%,transparent);}}
+#sb-refresh-btn.spin svg{animation:sbspin .6s ease-in-out;}
+@keyframes sbspin{to{transform:rotate(360deg);}}
 @media (prefers-reduced-motion:reduce){.tn.here.blink{animation:none;}}
 .tn .tn-caret{flex:0 0 auto;font-size:9px;color:var(--muted);
   transition:transform .12s;width:10px;text-align:center;}
@@ -3927,7 +3929,11 @@ const sbCloseBtn=document.getElementById("sb-close-btn"); sbCloseBtn.innerHTML=I
 sbCloseBtn.addEventListener("click",closeSidebar);
 const sbRefreshBtn=document.getElementById("sb-refresh-btn");
 sbRefreshBtn.innerHTML=ICON.refresh;
-sbRefreshBtn.addEventListener("click",refreshTree); // same root keeps treeOpen → expanded folders restore, new files appear
+sbRefreshBtn.addEventListener("animationend",()=>sbRefreshBtn.classList.remove("spin"));
+sbRefreshBtn.addEventListener("click",()=>{
+  sbRefreshBtn.classList.remove("spin"); void sbRefreshBtn.offsetWidth; sbRefreshBtn.classList.add("spin"); // restart the one-turn spin so every press gives feedback
+  refreshTree();
+}); // same root keeps treeOpen → expanded folders restore, new files appear
 const sbUpBtn=document.getElementById("sb-up-btn"); sbUpBtn.innerHTML=ICON.arrowUp;
 sbUpBtn.addEventListener("click",()=>{const p=treeParent(); if(p){treeRoot=p; refreshTree();}});
 const sbMoreBtn=document.getElementById("sb-more-btn"); sbMoreBtn.innerHTML=ICON.more;
