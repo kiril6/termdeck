@@ -116,7 +116,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);overflow:hid
   cursor:pointer;display:grid;place-items:center;font-size:12px;padding:0;}
 .find-btn:hover{background:var(--btn-bg);color:var(--text);}
 /* Inline SVG icons in small controls: inherit button font-size, monochrome. */
-.find-btn svg,.in-clear svg,.pi-del svg,.sc-x svg,.t-close svg,.ss-close svg,.sb-reset svg,.tn-caret svg,.tn-act svg,.tpop-clear svg,.pdel svg,.wt-x svg,.t-close svg,.paddbtn svg{width:1em;height:1em;display:inline-block;vertical-align:middle;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+.find-btn svg,.in-clear svg,.pi-del svg,.sc-x svg,.t-close svg,.ss-close svg,.tn-caret svg,.tn-act svg,.tpop-clear svg,.pdel svg,.wt-x svg,.t-close svg,.paddbtn svg{width:1em;height:1em;display:inline-block;vertical-align:middle;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
 .tn-caret svg{width:1.3em;height:1.3em;}
 .btn:disabled{opacity:.4;cursor:default;pointer-events:none;}
 #bcast.active{background:var(--dead);border-color:var(--dead);color:#fff;animation:bcastpulse 1.4s ease-in-out infinite;}
@@ -445,9 +445,6 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
   overflow-y:hidden;white-space:nowrap;font-size:11px;letter-spacing:.03em;
   color:var(--muted);scrollbar-width:none;}
 .sb-head .sb-title::-webkit-scrollbar{display:none;}
-.sb-head .sb-reset{border:0;background:transparent;color:var(--muted);cursor:pointer;
-  font-size:12px;line-height:1;flex:0 0 auto;padding:0 3px 0 0;}
-.sb-head .sb-reset:hover{color:var(--accent);}
 .sb-head .crumb{cursor:pointer;padding:1px 3px;border-radius:4px;flex:0 0 auto;color:var(--muted);}
 .sb-head .crumb:hover{color:var(--accent);background:var(--btn-bg);}
 .sb-head .crumb:last-child{color:var(--text);cursor:default;}
@@ -461,11 +458,10 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
   flex:0 0 auto;display:grid;place-items:center;padding:3px;border-radius:5px;font-size:13px;}
 .sb-head .sb-tool:hover{color:var(--text);background:var(--btn-bg);}
 .sb-head .sb-tool.on{color:var(--accent);}
+.sb-head .sb-tool{position:relative;}
+.sb-head .sb-tool.flag::after{content:"";position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;background:var(--accent);}
 .sb-head .sb-tool:disabled{opacity:.35;cursor:default;pointer-events:none;}
 .sb-head .sb-tool svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
-.sb-head .sb-pin{border:0;background:transparent;color:var(--muted);cursor:pointer;flex:0 0 auto;padding:0 3px;}
-.sb-head .sb-pin:hover{color:var(--accent);}
-.sb-head .sb-pin svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
 .tree{flex:1;overflow-y:auto;padding:4px 0;scrollbar-width:thin;scrollbar-color:var(--line) transparent;}
 .tn{display:flex;align-items:center;gap:6px;padding:4px 6px;
   font-size:11.5px;cursor:pointer;white-space:nowrap;overflow:hidden;border-radius:5px;color:var(--text);}
@@ -483,8 +479,9 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
 .tc{display:none;}
 .tc.open{display:block;}
 .tn .tn-act{flex:0 0 auto;border:0;background:transparent;color:var(--muted);cursor:pointer;
-  font-size:12px;line-height:1;padding:0 2px;opacity:0;transition:opacity .12s;}
+  font-size:12px;line-height:1;padding:3px 4px;opacity:0;transition:opacity .12s;}
 .tn:hover .tn-act{opacity:.75;}
+.tn .tn-act svg{pointer-events:none;}   /* button = one hover target, so its title tooltip isn't reset by the svg's child boundaries */
 .tn .tn-act:hover{opacity:1;color:var(--accent);}
 .tree-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:7px;padding:36px 18px;height:100%;text-align:center;color:var(--muted);}
@@ -907,9 +904,8 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
   <div class="sb-head">
     <span class="sb-title" id="sb-title">Directory Tree</span>
     <button class="sb-tool" id="sb-up-btn" title="Up one level" aria-label="Up one level"></button>
-    <button class="sb-tool" id="sb-follow-btn" title="Follow focused terminal" aria-label="Follow focused terminal"></button>
-    <button class="sb-tool" id="sb-hidden-btn" title="Show hidden files" aria-label="Toggle hidden files"></button>
     <button class="sb-tool" id="sb-refresh-btn" title="Refresh tree" aria-label="Refresh tree"></button>
+    <button class="sb-tool" id="sb-more-btn" title="More" aria-label="More tree options" aria-haspopup="menu"></button>
     <button class="sb-close" id="sb-close-btn" title="Collapse sidebar (⌘B)" aria-label="Collapse sidebar">«</button>
   </div>
   <div class="tree" id="tree"></div>
@@ -1073,8 +1069,9 @@ const ICON={
   eye:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
   eyeOff:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 8 10 8a17 17 0 0 1-2.6 3.4M6.6 6.6A17 17 0 0 0 2 12s3.5 8 10 8a9 9 0 0 0 5.4-1.6M2 2l20 20M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>',
   copy:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h11v11H9zM5 15H4V4h11v1"/></svg>',
+  more:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>',
   locate:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>',
-  up:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
+  arrowUp:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
   pin:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5M9 3h6l-1 6 3 3H7l3-3-1-6z"/></svg>',
   collapse:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M16 9l-3 3 3 3"/></svg>',
 };
@@ -3735,13 +3732,6 @@ function treeRootPath(){
 }
 function renderCrumbs(root){
   sbTitleEl.innerHTML="";
-  if(treeRoot){ // navigated away: offer reset + pin-as-root
-    const home=el("button","sb-reset");home.innerHTML=ICON.home;home.title="Back to project root";
-    home.addEventListener("click",()=>{treeRoot=null;refreshTree();});
-    const pin=el("button","sb-pin");pin.innerHTML=ICON.pin;pin.title="Pin as this project's root";
-    pin.addEventListener("click",()=>setProjectRoot(treeRoot));
-    sbTitleEl.append(home,pin);
-  }
   if(!LIVE||root==="~"||root.startsWith("~")){ // demo / home fallback: single crumb, no deep nav
     const c=el("span","crumb");c.textContent=root.replace(/^\/home\/[^/]+/,"~");sbTitleEl.append(c);return;
   }
@@ -3919,18 +3909,31 @@ function renderDemoTree(container,root){
 document.getElementById("sb-btn").addEventListener("click",toggleSidebar);
 const sbCloseBtn=document.getElementById("sb-close-btn"); sbCloseBtn.innerHTML=ICON.collapse;
 sbCloseBtn.addEventListener("click",closeSidebar);
-const sbRefreshBtn=document.getElementById("sb-refresh-btn"), sbHiddenBtn=document.getElementById("sb-hidden-btn");
+const sbRefreshBtn=document.getElementById("sb-refresh-btn");
 sbRefreshBtn.innerHTML=ICON.refresh;
 sbRefreshBtn.addEventListener("click",refreshTree); // same root keeps treeOpen → expanded folders restore, new files appear
-function syncHiddenBtn(){sbHiddenBtn.innerHTML=showHidden?ICON.eye:ICON.eyeOff;sbHiddenBtn.classList.toggle("on",showHidden);sbHiddenBtn.title=showHidden?"Hide hidden files":"Show hidden files";}
-syncHiddenBtn();
-const sbUpBtn=document.getElementById("sb-up-btn"); sbUpBtn.innerHTML=ICON.up;
+const sbUpBtn=document.getElementById("sb-up-btn"); sbUpBtn.innerHTML=ICON.arrowUp;
 sbUpBtn.addEventListener("click",()=>{const p=treeParent(); if(p){treeRoot=p; refreshTree();}});
-const sbFollowBtn=document.getElementById("sb-follow-btn"); sbFollowBtn.innerHTML=ICON.locate;
-function syncFollowBtn(){sbFollowBtn.classList.toggle("on",followTerm);sbFollowBtn.title=followTerm?"Stop following focused terminal":"Follow focused terminal";}
-syncFollowBtn();
-sbFollowBtn.addEventListener("click",()=>{followTerm=!followTerm;localStorage.setItem("td-follow",followTerm?"1":"0");syncFollowBtn();if(!followTerm){hereDir=null;followOpened.forEach((d)=>treeOpen.delete(d));followOpened.clear();}followTree();});
-sbHiddenBtn.addEventListener("click",()=>{showHidden=!showHidden;localStorage.setItem("td-hidden",showHidden?"1":"0");syncHiddenBtn();refreshTree();});
+const sbMoreBtn=document.getElementById("sb-more-btn"); sbMoreBtn.innerHTML=ICON.more;
+const syncMoreBtn=()=>sbMoreBtn.classList.toggle("flag",followTerm);   // accent dot: a toggle inside the menu is on
+syncMoreBtn();
+function toggleFollow(){
+  followTerm=!followTerm; localStorage.setItem("td-follow",followTerm?"1":"0"); syncMoreBtn();
+  if(!followTerm){hereDir=null;followOpened.forEach((d)=>treeOpen.delete(d));followOpened.clear();}
+  followTree();
+}
+function toggleHidden(){showHidden=!showHidden;localStorage.setItem("td-hidden",showHidden?"1":"0");refreshTree();}
+sbMoreBtn.addEventListener("click",()=>{
+  const r=sbMoreBtn.getBoundingClientRect(), blank='<svg viewBox="0 0 24 24" aria-hidden="true"></svg>';
+  const it=[
+    {icon:followTerm?ICON.check:blank,label:"Follow focused terminal",run:toggleFollow},
+    {icon:showHidden?ICON.check:blank,label:"Show hidden files",run:toggleHidden},
+  ];
+  if(treeRoot) it.push({sep:true},
+    {icon:blank,label:"Back to project root",run:()=>{treeRoot=null;refreshTree();}},
+    {icon:blank,label:"Pin as project root",run:()=>setProjectRoot(treeRoot)});
+  showCtxMenu(Math.min(r.left,innerWidth-230),r.bottom+4,it);
+});
 
 /* ════════════════════════════════════════════════
    GLOBAL KEYBOARD HANDLER

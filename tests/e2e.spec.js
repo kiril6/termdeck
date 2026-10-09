@@ -18,6 +18,7 @@ async function boot(page, url) {
   await expect(page.locator('.win')).toHaveCount(1);   // a fresh visit opens one terminal
   return errors;
 }
+const treeMenu = async (page, label) => { await page.locator('#sb-more-btn').click(); await page.locator('.ctxmenu .ctx-item', { hasText: label }).click(); };
 const openPalette = async (page) => { await page.keyboard.press('ControlOrMeta+k'); await expect(palette(page)).toHaveClass(/open/); };
 
 test.describe('demo mode (no backend)', () => {
@@ -277,14 +278,14 @@ test.describe('live backend', () => {
     await spawnAt(path.join(proj, 'alpha/inner'), 3);
     await spawnAt(path.join(proj, 'beta'), 4);
     await page.locator('#sb-btn').click();
-    await page.locator('#sb-follow-btn').click();
+    await treeMenu(page, 'Follow focused terminal');
     const here = page.locator('.tn.here');
     await page.locator('.chip').nth(2).click();                     // alpha/inner
     await expect(here).toHaveAttribute('data-path', /follow-proj\/alpha\/inner$/);
     await page.locator('.chip').nth(3).click();                     // beta
     await expect(here).toHaveAttribute('data-path', /follow-proj\/beta$/);
     await expect(here).toHaveCount(1);
-    await page.locator('#sb-follow-btn').click();                 // off → highlight gone, auto-opened folders collapse
+    await treeMenu(page, 'Follow focused terminal');                 // off → highlight gone, auto-opened folders collapse
     await expect(here).toHaveCount(0);
     await expect(page.locator('.tn.dir-node.open')).toHaveCount(0);   // folders follow opened are collapsed again
   });
@@ -300,7 +301,7 @@ test.describe('live backend', () => {
     const n = await crumbs.count();
     await page.locator('#sb-up-btn').click();
     await expect(crumbs).toHaveCount(n - 1);
-    await page.locator('#sb-title .sb-reset').click();           // ⌂ → project root again
+    await treeMenu(page, 'Back to project root');           // ⌂ → project root again
     await expect(crumbs).toHaveCount(n);
   });
 });

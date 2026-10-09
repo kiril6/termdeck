@@ -72,10 +72,13 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🖥️ **Right-click context menu** — right-click a tree row for the full action set: on a folder —
   *New terminal here · Open as new project · Set as project root · Copy path · Open in editor · Reveal in file manager*;
   on a file — *Open file · Copy path · Open in editor · Reveal*. *Open in editor* (`/api/open-editor`) spawns `TD_EDITOR` (default `code`) on the path with no shell; a missing editor shows a toast. The tree is the primary picker, no path-typing needed.
-- 🖥️ **Header tools** — **↻ Refresh** re-reads the tree (new files/dirs appear) while **keeping expanded
-  folders open** (open state tracked by path, restored after any refresh/project-switch), and **👁 Show
-  hidden** toggles dotfiles (`/api/ls?all=1`, persisted in `localStorage`).
-- 🖥️ **Follow focused terminal** — the **◎** toggle in the tree header (off by default, persisted in
+- 🖥️ **Header tools** — the tree header stays light so the breadcrumb keeps its room: **↑** up one level,
+  **↻ Refresh** (re-reads the tree, new files/dirs appear, **expanded folders stay open** — open state is
+  tracked by path and restored after any refresh/project-switch), **⋯ More** and the collapse button. The
+  **⋯ menu** holds the settings: **Follow focused terminal** and **Show hidden files** (dotfiles via
+  `/api/ls?all=1`) as check-marked toggles (persisted in `localStorage`), plus — once you've re-rooted —
+  **Back to project root** and **Pin as project root**. A small accent dot on ⋯ shows Follow is on.
+- 🖥️ **Follow focused terminal** — the toggle in the tree header's **⋯ menu** (off by default, persisted in
   `localStorage` as `td-follow`). When on, focusing a terminal **reveals its working directory** in the tree:
   ancestors expand, the folder is highlighted, centered in the panel and pulses briefly (skipped under
   `prefers-reduced-motion`). It never re-roots, collapses or
@@ -85,8 +88,8 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   Live mode only; off keeps the project-anchored behaviour below.
 - 🖥️ **Breadcrumb navigation** — the sidebar header is a clickable path breadcrumb; click any ancestor
   segment to re-root the tree there (step back / up), the always-visible **↑** button goes up one level
-  (disabled at the filesystem top), **⌂** resets to the project root, and **📌** pins the
-  current location as the project's persistent root. Deep paths scroll to keep the current folder in view.
+  (disabled at the filesystem top). After re-rooting, the **⋯ menu** offers **Back to project root** and
+  **Pin as project root** (the current location becomes the project's persistent root). Deep paths scroll to keep the current folder in view.
   Switching projects clears the override.
 - 🖥️ **Empty / error state** — a genuinely empty or unreadable root shows a centered placeholder
   (📂 *Empty folder* / ⚠️ *Can't read folder*) instead of a bare word, so an empty sidebar reads as
