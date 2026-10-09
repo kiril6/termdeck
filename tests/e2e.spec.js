@@ -264,7 +264,7 @@ test.describe('live backend', () => {
     await expect(page.getByText('Worktree ready')).toBeVisible();
   });
   test('tree follows the focused terminal when "Follow" is on (reveal only, no re-root)', async ({ page }) => {
-    const proj = path.join(process.env.TD_E2E_HOME, 'follow-proj');
+    const proj = path.join(fs.realpathSync(process.env.TD_E2E_HOME), 'follow-proj');   // real path: the live-cwd poll (lsof) reports resolved paths, /var → /private/var on macOS
     for (const d of ['alpha/inner', 'beta']) fs.mkdirSync(path.join(proj, d), { recursive: true });
     await boot(page, '/');                                        
     const spawnAt = async (dir, n) => {
