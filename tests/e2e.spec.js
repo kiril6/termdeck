@@ -53,6 +53,37 @@ test.describe('demo mode (no backend)', () => {
     await expect(page.locator('.win')).toHaveCount(1);
     expect(await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).sessions.length, STATE)).toBe(1);
   });
+
+  test('Layout ▾ menu arranges windows; empty palette is short and remembers recent', async ({ page }) => {
+    await boot(page, '/?demo');
+    await page.locator('#new').click();
+    await expect(page.locator('.win')).toHaveCount(2);
+    await page.locator('#layout-caret').click();
+    await page.locator('.ctxmenu .ctx-item', { hasText: /^1×1$/ }).click();
+    await expect(page.locator('.win:visible')).toHaveCount(1);         // extra window minimized
+    await openPalette(page);
+    await expect(labels(page).filter({ hasText: /^Layout / })).toHaveCount(0);   // layouts aren't in the empty palette
+    await expect(page.locator('#pal-list .pal-group', { hasText: 'Recent' })).toHaveCount(0);
+    await page.locator('#pal-input').fill('2x2');                       // "x" finds "×"
+    await expect(labels(page)).toHaveText(['Layout 2×2']);
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.win:visible')).toHaveCount(1);         // 2×2 doesn't un-minimize
+    await openPalette(page);
+    await expect(page.locator('#pal-list .pal-group').first()).toHaveText('Recent');
+    await expect(labels(page).first()).toHaveText('Layout 2×2');
+  });
+
+  test('Sessions button: Queue | Grid toggle', async ({ page }) => {
+    await boot(page, '/?demo');
+    await page.locator('#agent-btn').click();
+    await expect(page.locator('#agent-pop')).toHaveClass(/open/);
+    await page.locator('#agent-to-grid').click();
+    await expect(page.locator('#ov-overlay')).toHaveClass(/open/);
+    await expect(page.locator('#agent-pop')).not.toHaveClass(/open/);
+    await page.locator('#ov-to-queue').click();
+    await expect(page.locator('#ov-overlay')).not.toHaveClass(/open/);
+    await expect(page.locator('#agent-pop')).toHaveClass(/open/);
+  });
 });
 
 test.describe('layout presets + Alt+N (#51)', () => {

@@ -46,6 +46,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);overflow:hid
 .status.live .led{background:var(--live);box-shadow:0 0 8px var(--live);}
 .status.demo .led{background:var(--demo);box-shadow:0 0 8px var(--demo);}
 .bar-actions{display:flex;align-items:center;gap:8px;}
+/* Layout split button: main part tiles, the caret opens presets / restore / fullscreen */
+.split{display:inline-flex;}
+.split>.btn:first-child{border-top-right-radius:0;border-bottom-right-radius:0;}
+.split>.split-caret{border-top-left-radius:0;border-bottom-left-radius:0;border-left:0;padding:6px 5px;}
 .btn.menu-btn{display:none;font-size:15px;line-height:1;padding:6px 10px;}
 @media (max-width:1260px){ /* full inline toolbar needs ~1215px; collapse before it overflows */
   .btn.menu-btn{display:inline-flex;align-items:center;}
@@ -56,6 +60,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);overflow:hid
   .bar-actions.open{display:flex;}
   .bar-actions .btn{width:100%;justify-content:flex-start;text-align:left;}
   .bar-actions .btn.ico::after{content:attr(data-label);margin-left:6px;}
+  .bar-actions .split>.btn:first-child{flex:1;}
+  .bar-actions .split>.split-caret{width:auto;}
 }
 .btn{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--text);
   background:var(--btn-bg);border:1px solid var(--line);border-radius:6px;padding:6px 11px;
@@ -91,6 +97,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);overflow:hid
 .ctx-item.sticky{position:sticky;bottom:-5px;background:var(--panel);border-top:1px solid var(--line);margin-top:2px;font-weight:600;}
 .ctx-item.sticky:hover{background:var(--accent);}   /* keep accent bg on hover so the dark hover text stays readable */
 .ctx-lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ctx-ico{display:inline-flex;vertical-align:-3px;margin-right:9px;}
+.ctx-ico svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.6;}
 .ctx-actions{display:inline-flex;gap:2px;margin-left:8px;flex:0 0 auto;}
 .ctx-act{border:0;background:transparent;color:var(--muted);cursor:pointer;width:22px;height:22px;border-radius:4px;display:grid;place-items:center;opacity:0;transition:opacity .12s,background .12s,color .12s;}
 .ctx-act svg{width:13px;height:13px;display:block;}
@@ -170,6 +178,12 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
 .agent-pop-inner{width:340px;max-width:calc(100vw - 24px);padding:12px;}
 .agent-pop-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
 .agent-pop-head label{margin-bottom:0;}
+/* Queue | Grid toggle shared by the agent queue popover and the live overview (one Sessions home) */
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;font-size:11px;letter-spacing:.04em;text-transform:none;font-weight:400;}
+.seg button{font:inherit;color:var(--muted);background:transparent;border:0;padding:4px 10px;cursor:pointer;}
+.seg button+button{border-left:1px solid var(--line);}
+.seg button:hover{color:var(--text);}
+.seg button.on{background:var(--btn-bg);color:var(--text);cursor:default;}
 .agent-pop-count{font-size:10px;color:var(--muted);letter-spacing:.06em;}
 .agent-list{display:flex;flex-direction:column;gap:3px;max-height:280px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--line) transparent;}
 .agent-list::-webkit-scrollbar{width:8px;}
@@ -276,11 +290,13 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
 .pal-item .pi-del:hover{background:#3a1a1c;color:#ff9b93;}
 .pal-item .pi-del.pi-edit:hover{background:var(--btn-bg);color:var(--accent);}   /* edit = neutral, not the red delete tint */
 .pal-empty{padding:32px;text-align:center;color:var(--muted);font-size:12px;}
+.pal-foot{padding:10px 14px 6px;text-align:center;color:var(--muted);font-size:11px;}
 
 /* ── live grid overview (#25) ── */
 .ov-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9991;display:none;flex-direction:column;padding:3vh 3vw;}
 .ov-overlay.open{display:flex;}
 .ov-head{display:flex;align-items:center;justify-content:space-between;color:var(--text);font-size:13px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;margin-bottom:12px;}
+.ov-title{display:flex;align-items:center;}
 .ov-head small{color:var(--muted);letter-spacing:0;text-transform:none;font-weight:400;margin-left:10px;}
 .ov-x{cursor:pointer;color:var(--muted);display:flex;}.ov-x:hover{color:var(--text);}
 .ov-x svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;}
@@ -786,14 +802,12 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
   <button class="kbdhint" id="pal-btn">⌘ K</button>
   <div class="bar-actions" id="bar-actions">
     <button class="btn ico" id="sb-btn" data-label="Tree"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 7v12M4.5 12h4M4.5 19h4"/><rect x="2.5" y="3" width="4" height="4" rx="1"/><rect x="8.5" y="10" width="4" height="4" rx="1"/><rect x="8.5" y="17" width="4" height="4" rx="1"/><path d="M8.5 5H21M14.5 12H21M14.5 19H21"/></svg></button>
-    <button class="btn ico" id="ov-btn" data-label="Overview" title="Live overview of all sessions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z"/></svg></button>
-    <button class="btn ico" id="agent-btn" data-label="Agents" title="Agent overview (queue across all projects)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg><span class="agent-badge" id="agent-badge"></span></button>
+    <button class="btn ico" id="agent-btn" data-label="Sessions" title="Sessions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg><span class="agent-badge" id="agent-badge"></span></button>
     <button class="btn ico" id="search-btn" data-label="Search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></button>
-    <button class="btn" id="tile"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>Tile</button>
+    <span class="split" id="layout-grp"><button class="btn" id="tile"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>Tile</button><button class="btn split-caret" id="layout-caret" title="Layouts" aria-label="Layouts" aria-haspopup="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></span>
     <button class="btn" id="bcast" title="Broadcast input to all terminals in this project (⌘⌥B)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg><span id="cast-label">Cast</span></button>
     <button class="btn" id="folder"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>Dir</button>
     <button class="btn" id="theme-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/><circle cx="6.5" cy="12.5" r=".9" fill="currentColor" stroke="none"/><circle cx="8.5" cy="7.5" r=".9" fill="currentColor" stroke="none"/><circle cx="13.5" cy="6.5" r=".9" fill="currentColor" stroke="none"/><circle cx="17.5" cy="10.5" r=".9" fill="currentColor" stroke="none"/></svg>Theme</button>
-    <button class="btn ico" id="fs-btn" data-label="Fullscreen" title="Fullscreen (F11)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
     <button class="btn" id="sc-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>Help</button>
   </div>
   <button class="btn primary" id="new"><span class="plus">+</span> New terminal</button>
@@ -843,7 +857,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
   <!-- Agent Overview popover -->
   <div class="popover agent-pop-inner" id="agent-pop">
     <div class="agent-pop-head">
-      <label id="agent-pop-label">Agent Queue</label>
+      <div class="seg" role="group" aria-label="Sessions view"><button type="button" class="on" aria-pressed="true">Queue</button><button type="button" id="agent-to-grid" aria-pressed="false" title="Live grid of every session's latest output">Grid</button></div>
       <span class="agent-pop-count" id="agent-pop-count">0 active</span>
     </div>
     <div class="agent-list" id="agent-list"></div>
@@ -951,7 +965,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 
 <!-- ═══ LIVE GRID OVERVIEW (#25) ═══ -->
 <div class="ov-overlay" id="ov-overlay">
-  <div class="ov-head"><span>Live overview<small>read-only · click a tile to jump · Esc closes</small></span><span class="ov-x" id="ov-close" title="Close (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></span></div>
+  <div class="ov-head"><span class="ov-title"><span class="seg" role="group" aria-label="Sessions view"><button type="button" id="ov-to-queue" aria-pressed="false" title="Agent queue (who needs you)">Queue</button><button type="button" class="on" aria-pressed="true">Grid</button></span><small>read-only · click a tile to jump · Esc closes</small></span><span class="ov-x" id="ov-close" title="Close (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></span></div>
   <div class="ov-body" id="ov-body"></div>
 </div>
 <!-- ═══ KEYBOARD SHORTCUTS ═══ -->
@@ -1809,6 +1823,7 @@ function showCtxMenu(x,y,items){
     if(it.sep){m.append(el("div","ctx-sep"));return;}
     const b=el("div","ctx-item"+(it.disabled?" disabled":"")+(it.sticky?" sticky":""));
     const lbl=el("span","ctx-lbl"); lbl.textContent=it.label; b.append(lbl);
+    if(it.icon){const i=el("span","ctx-ico"); i.innerHTML=it.icon; lbl.prepend(i);}
     if(it.key){const k=el("span","ctx-key"); k.textContent=it.key; b.append(k);}
     if(it.actions&&it.actions.length){    // per-row icon buttons (edit/delete); click doesn't trigger the row's run
       const wrap=el("span","ctx-actions");
@@ -2605,10 +2620,10 @@ function updateAgentOverview(){
   if(agentBtn){
     const apprCount=queue.filter((x)=>x.state==="approval").length;
     const waitCount=queue.filter((x)=>x.state==="waiting").length;
-    let tip="Agent overview ("+queue.length+" active)";
-    if(hasAppr) tip="Agent overview ("+apprCount+" need"+(apprCount===1?"s":"")+" approval)";
-    else if(hasWait) tip="Agent overview ("+waitCount+" waiting)";
-    else if(!queue.length) tip="Agent overview (no active agents)";
+    let tip="Sessions \u2014 "+queue.length+" active agent"+(queue.length===1?"":"s");
+    if(hasAppr) tip="Sessions \u2014 "+apprCount+" need"+(apprCount===1?"s":"")+" approval";
+    else if(hasWait) tip="Sessions \u2014 "+waitCount+" waiting";
+    else if(!queue.length) tip="Sessions \u2014 no active agents";
     agentBtn.title=tip;
   }
 
@@ -3007,6 +3022,26 @@ function tileAll(){
   const cols=Math.ceil(Math.sqrt(k));tileGrid(cols,Math.ceil(k/cols));
 }
 const LAYOUT_PRESETS=[[1,1],[2,1],[1,2],[2,2],[3,2]];   // [columns, rows]
+// c×r preview icon for the Layout menu — the preset drawn as its own grid.
+function gridIcon(c,r){
+  const g=1.5,w=(18-g*(c-1))/c,h=(18-g*(r-1))/r;let o="";
+  for(let y=0;y<r;y++)for(let x=0;x<c;x++)o+='<rect x="'+(3+x*(w+g)).toFixed(2)+'" y="'+(3+y*(h+g)).toFixed(2)+'" width="'+w.toFixed(2)+'" height="'+h.toFixed(2)+'" rx="1"/>';
+  return '<svg viewBox="0 0 24 24" aria-hidden="true">'+o+'</svg>';
+}
+function minimizedIds(){return order.filter((id)=>{const s=sessions.get(id);return s&&s.project===activeProject&&s.minimized;});}
+function toggleFullscreen(){if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen().catch(()=>{});}
+// Layout ▾: everything that arranges windows, in one menu next to Tile.
+document.getElementById("layout-caret").addEventListener("click",(e)=>{
+  const r=e.currentTarget.getBoundingClientRect(), mini=minimizedIds(), ok=tileable();
+  showCtxMenu(r.left,r.bottom+6,[
+    {icon:ICON.grid,label:"Tile windows",key:kbd("\u2318","\u2325","\u21e7","T"),disabled:!ok,run:tileAll},
+    {sep:true},
+    ...LAYOUT_PRESETS.map(([c,rw])=>({icon:gridIcon(c,rw),label:c+"\u00d7"+rw,disabled:!ok,run:()=>tileGrid(c,rw,"Layout "+c+"\u00d7"+rw)})),
+    {sep:true},
+    {label:"Restore minimized"+(mini.length?" ("+mini.length+")":""),disabled:!mini.length,run:()=>mini.forEach((id)=>restore(sessions.get(id)))},
+    {label:document.fullscreenElement?"Exit fullscreen":"Fullscreen",key:MAC?"\u2303\u2318F":"F11",run:toggleFullscreen},
+  ]);
+});
 
 /* ════════════════════════════════════════════════
    SNAP + ALIGN
@@ -3279,7 +3314,9 @@ function renderOverview(){
 function openOverview(){closeModals("ov"); ovOverlay.classList.add("open"); renderOverview(); clearInterval(ovTimer); ovTimer=setInterval(renderOverview,1500);}
 function closeOverview(){ovOverlay.classList.remove("open"); clearInterval(ovTimer); ovTimer=null;}
 document.getElementById("ov-close").addEventListener("click",closeOverview);
-document.getElementById("ov-btn").addEventListener("click",()=>ovOverlay.classList.contains("open")?closeOverview():openOverview());
+// One Sessions home: the toolbar button opens the queue; Queue | Grid flips between it and this overview.
+document.getElementById("agent-to-grid").addEventListener("click",openOverview);
+document.getElementById("ov-to-queue").addEventListener("click",openAgentPop);
 
 /* ════════════════════════════════════════════════
    COMMAND PALETTE
@@ -3311,11 +3348,18 @@ const PAL_CMDS=[
   {icon:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><ellipse cx="6.5" cy="10" rx="1.7" ry="2.3"/><ellipse cx="10.5" cy="7.5" rx="1.8" ry="2.5"/><ellipse cx="15" cy="8" rx="1.8" ry="2.5"/><ellipse cx="18" cy="11" rx="1.7" ry="2.3"/><path d="M12 12.5c-2.6 0-4.7 1.9-4.7 3.9 0 1.7 1.6 2.6 4.7 2.6s4.7-.9 4.7-2.6c0-2-2.1-3.9-4.7-3.9z"/></svg>',label:"Toggle pixel pets",sub:"Cycle: auto (idle/away) → always on → off",kbd:"⌘⌥P",run:()=>togglePets()},
 ];
 
-// Category of each built-in command; unlisted ones fall under Workspace. Snippets/SSH/AI presets/sessions map to the other tabs.
-const PAL_CATS=["All","Terminals","Agents","Layout","Workspace","Saved","Sessions"];
-const PAL_CAT_OF={"New terminal":"Terminals","New log panel":"Terminals","Add SSH host\u2026":"Terminals",
-  "New agent task\u2026":"Agents","Review agent changes\u2026":"Agents","Add AI CLI preset\u2026":"Agents","Reset agent order":"Agents","Reset usage":"Agents","Live overview":"Agents","Save snippet\u2026":"Saved"};
-PAL_CMDS.forEach((c)=>{c.cat=PAL_CAT_OF[c.label]||(c.layout?"Layout":"Workspace");});
+// Category of each built-in command; unlisted ones fall under Settings. Snippets/SSH → Terminals, AI presets → Agents, sessions → Sessions.
+const PAL_CATS=["All","Terminals","Agents","Sessions","Layout","Settings"];
+const PAL_CAT_OF={"New terminal":"Terminals","New log panel":"Terminals","Add SSH host\u2026":"Terminals","Save snippet\u2026":"Terminals",
+  "Open file\u2026":"Terminals","Open directory\u2026":"Terminals","New project":"Terminals",
+  "New agent task\u2026":"Agents","Finish agent task\u2026":"Agents","Review agent changes\u2026":"Agents","Add AI CLI preset\u2026":"Agents",
+  "Live overview":"Sessions","Search sessions":"Sessions"};
+PAL_CMDS.forEach((c)=>{c.cat=PAL_CAT_OF[c.label]||(c.layout?"Layout":"Settings");});
+// Empty palette shows a short list — Recent, then these — instead of every command; typing or a chip shows the rest.
+const PAL_START=["New terminal","New agent task\u2026","Open directory\u2026","Open file\u2026","New project"];
+const PAL_RECENT_KEY="td-pal-recent", PAL_RECENT_MAX=5;
+function palRecent(){try{const a=JSON.parse(localStorage.getItem(PAL_RECENT_KEY));return Array.isArray(a)?a:[];}catch{return [];}}
+function notePalRecent(label){try{localStorage.setItem(PAL_RECENT_KEY,JSON.stringify([label,...palRecent().filter((l)=>l!==label)].slice(0,PAL_RECENT_MAX)));}catch{}}
 let palCat="All", aiMore=false;   // aiMore: "More agents" expanded
 const inCat=(c)=>palCat==="All"||palCat===c;
 const palCats=document.getElementById("pal-cats");
@@ -3334,24 +3378,33 @@ function buildPalette(q){
   palList.innerHTML=""; palHi=0;
   q=(q||"").toLowerCase().trim();
   const all=[];
-  // commands
-  const cmds=PAL_CMDS.filter((c)=>inCat(c.cat)&&(!q||c.label.toLowerCase().includes(q)||c.sub.toLowerCase().includes(q)));
-  if(cmds.length){
-    const g=el("div","pal-group");g.textContent="Commands";palList.append(g);
-    cmds.forEach((c,i)=>{
-      const item=el("div","pal-item"+(i===0?" hi":""));
+  // commands — curated (Recent + Start) on an empty "All" palette, otherwise every match
+  const cmdGroups=[];
+  if(!q&&palCat==="All"){
+    const byLabel=(l)=>PAL_CMDS.find((c)=>c.label===l);
+    const rec=palRecent().map(byLabel).filter(Boolean);
+    cmdGroups.push(["Recent",rec],["Start",PAL_START.map(byLabel).filter((c)=>c&&!rec.includes(c))]);
+  }else{
+    const xq=q.replace(/\u00d7/g,"x"), hit=(t)=>t.toLowerCase().replace(/\u00d7/g,"x").includes(xq);   // "2x2" finds "Layout 2×2"
+    cmdGroups.push(["Commands",PAL_CMDS.filter((c)=>inCat(c.cat)&&(!q||hit(c.label)||hit(c.sub)))]);
+  }
+  for(const [title,cmds] of cmdGroups){
+    if(!cmds.length) continue;
+    const g=el("div","pal-group");g.textContent=title;palList.append(g);
+    cmds.forEach((c)=>{
+      const item=el("div","pal-item");
       const ic=el("div","pi-icon");ic.innerHTML=c.icon;
       const body=el("div","pi-body");
       const lb=el("div","pi-label");lb.innerHTML=q?hlMatch(c.label,q):c.label;
       const sb=el("div","pi-sub");sb.textContent=c.sub;
       body.append(lb,sb);item.append(ic,body);
       if(c.kbd){const kc=el("div","pi-keys");for(const k of osKeys(c.kbd)){const kk=el("kbd");kk.textContent=k;kc.append(kk);}item.append(kc);}
-      item.addEventListener("click",()=>{closePalette();c.run();});
+      item.addEventListener("click",()=>{closePalette();notePalRecent(c.label);c.run();});
       palList.append(item);all.push(item);
     });
   }
   // snippets
-  const snips=snippets.filter((sn)=>inCat("Saved")&&(!q||sn.label.toLowerCase().includes(q)||sn.cmd.toLowerCase().includes(q)));
+  const snips=snippets.filter((sn)=>inCat("Terminals")&&(!q||sn.label.toLowerCase().includes(q)||sn.cmd.toLowerCase().includes(q)));
   if(snips.length){
     const g=el("div","pal-group");g.textContent="Snippets";palList.append(g);
     snips.forEach((sn)=>{
@@ -3452,6 +3505,7 @@ function buildPalette(q){
     });
   }
   if(!all.length){const e=el("div","pal-empty");e.textContent="No results for \u201c"+q+"\u201d";palList.append(e);}
+  else if(!q&&palCat==="All"){const e=el("div","pal-foot");e.textContent="Type to search all "+PAL_CMDS.length+" commands \u00b7 Tab cycles categories";palList.append(e);}
   if(all[0]) all[0].classList.add("hi");
   return all;
 }
@@ -4070,28 +4124,13 @@ agentBtn.addEventListener("click",(e)=>{
   }
 });
 document.getElementById("sc-btn").addEventListener("click",()=>scOverlay.classList.toggle("open"));
-const fsBtn=document.getElementById("fs-btn");
-const fsKey=MAC?"⌃⌘F":"F11";
-const FS_ENTER='<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>';
-const FS_EXIT='<path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/>';
-fsBtn.title="Fullscreen ("+fsKey+")";
-fsBtn.addEventListener("click",()=>{
-  if(document.fullscreenElement)document.exitFullscreen();
-  else document.documentElement.requestFullscreen().catch(()=>{});
-});
-document.addEventListener("fullscreenchange",()=>{
-  const on=!!document.fullscreenElement;
-  fsBtn.classList.toggle("primary",on);
-  fsBtn.title=(on?"Exit fullscreen (":"Fullscreen (")+fsKey+")";
-  fsBtn.querySelector("svg").innerHTML=on?FS_EXIT:FS_ENTER;
-});
 // Right-click on the empty desktop: a launcher for the frequent actions (the palette has the rest). Rows are
 // context-aware — shown only when they can work — so the menu stays short. Windows keep their own menus.
 desktop.addEventListener("contextmenu",(e)=>{
   if(e.defaultPrevented||e.target.closest(".win,#glue-btn,a,button"))return;
   e.preventDefault();
   const p=projects.get(activeProject);
-  const mini=order.filter((id)=>{const s=sessions.get(id);return s&&s.project===activeProject&&s.minimized;});
+  const mini=minimizedIds();
   const it=[
     {label:"New terminal",key:kbd("⌘","⌥","T"),run:()=>createSession({cwd:curCwd()})},
     {label:"New agent task…",key:kbd("⌘","⌥","R"),run:newAgentTask},
@@ -4108,7 +4147,7 @@ desktop.addEventListener("contextmenu",(e)=>{
   it.push({sep:true},
     {label:"Toggle directory tree",key:kbd("⌘","B"),run:toggleSidebar},
     {label:"Change theme…",key:kbd("⌘","⇧","P"),run:()=>openThemePop(null,themeBtn)},
-    {label:document.fullscreenElement?"Exit fullscreen":"Fullscreen",run:()=>fsBtn.click()},
+    {label:document.fullscreenElement?"Exit fullscreen":"Fullscreen",run:toggleFullscreen},
     {sep:true},
     {label:"Command palette…",key:kbd("⌘","K"),run:openPalette});
   showCtxMenu(e.clientX,e.clientY,it);
@@ -4612,7 +4651,7 @@ const TOUR_KEY="td-tour-done";
 const TOUR_STEPS=[
   {sel:"#pal-btn",title:"Command palette",body:"Press "+kbd("⌘","K")+" for everything: new terminals, agent tasks, themes, snippets, sessions. Tab switches categories."},
   {sel:null,title:"One worktree per agent",body:"Palette → New agent task cuts a git worktree for a branch and launches an agent in it, isolated from your other agents."},
-  {sel:"#agent-btn",title:"Agent queue",body:"Every agent across all projects in one list. See which is working, waiting or blocked, and jump straight to it."},
+  {sel:"#agent-btn",title:"Sessions",body:"Every agent across all projects in one queue: see which is working, waiting or blocked, and jump straight to it. Switch to Grid for a live view of every session."},
   {sel:"#projects",title:"Projects & dock",body:"Group shells into projects with these tabs. Minimized windows wait in the dock at the bottom."},
   {sel:"#sc-btn",title:"Help",body:"All shortcuts live here. Replay this tour any time from the palette (Take the tour)."},
 ];

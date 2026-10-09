@@ -106,8 +106,8 @@ See also [Known limits](#known-limits).
 
 **Terminals & layout**
 - Floating, draggable, resizable windows; snap and glue windows together, tabs per window.
-- **Layouts:** auto-tile, or pick a fixed grid (1×1, 2×1, 1×2, 2×2, 3×2) from the palette's *Layout* tab — extra windows are minimized, not closed. `⌥1`–`9` jumps to the Nth window.
-- **Live overview:** palette → *Live overview* (or the toolbar grid button) shows a read-only tile per session across all projects with its latest output and state; click a tile to jump to it.
+- **Layouts:** click *Tile* to auto-tile, or its **▾** for a fixed grid (1×1, 2×1, 1×2, 2×2, 3×2), *Restore minimized* and Fullscreen (also in the palette's *Layout* tab) — extra windows are minimized, not closed. `⌥1`–`9` jumps to the Nth window.
+- **Live overview:** the toolbar *Sessions* button → *Grid* (or palette → *Live overview*) shows a read-only tile per session across all projects with its latest output and state; click a tile to jump to it.
 - **Projects** group windows; each remembers its folder. A **file tree** (`⌘B`) with a built-in file and Markdown viewer.
 - **Live working directory, last command and dev-server port** in every window's footer (click the `:PORT` to open it when running locally), clickable links and `file:line` paths, search the terminal's history, GPU-accelerated rendering.
 - **Version, What's new and update check:** the version shows in the footer and Help; Help → *What's new* lists the changelog offline, a one-time toast appears after an upgrade, and *Check for updates* asks npm only when you click.
