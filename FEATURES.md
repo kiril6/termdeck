@@ -78,7 +78,8 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🖥️ **Follow focused terminal** — the **◎** toggle in the tree header (off by default, persisted in
   `localStorage` as `td-follow`). When on, focusing a terminal **reveals its working directory** in the tree:
   ancestors expand, the folder is highlighted and scrolled into view. It never re-roots, collapses or
-  re-renders unrelated folders, and does nothing when the cwd is unknown or outside the shown root.
+  re-renders unrelated folders, and does nothing when the cwd is unknown or outside the shown root. It uses the
+  shell's **live** cwd (see *Live working directory*), so it also follows a `cd` in the focused terminal.
   Live mode only; off keeps the project-anchored behaviour below.
 - 🖥️ **Breadcrumb navigation** — the sidebar header is a clickable path breadcrumb; click any ancestor
   segment to re-root the tree there (step back / up), **⌂** resets to the project root, and **📌** pins the

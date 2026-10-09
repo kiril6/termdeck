@@ -2753,7 +2753,7 @@ function openTabWS(s,tab){
         markAttn(s,tab);
       }
     }else if(m.type==="cwd"){          // live cwd: shell cd'd — backend polled the new dir
-      if(m.cwd){tab.cwd=m.cwd; if(s.activeTabId===tab.id) setCwdBadge(s,m.cwd);}
+      if(m.cwd){tab.cwd=m.cwd; if(s.activeTabId===tab.id) setCwdBadge(s,m.cwd); if(followTerm&&sidebarOpen&&focusedId===s.id) followTree();}
     }else if(m.type==="error"&&m.code==="panel_cap_reached"){
       // Backend terminal cap (TD_MAX_PANELS): retrying can't help until something closes, so park the tab
       // as dead (no auto-reconnect; the window's \u27f3 restarts it) and say why instead of looping forever.
@@ -3781,6 +3781,7 @@ async function fillNode(container,dir,depth){
   container.innerHTML=""; container.append(top?treeEmpty("\u23f3","Loading\u2026"):treeMsg(depth,"\u2026"));
   try{
     const d=await apiLs(dir); container.innerHTML="";
+    if(top&&dir==="~") treeHome=d.dir;   // lets follow-mode resolve the "~" root to an absolute path
     if(!d.entries.length){container.append(top?treeEmpty("\ud83d\udcc2","Empty folder","Nothing here, or only hidden files."):treeMsg(depth,"empty")); return;}
     d.entries.forEach((en)=>container.append(treeNode(en,joinPath(d.dir,en.name),depth)));  // d.dir is absolute → real cwd for spawn/reveal
     markHere();
@@ -3789,7 +3790,7 @@ async function fillNode(container,dir,depth){
 function mountTree(container,dir){ fillNode(container,dir,0); }
 
 // ── follow focused terminal: reveal its cwd in the tree (expand ancestors, highlight, scroll) — never re-roots ──
-let followTerm=localStorage.getItem("td-follow")==="1", hereDir=null;
+let followTerm=localStorage.getItem("td-follow")==="1", hereDir=null, treeHome=null;
 function markHere(){
   treeEl.querySelectorAll(".tn.here").forEach((n)=>n.classList.remove("here"));
   if(!hereDir) return;
@@ -3799,9 +3800,11 @@ function markHere(){
 function followTree(){
   if(!followTerm||!LIVE){refreshTree();return;}      // off: legacy behaviour (re-render for the focused project)
   const s=focusedId&&sessions.has(focusedId)?sessions.get(focusedId):null;
-  const root=treeRootPath().replace(/[\\/]+$/,"");
-  const cwd=s&&s.project===activeProject&&s.cwd?s.cwd.replace(/[\\/]+$/,""):null;
-  const rel=cwd&&root!=="~"&&!root.startsWith("~")&&cwd.startsWith(root)&&(cwd.length===root.length||/[\\/]/.test(cwd[root.length]))?cwd.slice(root.length):null;
+  let root=treeRootPath(); if(root==="~") root=treeHome||root;
+  root=root.replace(/[\\/]+$/,"");
+  const t=s&&activeTab(s), live=t&&t.cwd||s&&s.cwd;   // tab.cwd is the shell's live dir; s.cwd is only the spawn dir
+  const cwd=s&&s.project===activeProject&&live?live.replace(/[\\/]+$/,""):null;
+  const rel=cwd&&/^([\/\\]|[A-Za-z]:)/.test(root)&&cwd.startsWith(root)&&(cwd.length===root.length||/[\\/]/.test(cwd[root.length]))?cwd.slice(root.length):null;
   if(rel===null){hereDir=null; markHere(); return;}  // unknown cwd / outside the shown root: leave the tree alone
   let acc=root, fresh=false;
   for(const seg of rel.split(/[\\/]/).filter(Boolean)){acc=joinPath(acc,seg); if(!treeOpen.has(acc)){treeOpen.add(acc);fresh=true;}}
