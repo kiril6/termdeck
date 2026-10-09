@@ -81,8 +81,9 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🖥️ **Follow focused terminal** — the toggle in the tree header's **⋯ menu** (off by default, persisted in
   `localStorage` as `td-follow`). When on, focusing a terminal **reveals its working directory** in the tree:
   ancestors expand, the folder is highlighted, centered in the panel and pulses briefly (skipped under
-  `prefers-reduced-motion`). It never re-roots, collapses or
-  re-renders unrelated folders, and does nothing when the cwd is unknown or outside the shown root. It uses the
+  `prefers-reduced-motion`). It never collapses or
+  re-renders unrelated folders, and does nothing when the cwd is unknown. If you drilled into a folder (breadcrumb / ↑)
+  and the focused shell is outside it, the tree returns to the project root first. It uses the
   shell's **live** cwd (see *Live working directory*), so it also follows a `cd` in the focused terminal.
   Turning it off collapses the folders it expanded (ones you opened yourself stay open).
   Live mode only; off keeps the project-anchored behaviour below.
