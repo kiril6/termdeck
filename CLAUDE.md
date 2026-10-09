@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Terminal Dashboard — a browser cockpit of floating xterm.js terminal windows, each backed by a real PTY on the host. Served on localhost.
+TermDeck — a browser cockpit of floating xterm.js terminal windows, each backed by a real PTY on the host. Served on localhost.
 
 ## Commands
 

@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Terminal Dashboard — floating xterm.js terminals</title>
+<title>TermDeck — floating xterm.js terminals</title>
 <meta name="description" content="Browser cockpit of floating terminal windows, each backed by a real PTY on your host. Draggable panes, tiling, projects, themes, command palette."/>
 <meta property="og:type" content="website"/>
-<meta property="og:title" content="Terminal Dashboard"/>
+<meta property="og:title" content="TermDeck"/>
 <meta property="og:description" content="Floating xterm.js terminal windows in the browser, each a real PTY on your host."/>
 <meta name="twitter:card" content="summary"/>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230e151d'/%3E%3Cpath d='M8 11l5 5-5 5' fill='none' stroke='%234fd6be' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cline x1='16' y1='22' x2='23' y2='22' stroke='%234fd6be' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E"/>
@@ -796,7 +796,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 
 <!-- ═══ TOP BAR ═══ -->
 <div class="bar">
-  <div class="brand"><span class="dot">▚</span> Terminal Dashboard <small id="mode">·</small></div>
+  <div class="brand"><span class="dot">▚</span> TermDeck <small id="mode">·</small></div>
   <div class="spacer"></div>
   <div class="status" id="conn"><span class="led"></span><span id="conn-text">connecting…</span></div>
   <button class="kbdhint" id="pal-btn">⌘ K</button>
@@ -973,7 +973,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
   <div class="sc-box">
     <h2>⌨ Help <span class="sc-x" id="sc-close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></span></h2>
     <div class="sc-about">
-      <b>Terminal Dashboard</b> — floating terminal windows in your browser, each backed by a real
+      <b>TermDeck</b> — floating terminal windows in your browser, each backed by a real
       shell on this machine. Refresh or drop the connection without losing a session, group shells
       into <b>projects</b>, and drive it all from <b class="kbd-inline">⌘K</b>. <span style="opacity:.85"><span id="app-ver"></span><a href="https://github.com/kiril6/termdeck" target="_blank" rel="noopener" class="sc-credit">GitHub</a> · © 2026 <a href="https://github.com/kiril6" target="_blank" rel="noopener" class="sc-credit">kiril6</a> · MIT</span>
     </div>
@@ -3556,7 +3556,7 @@ scOverlay.addEventListener("click",(e)=>{if(e.target===scOverlay)scOverlay.class
 /* ════════════════════════════════════════════════
    FILE VIEWER  (click a file in the tree → peek its text)
    ════════════════════════════════════════════════ */
-const DEMO_MD=`# Terminal Dashboard
+const DEMO_MD=`# TermDeck
 
 A browser cockpit of **floating terminals**, each backed by a real PTY.
 
@@ -4096,7 +4096,7 @@ function demoShell(tab, term, isLog){
     return{send:()=>{},resize:()=>{},close:()=>clearInterval(iv),kill:()=>clearInterval(iv)};
   }
   let line="";
-  ["\x1b[2mTerminal Dashboard \u2014 demo shell\x1b[0m","\x1b[2mRun the Node server for real shells.\x1b[0m","\x1b[2mCommands: help, echo, date, whoami, ls, pwd, clear\x1b[0m",""].forEach((l)=>term.write(l+"\r\n"));
+  ["\x1b[2mTermDeck \u2014 demo shell\x1b[0m","\x1b[2mRun the Node server for real shells.\x1b[0m","\x1b[2mCommands: help, echo, date, whoami, ls, pwd, clear\x1b[0m",""].forEach((l)=>term.write(l+"\r\n"));
   term.write(prompt);
   function run(cmd){
     const[c,...rest]=cmd.trim().split(/\s+/);const arg=rest.join(" ");
