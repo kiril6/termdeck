@@ -304,4 +304,14 @@ test.describe('live backend', () => {
     await treeMenu(page, 'Back to project root');           // ⌂ → project root again
     await expect(crumbs).toHaveCount(n);
   });
+  test('re-clicking the focused window does not re-render the tree', async ({ page }) => {
+    await boot(page, '/');
+    await page.locator('#sb-btn').click();
+    await expect(page.locator('#tree .tn').first()).toBeVisible();
+    await page.locator('#tree .tn').first().evaluate((n) => n.setAttribute('data-keep', '1'));
+    await page.locator('.win .xterm').first().click({ force: true });
+    await page.locator('.win .xterm').first().click({ force: true });
+    await page.waitForTimeout(400);
+    await expect(page.locator('#tree .tn[data-keep="1"]')).toHaveCount(1);   // same DOM node → no refresh/flash
+  });
 });

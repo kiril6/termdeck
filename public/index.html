@@ -485,7 +485,8 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
 .tn .tn-act:hover{opacity:1;color:var(--accent);}
 .tree-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:7px;padding:36px 18px;height:100%;text-align:center;color:var(--muted);}
-.tree-empty .te-ic{font-size:26px;opacity:.5;}
+.tree-empty .te-ic{opacity:.5;line-height:0;}
+.tree-empty .te-ic svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
 .tree-empty .te-msg{font-size:12px;color:var(--text);opacity:.85;}
 .tree-empty .te-sub{font-size:10.5px;opacity:.7;line-height:1.5;word-break:break-word;}
 .desktop.sb-open{left:240px;}
@@ -2913,10 +2914,11 @@ function toggleMax(s){
 }
 function unmaxKeeping(s){const p=s.prevRect||{width:"580px",height:"380px"};s.win.classList.remove("max");s.maximized=false;s.win.style.width=p.width;s.win.style.height=p.height;refitActive(s);}
 function focus(s){
+  const wasFocused=focusedId===s.id;
   if(focusedId&&sessions.has(focusedId)){sessions.get(focusedId).win.classList.remove("focused");sessions.get(focusedId).chip.classList.remove("active");}
   focusedId=s.id;s.win.style.zIndex=++zTop;s.win.classList.add("focused");s.chip.classList.add("active"); touchTab(activeTab(s));
   if(!s.minimized){const t=activeTab(s); if(t){clearTabAttn(s,t); setTimeout(()=>{try{t.term.focus();}catch{}},0);}}
-  if(sidebarOpen) followTree();
+  if(sidebarOpen&&!wasFocused) followTree();   // re-clicking the focused window leaves the tree alone
   if(sessSearchOpen&&ssInput.value) closeSessSearch();   // picked a match → drop the filter
 }
 
@@ -3756,9 +3758,8 @@ function refreshTree(){
   if(!sidebarOpen)return;
   sbUpBtn.disabled=!treeParent();
   const root=treeRootPath();
-  if(root!==treeLastRoot){treeOpen.clear();treeLastRoot=root;} // new root → forget prior expansions
+  if(root!==treeLastRoot){treeOpen.clear();treeLastRoot=root;treeEl.innerHTML="";} // new root → forget prior expansions and show the loader
   renderCrumbs(root);
-  treeEl.innerHTML="";
   if(LIVE) mountTree(treeEl,root);
   else     renderDemoTree(treeEl,root.replace(/^\/home\/[^/]+/,"~"));
 }
@@ -3779,17 +3780,17 @@ async function apiLs(dir){
   return j;
 }
 function treeMsg(depth,txt){const d=el("div","tn");d.style.paddingLeft=(8+depth*14)+"px";d.style.color="var(--muted)";d.style.fontSize="10px";d.textContent=txt;return d;}
-function treeEmpty(ic,msg,sub){const w=el("div","tree-empty");w.append(Object.assign(el("div","te-ic"),{textContent:ic}),Object.assign(el("div","te-msg"),{textContent:msg}));if(sub)w.append(Object.assign(el("div","te-sub"),{textContent:sub}));return w;}
+function treeEmpty(ic,msg,sub){const w=el("div","tree-empty");w.append(Object.assign(el("div","te-ic"),{innerHTML:ic}),Object.assign(el("div","te-msg"),{textContent:msg}));if(sub)w.append(Object.assign(el("div","te-sub"),{textContent:sub}));return w;}
 async function fillNode(container,dir,depth){
   const top=depth===0; // root level gets a full-panel placeholder, not a lone 10px word
-  container.innerHTML=""; container.append(top?treeEmpty("\u23f3","Loading\u2026"):treeMsg(depth,"\u2026"));
+  if(!top||!container.firstChild){container.innerHTML=""; container.append(top?treeEmpty(ICON.hourglass,"Loading\u2026"):treeMsg(depth,"\u2026"));}   // a refresh keeps the old rows until the new ones arrive
   try{
     const d=await apiLs(dir); container.innerHTML="";
     if(top&&dir==="~") treeHome=d.dir;   // lets follow-mode resolve the "~" root to an absolute path
-    if(!d.entries.length){container.append(top?treeEmpty("\ud83d\udcc2","Empty folder","Nothing here, or only hidden files."):treeMsg(depth,"empty")); return;}
+    if(!d.entries.length){container.append(top?treeEmpty(ICON.folder,"Empty folder","Nothing here, or only hidden files."):treeMsg(depth,"empty")); return;}
     d.entries.forEach((en)=>container.append(treeNode(en,joinPath(d.dir,en.name),depth)));  // d.dir is absolute → real cwd for spawn/reveal
     markHere();
-  }catch(e){ container.innerHTML=""; container.append(top?treeEmpty("\u26a0\ufe0f","Can\u2019t read folder",e.message):treeMsg(depth,"\u26a0 "+e.message)); }
+  }catch(e){ container.innerHTML=""; container.append(top?treeEmpty(ICON.warn,"Can\u2019t read folder",e.message):treeMsg(depth,"can\u2019t read: "+e.message)); }
 }
 function mountTree(container,dir){ fillNode(container,dir,0); }
 
@@ -3806,7 +3807,7 @@ function markHere(){
   }
 }
 function followTree(){
-  if(!followTerm||!LIVE){refreshTree();return;}      // off: legacy behaviour (re-render for the focused project)
+  if(!followTerm||!LIVE){if(treeRootPath()!==treeLastRoot) refreshTree(); return;}   // off: tree root follows the focused shell's project/cwd; re-render only if it changed
   const s=focusedId&&sessions.has(focusedId)?sessions.get(focusedId):null;
   let root=treeRootPath(); if(root==="~") root=treeHome||root;
   root=root.replace(/[\\/]+$/,"");
@@ -3920,7 +3921,7 @@ syncMoreBtn();
 function toggleFollow(){
   followTerm=!followTerm; localStorage.setItem("td-follow",followTerm?"1":"0"); syncMoreBtn();
   if(!followTerm){hereDir=null;followOpened.forEach((d)=>treeOpen.delete(d));followOpened.clear();}
-  followTree();
+  if(followTerm) followTree(); else refreshTree();   // off: re-render so the folders follow opened collapse
 }
 function toggleHidden(){showHidden=!showHidden;localStorage.setItem("td-hidden",showHidden?"1":"0");refreshTree();}
 sbMoreBtn.addEventListener("click",()=>{

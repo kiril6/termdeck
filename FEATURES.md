@@ -91,8 +91,9 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   (disabled at the filesystem top). After re-rooting, the **⋯ menu** offers **Back to project root** and
   **Pin as project root** (the current location becomes the project's persistent root). Deep paths scroll to keep the current folder in view.
   Switching projects clears the override.
-- 🖥️ **Empty / error state** — a genuinely empty or unreadable root shows a centered placeholder
-  (📂 *Empty folder* / ⚠️ *Can't read folder*) instead of a bare word, so an empty sidebar reads as
+- 🖥️ **Empty / error / loading state** — a genuinely empty or unreadable root shows a centered placeholder
+  (monochrome icon: *Empty folder* / *Can't read folder*; *Loading…* only on first load or a root change — a refresh keeps
+  the current rows until the new ones arrive, and re-clicking the already-focused window never refreshes the tree) instead of a bare word, so an empty sidebar reads as
   intentional, not broken. (Nested empty dirs still show a compact inline note.)
 - 🖥️ **Project root** — each project anchors to the path of its first shell (the Dir/"New project" path),
   persisted in `localStorage`; the tree follows the project tab, not the focused terminal. The
