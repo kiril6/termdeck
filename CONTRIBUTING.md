@@ -1,4 +1,4 @@
-# Contributing to Terminal Dashboard
+# Contributing to TermDeck
 
 Contributions welcome. To keep the project simple and dependable, a few ground rules.
 

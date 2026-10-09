@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Terminal Dashboard — backend
+ * TermDeck — backend
  *
  * First-time setup (picks the right node-pty for your OS, no compiler needed):
  *   node install.js
@@ -145,7 +145,7 @@ app.get('/debug', (_req, res) => {
     .map(([k,v]) => `<tr><td>${k}</td><td class="${v.startsWith('✓')||!v.startsWith('✗')?'ok':'fail'}">${v}</td></tr>`)
     .join('');
 
-  res.send(`<!DOCTYPE html><html><head><title>Terminal Dashboard Debug</title>
+  res.send(`<!DOCTYPE html><html><head><title>TermDeck Debug</title>
 <style>
   body{font-family:monospace;background:#0b0f14;color:#c9d4de;padding:32px;font-size:13px;line-height:1.6;}
   h1{color:#4fd6be;} h2{color:#c9d4de;font-size:13px;margin-top:28px;letter-spacing:.1em;text-transform:uppercase;}
@@ -157,7 +157,7 @@ app.get('/debug', (_req, res) => {
        max-width:660px;color:#e0a94e;line-height:2;}
   code{background:#0e151d;padding:2px 7px;border-radius:4px;color:#4fd6be;}
 </style></head><body>
-<h1>▚ Terminal Dashboard — Debug</h1>
+<h1>▚ TermDeck — Debug</h1>
 <h2>Environment</h2><table>${rows(info)}</table>
 <h2>Shell Spawn Tests</h2><table>${rows(results)}</table>
 ${allFail ? `<div class="fix"><b>All shells failed to spawn.</b><br><br>
@@ -1049,7 +1049,7 @@ function listenOn(port, triesLeft) {
       process.on('exit', () => { try { if (JSON.parse(fs.readFileSync(f, 'utf8')).pid === process.pid) fs.unlinkSync(f); } catch {} });
     } catch {}   // best effort: without it only the restart-on-another-port case degrades
     const open = TOKEN ? `${base}/?t=${TOKEN}` : base;   // tokenized URL: first visit sets the auth cookie
-    console.log(`\n  Terminal Dashboard → ${open}`);
+    console.log(`\n  TermDeck → ${open}`);
     console.log(`  Debug             → ${base}/debug`);
     console.log(`  ${os.platform()} ${os.arch()}  |  Node ${process.version}  |  ${ptyPkg}`);
     console.log(`  Durable sessions  → ${TMUX_OK ? 'tmux (shells survive server restart)' : 'off — raw shells (install tmux, or NO_TMUX unset, to enable)'}`);
