@@ -318,4 +318,20 @@ test.describe('live backend', () => {
     await page.waitForTimeout(400);
     await expect(page.locator('#tree .tn[data-keep="1"]')).toHaveCount(1);   // same DOM node → no refresh/flash
   });
+  test('tree resizes by dragging its edge and returns to the default width on reopen', async ({ page }) => {
+    await boot(page, '/');
+    await page.locator('#sb-btn').click();
+    const sb = page.locator('#sidebar');
+    await expect(sb).toHaveCSS('width', '240px');
+    await page.waitForTimeout(400);   // let the slide-in finish so the handle is where we measure it
+    const h = await page.locator('#sb-resize').boundingBox();
+    await page.mouse.move(h.x + 3, h.y + 100);
+    await page.mouse.down();
+    await page.mouse.move(h.x + 163, h.y + 100, { steps: 5 });
+    await page.mouse.up();
+    await expect(sb).toHaveCSS('width', '400px');
+    await page.locator('#sb-close-btn').click();
+    await page.locator('#sb-btn').click();
+    await expect(sb).toHaveCSS('width', '240px');   // width is not remembered
+  });
 });

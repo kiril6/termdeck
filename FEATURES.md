@@ -88,6 +88,9 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   shell's **live** cwd (see *Live working directory*), so it also follows a `cd` in the focused terminal.
   Turning it off collapses the folders it expanded (ones you opened yourself stay open).
   Live mode only; off keeps the project-anchored behaviour below.
+- 🖥️ **Resizable tree** — drag the tree's right edge to widen/narrow it (180–640 px); double-click the edge to reset.
+  The width is deliberately **not remembered**: each time the tree opens it is the default 240 px. A long breadcrumb
+  fades out on the left instead of cutting letters, and hovering it shows the full path.
 - 🖥️ **Breadcrumb navigation** — the sidebar header is a clickable path breadcrumb; click any ancestor
   segment to re-root the tree there (step back / up), the always-visible **↑** button goes up one level
   (disabled at the filesystem top). After re-rooting, the **⋯ menu** offers **Back to project root** and
