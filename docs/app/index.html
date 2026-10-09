@@ -3809,7 +3809,7 @@ function markHere(){
 }
 // Work out where the focused shell is inside the shown root: expand its ancestors (tracked in followOpened),
 // remember the row to highlight. Returns true when something new was expanded (tree needs a re-render).
-let outsideRoot=false;   // set by revealPrep: focused shell is known but outside the shown root
+let outsideRoot=null;   // set by revealPrep: the focused shell's cwd when it is known but outside the shown root
 function revealPrep(){
   const s=focusedId&&sessions.has(focusedId)?sessions.get(focusedId):null;
   let root=treeRootPath(); if(root==="~") root=treeHome||root;
@@ -3817,7 +3817,7 @@ function revealPrep(){
   const t=s&&activeTab(s), live=t&&t.cwd||s&&s.cwd;   // tab.cwd is the shell's live dir; s.cwd is only the spawn dir
   const cwd=s&&s.project===activeProject&&live?live.replace(/[\\/]+$/,""):null;
   const rel=cwd&&/^([\/\\]|[A-Za-z]:)/.test(root)&&cwd.startsWith(root)&&(cwd.length===root.length||/[\\/]/.test(cwd[root.length]))?cwd.slice(root.length):null;
-  outsideRoot=rel===null&&!!cwd;
+  outsideRoot=rel===null&&cwd?cwd:null;
   if(rel===null){hereDir=null; return false;}      // unknown cwd / outside the shown root: leave the tree alone
   let acc=root, fresh=false;
   for(const seg of rel.split(/[\\/]/).filter(Boolean)){acc=joinPath(acc,seg); if(!treeOpen.has(acc)){treeOpen.add(acc);followOpened.add(acc);fresh=true;}}
@@ -3829,7 +3829,11 @@ function revealPrep(){
 function followTree(){
   if(!followTerm||!LIVE){if(treeRootPath()!==treeLastRoot) refreshTree(); return;}   // off: tree root follows the focused shell's project/cwd; re-render only if it changed
   const fresh=revealPrep();
-  if(outsideRoot&&treeRoot){treeRoot=null; refreshTree(); return;}   // drilled into a folder the focused shell isn't in: back to the project root
+  if(outsideRoot){   // focused shell is outside the shown root: try the project root, else re-root to its home / parent so its folder shows
+    const cwd=outsideRoot; treeRoot=null; revealPrep();
+    if(outsideRoot){const h=treeHome&&treeHome.replace(/[\\/]+$/,""); treeRoot=h&&cwd.startsWith(h+"/")?h:cwd.replace(/[\\/][^\\/]*$/,"")||"/";}
+    refreshTree(); return;
+  }
   if(fresh||treeEl.firstChild===null) refreshTree(); else markHere();   // markHere also runs after each lazy fill
 }
 function treeNode(en,full,depth){
