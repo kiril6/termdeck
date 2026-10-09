@@ -851,7 +851,10 @@ wss.on('connection', (ws, req) => {
     try {
       term = pty.spawn('tmux', ['new-session', '-A', '-D', '-s', name, '-c', cwd,
                                    ...(tmuxEnvFlags ? ['-e', 'TD_ID=' + id, '-e', 'TD_URL=' + AGENT_URL, '-e', 'TD_HOOK=' + AGENT_HOOK, ...(TOKEN ? ['-e', 'TD_TOKEN=' + TOKEN] : [])] : []),
-                                   ...(wantShell ? [wantShell] : [])],   // trailing shell-command: only used when the session is created
+                                   ...(wantShell ? [wantShell] : []),    // trailing shell-command: only used when the session is created
+                                   // Hide tmux's status bar: the window chrome already shows name/shell/time, and its default
+                                   // black-on-green is unreadable on light themes. This session only — the user's own tmux keeps its bar.
+                                   ';', 'set-option', '-t', name, 'status', 'off'],
                        { name:'xterm-256color', cols, rows, cwd, env });
       usedShell = wantShell || process.env.SHELL || 'sh';            // tmux runs the login shell inside; badge shows it
       tmuxName  = name;

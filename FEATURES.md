@@ -63,7 +63,8 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   their alt text, so a file can't inject markup or trigger requests. Not full CommonMark (no nested lists /
   reference links). In the hosted demo the tree's `README.md` and the palette command open a sample document.
 - 🧭 **First-run tour** — a 5-step spotlight walkthrough (⌘K palette → New agent task → agent queue → projects & dock → Help) that auto-shows once on a first visit (not on narrow/touch screens) and never again once closed (`td-tour-done` in `localStorage`). Replay: palette → *Take the tour*, the Help sheet, or the empty-desktop link. Esc closes, ←/→ step, focus stays in the card; no layout shift, no network, animation off under `prefers-reduced-motion`. Works in the hosted demo.
-- 🗂️ **Palette categories** — a chip row under the ⌘K input (*All · Terminals · Agents · Layout · Workspace · Saved · Sessions*; *Layout* holds Tile windows and the fixed-grid presets) narrows the list; click a chip or press **Tab / Shift+Tab** to cycle, and the search text still applies inside the chosen category. Resets to *All* each time the palette opens. A **×** in the input (or **Ctrl+U**) clears the typed text.
+- 🗂️ **Short empty palette** — with nothing typed (category *All*) ⌘K lists only **Recent** (the last 5 palette commands you ran, `td-pal-recent` in `localStorage`), **Start** (New terminal · New agent task… · Open directory… · Open file… · New project), your snippets / SSH hosts, the top AI CLIs and open sessions, plus a *Type to search all N commands* footer. Typing searches **every** command (an `x` matches `×`, so `2x2` finds *Layout 2×2*); a category chip lists all of its commands.
+- 🗂️ **Palette categories** — a chip row under the ⌘K input (*All · Terminals · Agents · Sessions · Layout · Settings*; *Terminals* also holds snippets and SSH hosts, *Sessions* the Live overview, Search sessions and open sessions, *Layout* Tile windows and the fixed-grid presets, *Settings* theme, scrollback, usage/agent-order resets, pets, shortcuts, tour and the game) narrows the list; click a chip or press **Tab / Shift+Tab** to cycle, and the search text still applies inside the chosen category. Resets to *All* each time the palette opens. A **×** in the input (or **Ctrl+U**) clears the typed text.
 - ⌨️ **Palette shortcut hints** — every palette command that has a shortcut shows it, matching the real binding.
   Frequent actions get one (*Open file* `⌘⌥O`, *New agent task* `⌘⌥R`, *Review agent changes* `⌘⌥D`); one-off setup
   dialogs (*Add SSH host*, *Add AI CLI preset*, *Set scrollback*) deliberately stay palette-only. *Maximize / restore*
@@ -109,6 +110,9 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   Windows) or when `NO_TMUX=1` — falls back to raw-shell spawn. **Explicit kill** ends the tmux
   session (`kill-session`); disconnect/grace only detaches the client, so the session lives on for
   later reattach. cwd tracking uses `tmux display-message #{pane_current_path}` for tmux sessions.
+  termdeck's own `td_*` sessions hide the tmux status bar (`status off`, set per session on create and reattach): the window
+  chrome already shows name, shell and time, and tmux's black-on-green bar was unreadable on light themes. Other tmux sessions
+  are untouched; `tmux set status on` brings it back in that terminal until the next reattach.
   **Ceiling:** nothing survives a machine **reboot** (process memory is gone) — tmux only survives
   the server dying, not the OS. Across a restart, xterm's native scrollback replay is skipped (tmux
   repaints the current screen; history stays reachable via tmux copy-mode). Startup banner reports
@@ -279,13 +283,13 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   via `GET /api/update-check` (5 s timeout, successes cached 6 h, `TD_UPDATE_URL` overrides the source) and the
   result line says *up to date* / *vX is available — run `npx @kiril6/termdeck@latest`* / *couldn't reach npm*.
   No background network calls.
-- 🧭 **Cross-project agent queue** — a toolbar button (⋯ overflow menu below 1200px) opens a popover
-- 🔲 **Live overview** — toolbar grid button (⋯ menu below 1260px) or palette → *Live overview* opens a full-screen, read-only grid with one tile per
+- 🔲 **Live overview** — the **Grid** view of the toolbar **Sessions** button (its *Queue | Grid* toggle; ⋯ menu below 1260px) or palette → *Live overview* opens a full-screen, read-only grid with one tile per
   tab across all projects (grouped by project): the tab's last ~9 output lines plus its state (needs approval /
   waiting / running / idle / exited; dot and border tinted). Refreshes every 1.5 s **only while open** (timer
   stops on close); output is rendered as text, no input. Click a tile (or Enter) to jump to that window and
-  tab; Esc or ✕ closes. Reads the already-streamed xterm buffer — no extra endpoint or WebSocket.
-- 🧭 **Cross-project agent queue** — a toolbar button (⋯ overflow menu below 1260px) opens a popover
+  tab; Esc or ✕ closes; **Queue** in its header switches back to the agent queue. Reads the already-streamed xterm buffer — no extra endpoint or WebSocket.
+- 🧭 **Cross-project agent queue** — the toolbar **Sessions** button (⋯ overflow menu below 1260px) opens a popover
+  (its *Queue* view; **Grid** switches to the Live overview — one home for both)
   listing **every agent tab across all projects** in one who-needs-me queue, ranked
   **needs approval → waiting → working**, ties broken alphabetically by project, session, then tab.
   Clicking a row jumps straight to it: switches project, reveals the window, focuses the tab, closes the
@@ -411,9 +415,11 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🖥️ Themes — per-terminal or dashboard-wide, searchable picker (`⌘⇧P`). 24 built-in: 17 dark + 7 light (GitHub Light, Paper, Solarized Light, One Light, Catppuccin Latte, Rose Pine Dawn, Gruvbox Light).
   Text on accent-filled surfaces (the primary dialog button, hovered menu rows) is picked per theme as near-black or white, whichever contrasts more with that theme's accent (≥4.7:1 across all 24), via the `--on-accent` variable.
 - 🖥️ Dock — bottom session bar with activity/attention indicators, overflow edge hints, and pointer-event drag-and-drop reordering (desktop: immediate; touch: long-press ~250ms to drag, so swiping over chips scrolls the dock).
-- 🖥️ Tiling (`⌘⌥⇧T`), fullscreen (`F11`).
-- 🖥️ **Responsive toolbar** — below ~1260px the secondary toolbar buttons (Tree, Search, Tile, Cast,
-  Dir, Theme, Fullscreen, Help) collapse into a single **⋯** overflow menu; the brand, connection
+- 🖥️ **Layout split button** — the toolbar *Tile* button tiles in one click (`⌘⌥⇧T`); its **▾** opens a menu with Tile windows, the
+  1×1 / 2×1 / 1×2 / 2×2 / 3×2 presets (each drawn as a small grid icon), *Restore minimized (N)* and Fullscreen (`F11` / `⌃⌘F`),
+  so everything that arranges windows lives in one place.
+- 🖥️ **Responsive toolbar** — below ~1260px the secondary toolbar buttons (Tree, Sessions, Search, Tile ▾, Cast,
+  Dir, Theme, Help) collapse into a single **⋯** overflow menu; the brand, connection
   status, `⌘K`, and **New terminal** stay on the bar. Prevents the toolbar overflowing off narrow windows.
 - 🖥️ Muted `© 2026 kiril6 · MIT` credit, bottom-right of the empty desktop only (hides with the
   "No sessions yet" hint once a shell is open).
@@ -525,7 +531,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   that the server will move), network exposure / token state, wildcard `TD_ALLOWED_HOSTS`, `TD_*` numbers that would
   silently fall back to defaults, and `TD_LOG_DIR` writability. Each problem prints its fix. Exit 0 = all good,
   1 = any warning/failure. No network calls; plain text when piped or `NO_COLOR` is set.
-- 🖥️ **Layout presets + Alt+N (#51)** — palette commands *Layout 1×1 / 2×1 / 1×2 / 2×2 / 3×2* (columns × rows) arrange the active
+- 🖥️ **Layout presets + Alt+N (#51)** — the toolbar Tile **▾** menu or palette commands *Layout 1×1 / 2×1 / 1×2 / 2×2 / 3×2* (columns × rows) arrange the active
   project's windows in a fixed grid with no overlap (*Tile windows* still picks a grid automatically; floating stays the
   default). Windows beyond the cell count are **minimized** (focused one kept), never closed; *Restore minimized* brings
   them back. `⌥/Alt+1–9` focuses (and un-minimizes, switching project if needed) the Nth window of the active project in
