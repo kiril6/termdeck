@@ -116,7 +116,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);overflow:hid
   cursor:pointer;display:grid;place-items:center;font-size:12px;padding:0;}
 .find-btn:hover{background:var(--btn-bg);color:var(--text);}
 /* Inline SVG icons in small controls: inherit button font-size, monochrome. */
-.find-btn svg,.in-clear svg,.pi-del svg,.sc-x svg,.t-close svg,.ss-close svg,.sb-reset svg,.tn-caret svg,.tn-act svg,.tpop-clear svg,.pdel svg,.wt-x svg,.t-close svg,.paddbtn svg{width:1em;height:1em;display:inline-block;vertical-align:middle;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+.find-btn svg,.in-clear svg,.pi-del svg,.sc-x svg,.t-close svg,.ss-close svg,.tn-caret svg,.tn-act svg,.tpop-clear svg,.pdel svg,.wt-x svg,.t-close svg,.paddbtn svg{width:1em;height:1em;display:inline-block;vertical-align:middle;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
 .tn-caret svg{width:1.3em;height:1.3em;}
 .btn:disabled{opacity:.4;cursor:default;pointer-events:none;}
 #bcast.active{background:var(--dead);border-color:var(--dead);color:#fff;animation:bcastpulse 1.4s ease-in-out infinite;}
@@ -434,9 +434,9 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
 .win.ss-dim{opacity:.2;pointer-events:none;}
 
 /* ── dir tree sidebar ── */
-.sidebar{position:absolute;top:82px;bottom:0;left:0;width:240px;z-index:3500;/* start below bar+project tabs so the header (breadcrumbs/close) isn't hidden */
+.sidebar{position:absolute;top:82px;bottom:0;left:0;width:var(--sbw,240px);z-index:3500;/* start below bar+project tabs so the header (breadcrumbs/close) isn't hidden */
   background:var(--panel-2);border-right:1px solid var(--line);
-  display:flex;flex-direction:column;transform:translateX(-244px);
+  display:flex;flex-direction:column;transform:translateX(calc(-1*var(--sbw,240px) - 4px));
   transition:transform .2s ease;}
 .sidebar.open{transform:translateX(0);}
 .sb-head{height:34px;flex:0 0 34px;display:flex;align-items:center;gap:8px;
@@ -445,9 +445,7 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
   overflow-y:hidden;white-space:nowrap;font-size:11px;letter-spacing:.03em;
   color:var(--muted);scrollbar-width:none;}
 .sb-head .sb-title::-webkit-scrollbar{display:none;}
-.sb-head .sb-reset{border:0;background:transparent;color:var(--muted);cursor:pointer;
-  font-size:12px;line-height:1;flex:0 0 auto;padding:0 3px 0 0;}
-.sb-head .sb-reset:hover{color:var(--accent);}
+.sb-head .sb-title.clipped{-webkit-mask-image:linear-gradient(to right,transparent,#000 18px);mask-image:linear-gradient(to right,transparent,#000 18px);}
 .sb-head .crumb{cursor:pointer;padding:1px 3px;border-radius:4px;flex:0 0 auto;color:var(--muted);}
 .sb-head .crumb:hover{color:var(--accent);background:var(--btn-bg);}
 .sb-head .crumb:last-child{color:var(--text);cursor:default;}
@@ -461,15 +459,21 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
   flex:0 0 auto;display:grid;place-items:center;padding:3px;border-radius:5px;font-size:13px;}
 .sb-head .sb-tool:hover{color:var(--text);background:var(--btn-bg);}
 .sb-head .sb-tool.on{color:var(--accent);}
+.sb-head .sb-tool{position:relative;}
+.sb-head .sb-tool.flag::after{content:"";position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;background:var(--accent);}
+.sb-head .sb-tool:disabled{opacity:.35;cursor:default;pointer-events:none;}
 .sb-head .sb-tool svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
-.sb-head .sb-pin{border:0;background:transparent;color:var(--muted);cursor:pointer;flex:0 0 auto;padding:0 3px;}
-.sb-head .sb-pin:hover{color:var(--accent);}
-.sb-head .sb-pin svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
 .tree{flex:1;overflow-y:auto;padding:4px 0;scrollbar-width:thin;scrollbar-color:var(--line) transparent;}
 .tn{display:flex;align-items:center;gap:6px;padding:4px 6px;
   font-size:11.5px;cursor:pointer;white-space:nowrap;overflow:hidden;border-radius:5px;color:var(--text);}
 .tn:hover{background:var(--btn-bg);}
 .tn.dir-node{color:var(--accent);}
+.tn.here{background:var(--btn-bg);box-shadow:inset 2px 0 0 var(--accent);}
+.tn.here.blink{animation:tnblink .35s ease-in-out 3;}
+@keyframes tnblink{50%{background:color-mix(in srgb,var(--accent) 45%,transparent);}}
+#sb-refresh-btn.spin svg{animation:sbspin .6s ease-in-out;}
+@keyframes sbspin{to{transform:rotate(360deg);}}
+@media (prefers-reduced-motion:reduce){.tn.here.blink{animation:none;}}
 .tn .tn-caret{flex:0 0 auto;font-size:9px;color:var(--muted);
   transition:transform .12s;width:10px;text-align:center;}
 .tn.open .tn-caret{transform:rotate(90deg);}
@@ -478,15 +482,20 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
 .tc{display:none;}
 .tc.open{display:block;}
 .tn .tn-act{flex:0 0 auto;border:0;background:transparent;color:var(--muted);cursor:pointer;
-  font-size:12px;line-height:1;padding:0 2px;opacity:0;transition:opacity .12s;}
+  font-size:12px;line-height:1;padding:3px 4px;opacity:0;transition:opacity .12s;}
 .tn:hover .tn-act{opacity:.75;}
+.tn .tn-act svg{pointer-events:none;}   /* button = one hover target, so its title tooltip isn't reset by the svg's child boundaries */
 .tn .tn-act:hover{opacity:1;color:var(--accent);}
 .tree-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:7px;padding:36px 18px;height:100%;text-align:center;color:var(--muted);}
-.tree-empty .te-ic{font-size:26px;opacity:.5;}
+.tree-empty .te-ic{opacity:.5;line-height:0;}
+.tree-empty .te-ic svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
 .tree-empty .te-msg{font-size:12px;color:var(--text);opacity:.85;}
 .tree-empty .te-sub{font-size:10.5px;opacity:.7;line-height:1.5;word-break:break-word;}
-.desktop.sb-open{left:240px;}
+.desktop.sb-open{left:var(--sbw,240px);}
+.sb-drag .sidebar,.sb-drag .desktop{transition:none;}
+.sb-resize{position:absolute;top:0;bottom:0;right:-3px;width:6px;cursor:col-resize;z-index:1;}
+.sb-resize:hover,.sb-drag .sb-resize{background:var(--accent);opacity:.5;}
 
 /* ── theme picker ── */
 .theme-pop-inner{width:340px;}
@@ -899,10 +908,12 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 
 <!-- ═══ DIR TREE SIDEBAR ═══ -->
 <div class="sidebar" id="sidebar">
+  <div class="sb-resize" id="sb-resize" title="Drag to resize · double-click to reset"></div>
   <div class="sb-head">
     <span class="sb-title" id="sb-title">Directory Tree</span>
-    <button class="sb-tool" id="sb-hidden-btn" title="Show hidden files" aria-label="Toggle hidden files"></button>
+    <button class="sb-tool" id="sb-up-btn" title="Up one level" aria-label="Up one level"></button>
     <button class="sb-tool" id="sb-refresh-btn" title="Refresh tree" aria-label="Refresh tree"></button>
+    <button class="sb-tool" id="sb-more-btn" title="More" aria-label="More tree options" aria-haspopup="menu"></button>
     <button class="sb-close" id="sb-close-btn" title="Collapse sidebar (⌘B)" aria-label="Collapse sidebar">«</button>
   </div>
   <div class="tree" id="tree"></div>
@@ -1066,6 +1077,9 @@ const ICON={
   eye:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
   eyeOff:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 8 10 8a17 17 0 0 1-2.6 3.4M6.6 6.6A17 17 0 0 0 2 12s3.5 8 10 8a9 9 0 0 0 5.4-1.6M2 2l20 20M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>',
   copy:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h11v11H9zM5 15H4V4h11v1"/></svg>',
+  more:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>',
+  locate:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>',
+  arrowUp:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
   pin:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5M9 3h6l-1 6 3 3H7l3-3-1-6z"/></svg>',
   collapse:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M16 9l-3 3 3 3"/></svg>',
 };
@@ -2750,7 +2764,7 @@ function openTabWS(s,tab){
         markAttn(s,tab);
       }
     }else if(m.type==="cwd"){          // live cwd: shell cd'd — backend polled the new dir
-      if(m.cwd){tab.cwd=m.cwd; if(s.activeTabId===tab.id) setCwdBadge(s,m.cwd);}
+      if(m.cwd){tab.cwd=m.cwd; if(s.activeTabId===tab.id) setCwdBadge(s,m.cwd); if(followTerm&&sidebarOpen&&focusedId===s.id) followTree();}
     }else if(m.type==="error"&&m.code==="panel_cap_reached"){
       // Backend terminal cap (TD_MAX_PANELS): retrying can't help until something closes, so park the tab
       // as dead (no auto-reconnect; the window's \u27f3 restarts it) and say why instead of looping forever.
@@ -2907,10 +2921,11 @@ function toggleMax(s){
 }
 function unmaxKeeping(s){const p=s.prevRect||{width:"580px",height:"380px"};s.win.classList.remove("max");s.maximized=false;s.win.style.width=p.width;s.win.style.height=p.height;refitActive(s);}
 function focus(s){
+  const wasFocused=focusedId===s.id;
   if(focusedId&&sessions.has(focusedId)){sessions.get(focusedId).win.classList.remove("focused");sessions.get(focusedId).chip.classList.remove("active");}
   focusedId=s.id;s.win.style.zIndex=++zTop;s.win.classList.add("focused");s.chip.classList.add("active"); touchTab(activeTab(s));
   if(!s.minimized){const t=activeTab(s); if(t){clearTabAttn(s,t); setTimeout(()=>{try{t.term.focus();}catch{}},0);}}
-  if(sidebarOpen) refreshTree();
+  if(sidebarOpen&&!wasFocused) followTree();   // re-clicking the focused window leaves the tree alone
   if(sessSearchOpen&&ssInput.value) closeSessSearch();   // picked a match → drop the filter
 }
 
@@ -3709,8 +3724,20 @@ document.getElementById("ss-close").addEventListener("click",()=>{
    DIRECTORY TREE SIDEBAR
    ════════════════════════════════════════════════ */
 function toggleSidebar(){sidebarOpen?closeSidebar():openSidebar();}
-function openSidebar(){sidebarOpen=true;sidebar.classList.add("open");desktop.classList.add("sb-open");refreshTree();}
-function closeSidebar(){sidebarOpen=false;sidebar.classList.remove("open");desktop.classList.remove("sb-open");}
+// the tree's width is a per-open tweak: drag the right edge to resize, it returns to the default on every open/close
+const sbResize=document.getElementById("sb-resize");
+function fadeCrumbs(){sbTitleEl.classList.toggle("clipped",sbTitleEl.scrollLeft>0);}
+function resetSbWidth(){document.documentElement.style.removeProperty("--sbw"); document.body.classList.remove("sb-drag"); requestAnimationFrame(()=>{sbTitleEl.scrollLeft=sbTitleEl.scrollWidth;fadeCrumbs();});}
+sbResize.addEventListener("pointerdown",e=>{
+  e.preventDefault(); sbResize.setPointerCapture(e.pointerId); document.body.classList.add("sb-drag");
+  const x0=e.clientX, w0=sidebar.offsetWidth;
+  const move=ev=>{document.documentElement.style.setProperty("--sbw",Math.max(180,Math.min(640,Math.round(w0+ev.clientX-x0)))+"px"); sbTitleEl.scrollLeft=sbTitleEl.scrollWidth; fadeCrumbs();};
+  const up=()=>{document.body.classList.remove("sb-drag"); sbResize.removeEventListener("pointermove",move); sbResize.removeEventListener("pointerup",up);};
+  sbResize.addEventListener("pointermove",move); sbResize.addEventListener("pointerup",up);
+});
+sbResize.addEventListener("dblclick",resetSbWidth);
+function openSidebar(){sidebarOpen=true;resetSbWidth();sidebar.classList.add("open");desktop.classList.add("sb-open");refreshTree();}
+function closeSidebar(){sidebarOpen=false;resetSbWidth();sidebar.classList.remove("open");desktop.classList.remove("sb-open");}
 
 let treeRoot=null; // breadcrumb override; null = follow project/focus
 let showHidden=localStorage.getItem("td-hidden")==="1"; // include dotfiles in the tree
@@ -3726,13 +3753,6 @@ function treeRootPath(){
 }
 function renderCrumbs(root){
   sbTitleEl.innerHTML="";
-  if(treeRoot){ // navigated away: offer reset + pin-as-root
-    const home=el("button","sb-reset");home.innerHTML=ICON.home;home.title="Back to project root";
-    home.addEventListener("click",()=>{treeRoot=null;refreshTree();});
-    const pin=el("button","sb-pin");pin.innerHTML=ICON.pin;pin.title="Pin as this project's root";
-    pin.addEventListener("click",()=>setProjectRoot(treeRoot));
-    sbTitleEl.append(home,pin);
-  }
   if(!LIVE||root==="~"||root.startsWith("~")){ // demo / home fallback: single crumb, no deep nav
     const c=el("span","crumb");c.textContent=root.replace(/^\/home\/[^/]+/,"~");sbTitleEl.append(c);return;
   }
@@ -3744,14 +3764,24 @@ function renderCrumbs(root){
     if(!last) c.addEventListener("click",()=>{treeRoot=path;refreshTree();});
     sbTitleEl.append(c);
   });
+  sbTitleEl.title=root; // full path on hover, also over the clipped part
   sbTitleEl.scrollLeft=sbTitleEl.scrollWidth; // keep current folder in view
+  fadeCrumbs();
+}
+// parent of the shown root, or null at the filesystem top / when "~" can't be resolved yet (demo mode)
+function treeParent(){
+  let r=treeRootPath(); if(r==="~") r=treeHome||""; r=r.replace(/[\\/]+$/,"");
+  if(!LIVE||!/^([\/\\]|[A-Za-z]:)/.test(r)||/^[A-Za-z]:$/.test(r)) return null;
+  const i=Math.max(r.lastIndexOf("/"),r.lastIndexOf("\\"));
+  return i<0?null:(r.slice(0,i)||"/");
 }
 function refreshTree(){
   if(!sidebarOpen)return;
+  sbUpBtn.disabled=!treeParent();
   const root=treeRootPath();
-  if(root!==treeLastRoot){treeOpen.clear();treeLastRoot=root;} // new root → forget prior expansions
+  if(root!==treeLastRoot){treeOpen.clear();treeLastRoot=root;treeEl.innerHTML="";} // new root → forget prior expansions and show the loader
+  if(followTerm&&LIVE) revealPrep();   // every render (open, project switch, ↻) re-applies the highlight
   renderCrumbs(root);
-  treeEl.innerHTML="";
   if(LIVE) mountTree(treeEl,root);
   else     renderDemoTree(treeEl,root.replace(/^\/home\/[^/]+/,"~"));
 }
@@ -3772,21 +3802,65 @@ async function apiLs(dir){
   return j;
 }
 function treeMsg(depth,txt){const d=el("div","tn");d.style.paddingLeft=(8+depth*14)+"px";d.style.color="var(--muted)";d.style.fontSize="10px";d.textContent=txt;return d;}
-function treeEmpty(ic,msg,sub){const w=el("div","tree-empty");w.append(Object.assign(el("div","te-ic"),{textContent:ic}),Object.assign(el("div","te-msg"),{textContent:msg}));if(sub)w.append(Object.assign(el("div","te-sub"),{textContent:sub}));return w;}
+function treeEmpty(ic,msg,sub){const w=el("div","tree-empty");w.append(Object.assign(el("div","te-ic"),{innerHTML:ic}),Object.assign(el("div","te-msg"),{textContent:msg}));if(sub)w.append(Object.assign(el("div","te-sub"),{textContent:sub}));return w;}
 async function fillNode(container,dir,depth){
   const top=depth===0; // root level gets a full-panel placeholder, not a lone 10px word
-  container.innerHTML=""; container.append(top?treeEmpty("\u23f3","Loading\u2026"):treeMsg(depth,"\u2026"));
+  if(!top||!container.firstChild){container.innerHTML=""; container.append(top?treeEmpty(ICON.hourglass,"Loading\u2026"):treeMsg(depth,"\u2026"));}   // a refresh keeps the old rows until the new ones arrive
   try{
     const d=await apiLs(dir); container.innerHTML="";
-    if(!d.entries.length){container.append(top?treeEmpty("\ud83d\udcc2","Empty folder","Nothing here, or only hidden files."):treeMsg(depth,"empty")); return;}
+    if(top&&dir==="~"){const first=!treeHome; treeHome=d.dir; if(first&&followTerm) setTimeout(followTree,0);}   // lets follow-mode resolve the "~" root to an absolute path (and reveal once it is known)
+    if(!d.entries.length){container.append(top?treeEmpty(ICON.folder,"Empty folder","Nothing here, or only hidden files."):treeMsg(depth,"empty")); return;}
     d.entries.forEach((en)=>container.append(treeNode(en,joinPath(d.dir,en.name),depth)));  // d.dir is absolute → real cwd for spawn/reveal
-  }catch(e){ container.innerHTML=""; container.append(top?treeEmpty("\u26a0\ufe0f","Can\u2019t read folder",e.message):treeMsg(depth,"\u26a0 "+e.message)); }
+    markHere();
+  }catch(e){ container.innerHTML=""; container.append(top?treeEmpty(ICON.warn,"Can\u2019t read folder",e.message):treeMsg(depth,"can\u2019t read: "+e.message)); }
 }
 function mountTree(container,dir){ fillNode(container,dir,0); }
+
+// ── follow focused terminal: reveal its cwd in the tree (expand ancestors, highlight, scroll) — never re-roots ──
+let followTerm=localStorage.getItem("td-follow")==="1", hereDir=null, treeHome=null, hereBlink=false;
+const followOpened=new Set();   // folders follow-mode expanded itself (not the user) — collapsed again when follow is turned off
+function markHere(){
+  treeEl.querySelectorAll(".tn.here").forEach((n)=>n.classList.remove("here"));
+  if(!hereDir) return;
+  const row=[...treeEl.querySelectorAll(".tn[data-path]")].find((n)=>n.dataset.path===hereDir);
+  if(row){
+    row.classList.add("here"); row.scrollIntoView({block:"center"});
+    if(hereBlink){hereBlink=false; row.classList.add("blink"); row.addEventListener("animationend",()=>row.classList.remove("blink"),{once:true});}   // pulse once per focus change, not on every lazy fill
+  }
+}
+// Work out where the focused shell is inside the shown root: expand its ancestors (tracked in followOpened),
+// remember the row to highlight. Returns true when something new was expanded (tree needs a re-render).
+let outsideRoot=null;   // set by revealPrep: the focused shell's cwd when it is known but outside the shown root
+function revealPrep(){
+  const s=focusedId&&sessions.has(focusedId)?sessions.get(focusedId):null;
+  let root=treeRootPath(); if(root==="~") root=treeHome||root;
+  root=root.replace(/[\\/]+$/,"");
+  const t=s&&activeTab(s), live=t&&t.cwd||s&&s.cwd;   // tab.cwd is the shell's live dir; s.cwd is only the spawn dir
+  const cwd=s&&s.project===activeProject&&live?live.replace(/[\\/]+$/,""):null;
+  const rel=cwd&&/^([\/\\]|[A-Za-z]:)/.test(root)&&cwd.startsWith(root)&&(cwd.length===root.length||/[\\/]/.test(cwd[root.length]))?cwd.slice(root.length):null;
+  outsideRoot=rel===null&&cwd?cwd:null;
+  if(rel===null){hereDir=null; return false;}      // unknown cwd / outside the shown root: leave the tree alone
+  let acc=root, fresh=false;
+  for(const seg of rel.split(/[\\/]/).filter(Boolean)){acc=joinPath(acc,seg); if(!treeOpen.has(acc)){treeOpen.add(acc);followOpened.add(acc);fresh=true;}}
+  if(acc!==hereDir) hereBlink=true;
+  hereDir=acc;
+  if(!rel.replace(/[\\/]/g,"")){hereDir=null; hereBlink=false; treeEl.scrollTop=0;}   // terminal sits in the root itself: no row, so show the top
+  return fresh;
+}
+function followTree(){
+  if(!followTerm||!LIVE){if(treeRootPath()!==treeLastRoot) refreshTree(); return;}   // off: tree root follows the focused shell's project/cwd; re-render only if it changed
+  const fresh=revealPrep();
+  if(outsideRoot){   // focused shell is outside the shown root: try the project root, else re-root to its home / parent so its folder shows
+    const cwd=outsideRoot; treeRoot=null; revealPrep();
+    if(outsideRoot){const h=treeHome&&treeHome.replace(/[\\/]+$/,""); treeRoot=h&&cwd.startsWith(h+"/")?h:cwd.replace(/[\\/][^\\/]*$/,"")||"/";}
+    refreshTree(); return;
+  }
+  if(fresh||treeEl.firstChild===null) refreshTree(); else markHere();   // markHere also runs after each lazy fill
+}
 function treeNode(en,full,depth){
   const wrap=el("div");
   const row=el("div","tn"+(en.dir?" dir-node":""));
-  row.style.paddingLeft=(8+depth*14)+"px";
+  row.style.paddingLeft=(8+depth*14)+"px"; row.dataset.path=full;
   const reveal=()=>fetch("/api/reveal?path="+encodeURIComponent(full)).catch(()=>{});
   const openEditor=()=>fetch("/api/open-editor?path="+encodeURIComponent(full)).then(async(r)=>{
     if(!r.ok){const j=await r.json().catch(()=>({}));toast(ICON.warn,"Open in editor",j.error||"failed",3500);}
@@ -3872,12 +3946,35 @@ function renderDemoTree(container,root){
 document.getElementById("sb-btn").addEventListener("click",toggleSidebar);
 const sbCloseBtn=document.getElementById("sb-close-btn"); sbCloseBtn.innerHTML=ICON.collapse;
 sbCloseBtn.addEventListener("click",closeSidebar);
-const sbRefreshBtn=document.getElementById("sb-refresh-btn"), sbHiddenBtn=document.getElementById("sb-hidden-btn");
+const sbRefreshBtn=document.getElementById("sb-refresh-btn");
 sbRefreshBtn.innerHTML=ICON.refresh;
-sbRefreshBtn.addEventListener("click",refreshTree); // same root keeps treeOpen → expanded folders restore, new files appear
-function syncHiddenBtn(){sbHiddenBtn.innerHTML=showHidden?ICON.eye:ICON.eyeOff;sbHiddenBtn.classList.toggle("on",showHidden);sbHiddenBtn.title=showHidden?"Hide hidden files":"Show hidden files";}
-syncHiddenBtn();
-sbHiddenBtn.addEventListener("click",()=>{showHidden=!showHidden;localStorage.setItem("td-hidden",showHidden?"1":"0");syncHiddenBtn();refreshTree();});
+sbRefreshBtn.addEventListener("animationend",()=>sbRefreshBtn.classList.remove("spin"));
+sbRefreshBtn.addEventListener("click",()=>{
+  sbRefreshBtn.classList.remove("spin"); void sbRefreshBtn.offsetWidth; sbRefreshBtn.classList.add("spin"); // restart the one-turn spin so every press gives feedback
+  refreshTree();
+}); // same root keeps treeOpen → expanded folders restore, new files appear
+const sbUpBtn=document.getElementById("sb-up-btn"); sbUpBtn.innerHTML=ICON.arrowUp;
+sbUpBtn.addEventListener("click",()=>{const p=treeParent(); if(p){treeRoot=p; refreshTree();}});
+const sbMoreBtn=document.getElementById("sb-more-btn"); sbMoreBtn.innerHTML=ICON.more;
+const syncMoreBtn=()=>sbMoreBtn.classList.toggle("flag",followTerm);   // accent dot: a toggle inside the menu is on
+syncMoreBtn();
+function toggleFollow(){
+  followTerm=!followTerm; localStorage.setItem("td-follow",followTerm?"1":"0"); syncMoreBtn();
+  if(!followTerm){hereDir=null;followOpened.forEach((d)=>treeOpen.delete(d));followOpened.clear();}
+  if(followTerm) followTree(); else refreshTree();   // off: re-render so the folders follow opened collapse
+}
+function toggleHidden(){showHidden=!showHidden;localStorage.setItem("td-hidden",showHidden?"1":"0");refreshTree();}
+sbMoreBtn.addEventListener("click",()=>{
+  const r=sbMoreBtn.getBoundingClientRect(), blank='<svg viewBox="0 0 24 24" aria-hidden="true"></svg>';
+  const it=[
+    {icon:followTerm?ICON.check:blank,label:"Follow focused terminal",run:toggleFollow},
+    {icon:showHidden?ICON.check:blank,label:"Show hidden files",run:toggleHidden},
+  ];
+  if(treeRoot) it.push({sep:true},
+    {icon:blank,label:"Back to project root",run:()=>{treeRoot=null;refreshTree();}},
+    {icon:blank,label:"Pin as project root",run:()=>setProjectRoot(treeRoot)});
+  showCtxMenu(Math.min(r.left,innerWidth-230),r.bottom+4,it);
+});
 
 /* ════════════════════════════════════════════════
    GLOBAL KEYBOARD HANDLER

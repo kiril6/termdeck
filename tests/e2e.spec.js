@@ -18,6 +18,7 @@ async function boot(page, url) {
   await expect(page.locator('.win')).toHaveCount(1);   // a fresh visit opens one terminal
   return errors;
 }
+const treeMenu = async (page, label) => { await page.locator('#sb-more-btn').click(); await page.locator('.ctxmenu .ctx-item', { hasText: label }).click(); };
 const openPalette = async (page) => { await page.keyboard.press('ControlOrMeta+k'); await expect(palette(page)).toHaveClass(/open/); };
 
 test.describe('demo mode (no backend)', () => {
@@ -262,5 +263,75 @@ test.describe('live backend', () => {
     await expect(page.getByText('Couldn’t create worktree')).toBeVisible();
     await ask('agent/e2e');
     await expect(page.getByText('Worktree ready')).toBeVisible();
+  });
+  test('tree follows the focused terminal when "Follow" is on (reveal only, no re-root)', async ({ page }) => {
+    const proj = path.join(fs.realpathSync(process.env.TD_E2E_HOME), 'follow-proj');   // real path: the live-cwd poll (lsof) reports resolved paths, /var → /private/var on macOS
+    for (const d of ['alpha/inner', 'beta']) fs.mkdirSync(path.join(proj, d), { recursive: true });
+    await boot(page, '/');                                        
+    const spawnAt = async (dir, n) => {
+      await page.locator('#folder').click();
+      await page.locator('#cwd-input').fill(dir);
+      await page.keyboard.press('Enter');
+      await expect(page.locator('.win')).toHaveCount(n);
+    };
+    await spawnAt(proj, 2);                                       // first shell with a cwd anchors the tree root
+    await spawnAt(path.join(proj, 'alpha/inner'), 3);
+    await spawnAt(path.join(proj, 'beta'), 4);
+    await page.locator('#sb-btn').click();
+    await treeMenu(page, 'Follow focused terminal');
+    const here = page.locator('.tn.here');
+    await page.locator('.chip').nth(2).click();                     // alpha/inner
+    await expect(here).toHaveAttribute('data-path', /follow-proj\/alpha\/inner$/);
+    await page.locator('.chip').nth(3).click();                     // beta
+    await expect(here).toHaveAttribute('data-path', /follow-proj\/beta$/);
+    await expect(here).toHaveCount(1);
+    await page.locator('#sb-btn').click(); await page.locator('#sb-btn').click();   // close + reopen the tree: highlight is re-applied
+    await expect(here).toHaveAttribute('data-path', /follow-proj\/beta$/);
+    await page.locator('#sb-refresh-btn').click();                                  // ↻ keeps it too
+    await expect(here).toHaveAttribute('data-path', /follow-proj\/beta$/);
+    await treeMenu(page, 'Follow focused terminal');                 // off → highlight gone, auto-opened folders collapse
+    await expect(here).toHaveCount(0);
+    await expect(page.locator('.tn.dir-node.open')).toHaveCount(0);   // folders follow opened are collapsed again
+  });
+  test('tree ↑ goes up one level; ⌂ returns to the project root', async ({ page }) => {
+    await boot(page, '/');
+    await page.locator('#folder').click();                       // first shell with a cwd anchors the project root
+    await page.locator('#cwd-input').fill(process.env.TD_E2E_HOME);
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.win')).toHaveCount(2);
+    await page.locator('#sb-btn').click();
+    const crumbs = page.locator('#sb-title .crumb');
+    await expect(crumbs.last()).toHaveText(path.basename(process.env.TD_E2E_HOME));
+    const n = await crumbs.count();
+    await page.locator('#sb-up-btn').click();
+    await expect(crumbs).toHaveCount(n - 1);
+    await treeMenu(page, 'Back to project root');           // ⌂ → project root again
+    await expect(crumbs).toHaveCount(n);
+  });
+  test('re-clicking the focused window does not re-render the tree', async ({ page }) => {
+    await boot(page, '/');
+    await page.locator('#sb-btn').click();
+    await expect(page.locator('#tree .tn').first()).toBeVisible();
+    await page.locator('#tree .tn').first().evaluate((n) => n.setAttribute('data-keep', '1'));
+    await page.locator('.win .xterm').first().click({ force: true });
+    await page.locator('.win .xterm').first().click({ force: true });
+    await page.waitForTimeout(400);
+    await expect(page.locator('#tree .tn[data-keep="1"]')).toHaveCount(1);   // same DOM node → no refresh/flash
+  });
+  test('tree resizes by dragging its edge and returns to the default width on reopen', async ({ page }) => {
+    await boot(page, '/');
+    await page.locator('#sb-btn').click();
+    const sb = page.locator('#sidebar');
+    await expect(sb).toHaveCSS('width', '240px');
+    await page.waitForTimeout(400);   // let the slide-in finish so the handle is where we measure it
+    const h = await page.locator('#sb-resize').boundingBox();
+    await page.mouse.move(h.x + 3, h.y + 100);
+    await page.mouse.down();
+    await page.mouse.move(h.x + 163, h.y + 100, { steps: 5 });
+    await page.mouse.up();
+    await expect(sb).toHaveCSS('width', '400px');
+    await page.locator('#sb-close-btn').click();
+    await page.locator('#sb-btn').click();
+    await expect(sb).toHaveCSS('width', '240px');   // width is not remembered
   });
 });

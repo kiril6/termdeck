@@ -2,6 +2,13 @@
 
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
+## 1.22.0
+- **Follow focused terminal** (tree ⋯ menu) — focusing a window reveals its live working directory in the tree: ancestors expand, the folder is centered and pulses. It re-roots to your home folder when the terminal is outside the project root, and turning it off collapses what it opened.
+- **Tree header** — slim header with an always-visible ↑ up-one-level button, ↻ refresh (spins once as feedback) and a ⋯ menu for Follow, Show hidden files, Back to project root and Pin as project root.
+- **Resizable tree** — drag its right edge (double-click resets); the width resets each time it opens. Long breadcrumbs fade on the left and show the full path on hover.
+- Refreshing or re-clicking a window no longer flashes the tree; loading / empty / error states use monochrome icons; the tree "+" now has a tooltip.
+- The product header now reads **TermDeck**.
+
 ## 1.21.0
 - **Antigravity** (`agy`, Google's successor to Gemini CLI for personal accounts) is now a built-in agent under *More agents*, with prompt pre-fill and resume.
 - Docs spell out exactly which Gemini CLI hook events are verified (settings format and session events on 0.62.0).
