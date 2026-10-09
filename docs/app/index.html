@@ -3795,7 +3795,7 @@ function markHere(){
   treeEl.querySelectorAll(".tn.here").forEach((n)=>n.classList.remove("here"));
   if(!hereDir) return;
   const row=[...treeEl.querySelectorAll(".tn[data-path]")].find((n)=>n.dataset.path===hereDir);
-  if(row){row.classList.add("here"); row.scrollIntoView({block:"nearest"});}
+  if(row){row.classList.add("here"); row.scrollIntoView({block:"center"});}
 }
 function followTree(){
   if(!followTerm||!LIVE){refreshTree();return;}      // off: legacy behaviour (re-render for the focused project)
@@ -3809,6 +3809,7 @@ function followTree(){
   let acc=root, fresh=false;
   for(const seg of rel.split(/[\\/]/).filter(Boolean)){acc=joinPath(acc,seg); if(!treeOpen.has(acc)){treeOpen.add(acc);fresh=true;}}
   hereDir=acc;
+  if(!rel.replace(/[\\/]/g,"")){hereDir=null; treeEl.scrollTop=0;}   // terminal sits in the root itself: no row, so show the top
   if(fresh||treeEl.firstChild===null) refreshTree(); else markHere();   // markHere also runs after each lazy fill
 }
 function treeNode(en,full,depth){
