@@ -3759,6 +3759,7 @@ function refreshTree(){
   sbUpBtn.disabled=!treeParent();
   const root=treeRootPath();
   if(root!==treeLastRoot){treeOpen.clear();treeLastRoot=root;treeEl.innerHTML="";} // new root → forget prior expansions and show the loader
+  if(followTerm&&LIVE) revealPrep();   // every render (open, project switch, ↻) re-applies the highlight
   renderCrumbs(root);
   if(LIVE) mountTree(treeEl,root);
   else     renderDemoTree(treeEl,root.replace(/^\/home\/[^/]+/,"~"));
@@ -3786,7 +3787,7 @@ async function fillNode(container,dir,depth){
   if(!top||!container.firstChild){container.innerHTML=""; container.append(top?treeEmpty(ICON.hourglass,"Loading\u2026"):treeMsg(depth,"\u2026"));}   // a refresh keeps the old rows until the new ones arrive
   try{
     const d=await apiLs(dir); container.innerHTML="";
-    if(top&&dir==="~") treeHome=d.dir;   // lets follow-mode resolve the "~" root to an absolute path
+    if(top&&dir==="~"){const first=!treeHome; treeHome=d.dir; if(first&&followTerm) setTimeout(followTree,0);}   // lets follow-mode resolve the "~" root to an absolute path (and reveal once it is known)
     if(!d.entries.length){container.append(top?treeEmpty(ICON.folder,"Empty folder","Nothing here, or only hidden files."):treeMsg(depth,"empty")); return;}
     d.entries.forEach((en)=>container.append(treeNode(en,joinPath(d.dir,en.name),depth)));  // d.dir is absolute → real cwd for spawn/reveal
     markHere();
@@ -3806,19 +3807,26 @@ function markHere(){
     if(hereBlink){hereBlink=false; row.classList.add("blink"); row.addEventListener("animationend",()=>row.classList.remove("blink"),{once:true});}   // pulse once per focus change, not on every lazy fill
   }
 }
-function followTree(){
-  if(!followTerm||!LIVE){if(treeRootPath()!==treeLastRoot) refreshTree(); return;}   // off: tree root follows the focused shell's project/cwd; re-render only if it changed
+// Work out where the focused shell is inside the shown root: expand its ancestors (tracked in followOpened),
+// remember the row to highlight. Returns true when something new was expanded (tree needs a re-render).
+function revealPrep(){
   const s=focusedId&&sessions.has(focusedId)?sessions.get(focusedId):null;
   let root=treeRootPath(); if(root==="~") root=treeHome||root;
   root=root.replace(/[\\/]+$/,"");
   const t=s&&activeTab(s), live=t&&t.cwd||s&&s.cwd;   // tab.cwd is the shell's live dir; s.cwd is only the spawn dir
   const cwd=s&&s.project===activeProject&&live?live.replace(/[\\/]+$/,""):null;
   const rel=cwd&&/^([\/\\]|[A-Za-z]:)/.test(root)&&cwd.startsWith(root)&&(cwd.length===root.length||/[\\/]/.test(cwd[root.length]))?cwd.slice(root.length):null;
-  if(rel===null){hereDir=null; markHere(); return;}  // unknown cwd / outside the shown root: leave the tree alone
+  if(rel===null){hereDir=null; return false;}      // unknown cwd / outside the shown root: leave the tree alone
   let acc=root, fresh=false;
   for(const seg of rel.split(/[\\/]/).filter(Boolean)){acc=joinPath(acc,seg); if(!treeOpen.has(acc)){treeOpen.add(acc);followOpened.add(acc);fresh=true;}}
-  hereDir=acc; hereBlink=true;
+  if(acc!==hereDir) hereBlink=true;
+  hereDir=acc;
   if(!rel.replace(/[\\/]/g,"")){hereDir=null; hereBlink=false; treeEl.scrollTop=0;}   // terminal sits in the root itself: no row, so show the top
+  return fresh;
+}
+function followTree(){
+  if(!followTerm||!LIVE){if(treeRootPath()!==treeLastRoot) refreshTree(); return;}   // off: tree root follows the focused shell's project/cwd; re-render only if it changed
+  const fresh=revealPrep();
   if(fresh||treeEl.firstChild===null) refreshTree(); else markHere();   // markHere also runs after each lazy fill
 }
 function treeNode(en,full,depth){
