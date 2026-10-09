@@ -75,6 +75,11 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🖥️ **Header tools** — **↻ Refresh** re-reads the tree (new files/dirs appear) while **keeping expanded
   folders open** (open state tracked by path, restored after any refresh/project-switch), and **👁 Show
   hidden** toggles dotfiles (`/api/ls?all=1`, persisted in `localStorage`).
+- 🖥️ **Follow focused terminal** — the **◎** toggle in the tree header (off by default, persisted in
+  `localStorage` as `td-follow`). When on, focusing a terminal **reveals its working directory** in the tree:
+  ancestors expand, the folder is highlighted and scrolled into view. It never re-roots, collapses or
+  re-renders unrelated folders, and does nothing when the cwd is unknown or outside the shown root.
+  Live mode only; off keeps the project-anchored behaviour below.
 - 🖥️ **Breadcrumb navigation** — the sidebar header is a clickable path breadcrumb; click any ancestor
   segment to re-root the tree there (step back / up), **⌂** resets to the project root, and **📌** pins the
   current location as the project's persistent root. Deep paths scroll to keep the current folder in view.

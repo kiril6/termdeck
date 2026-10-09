@@ -263,4 +263,28 @@ test.describe('live backend', () => {
     await ask('agent/e2e');
     await expect(page.getByText('Worktree ready')).toBeVisible();
   });
+  test('tree follows the focused terminal when "Follow" is on (reveal only, no re-root)', async ({ page }) => {
+    const proj = path.join(process.env.TD_E2E_HOME, 'follow-proj');
+    for (const d of ['alpha/inner', 'beta']) fs.mkdirSync(path.join(proj, d), { recursive: true });
+    await boot(page, '/');                                        
+    const spawnAt = async (dir, n) => {
+      await page.locator('#folder').click();
+      await page.locator('#cwd-input').fill(dir);
+      await page.keyboard.press('Enter');
+      await expect(page.locator('.win')).toHaveCount(n);
+    };
+    await spawnAt(proj, 2);                                       // first shell with a cwd anchors the tree root
+    await spawnAt(path.join(proj, 'alpha/inner'), 3);
+    await spawnAt(path.join(proj, 'beta'), 4);
+    await page.locator('#sb-btn').click();
+    await page.locator('#sb-follow-btn').click();
+    const here = page.locator('.tn.here');
+    await page.locator('.chip').nth(2).click();                     // alpha/inner
+    await expect(here).toHaveAttribute('data-path', /follow-proj\/alpha\/inner$/);
+    await page.locator('.chip').nth(3).click();                     // beta
+    await expect(here).toHaveAttribute('data-path', /follow-proj\/beta$/);
+    await expect(here).toHaveCount(1);
+    await page.locator('#sb-follow-btn').click();                 // off → highlight gone
+    await expect(here).toHaveCount(0);
+  });
 });

@@ -470,6 +470,7 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
   font-size:11.5px;cursor:pointer;white-space:nowrap;overflow:hidden;border-radius:5px;color:var(--text);}
 .tn:hover{background:var(--btn-bg);}
 .tn.dir-node{color:var(--accent);}
+.tn.here{background:var(--btn-bg);box-shadow:inset 2px 0 0 var(--accent);}
 .tn .tn-caret{flex:0 0 auto;font-size:9px;color:var(--muted);
   transition:transform .12s;width:10px;text-align:center;}
 .tn.open .tn-caret{transform:rotate(90deg);}
@@ -901,6 +902,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 <div class="sidebar" id="sidebar">
   <div class="sb-head">
     <span class="sb-title" id="sb-title">Directory Tree</span>
+    <button class="sb-tool" id="sb-follow-btn" title="Follow focused terminal" aria-label="Follow focused terminal"></button>
     <button class="sb-tool" id="sb-hidden-btn" title="Show hidden files" aria-label="Toggle hidden files"></button>
     <button class="sb-tool" id="sb-refresh-btn" title="Refresh tree" aria-label="Refresh tree"></button>
     <button class="sb-close" id="sb-close-btn" title="Collapse sidebar (⌘B)" aria-label="Collapse sidebar">«</button>
@@ -1066,6 +1068,7 @@ const ICON={
   eye:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
   eyeOff:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 8 10 8a17 17 0 0 1-2.6 3.4M6.6 6.6A17 17 0 0 0 2 12s3.5 8 10 8a9 9 0 0 0 5.4-1.6M2 2l20 20M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>',
   copy:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h11v11H9zM5 15H4V4h11v1"/></svg>',
+  locate:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>',
   pin:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5M9 3h6l-1 6 3 3H7l3-3-1-6z"/></svg>',
   collapse:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M16 9l-3 3 3 3"/></svg>',
 };
@@ -2910,7 +2913,7 @@ function focus(s){
   if(focusedId&&sessions.has(focusedId)){sessions.get(focusedId).win.classList.remove("focused");sessions.get(focusedId).chip.classList.remove("active");}
   focusedId=s.id;s.win.style.zIndex=++zTop;s.win.classList.add("focused");s.chip.classList.add("active"); touchTab(activeTab(s));
   if(!s.minimized){const t=activeTab(s); if(t){clearTabAttn(s,t); setTimeout(()=>{try{t.term.focus();}catch{}},0);}}
-  if(sidebarOpen) refreshTree();
+  if(sidebarOpen) followTree();
   if(sessSearchOpen&&ssInput.value) closeSessSearch();   // picked a match → drop the filter
 }
 
@@ -3780,13 +3783,35 @@ async function fillNode(container,dir,depth){
     const d=await apiLs(dir); container.innerHTML="";
     if(!d.entries.length){container.append(top?treeEmpty("\ud83d\udcc2","Empty folder","Nothing here, or only hidden files."):treeMsg(depth,"empty")); return;}
     d.entries.forEach((en)=>container.append(treeNode(en,joinPath(d.dir,en.name),depth)));  // d.dir is absolute → real cwd for spawn/reveal
+    markHere();
   }catch(e){ container.innerHTML=""; container.append(top?treeEmpty("\u26a0\ufe0f","Can\u2019t read folder",e.message):treeMsg(depth,"\u26a0 "+e.message)); }
 }
 function mountTree(container,dir){ fillNode(container,dir,0); }
+
+// ── follow focused terminal: reveal its cwd in the tree (expand ancestors, highlight, scroll) — never re-roots ──
+let followTerm=localStorage.getItem("td-follow")==="1", hereDir=null;
+function markHere(){
+  treeEl.querySelectorAll(".tn.here").forEach((n)=>n.classList.remove("here"));
+  if(!hereDir) return;
+  const row=[...treeEl.querySelectorAll(".tn[data-path]")].find((n)=>n.dataset.path===hereDir);
+  if(row){row.classList.add("here"); row.scrollIntoView({block:"nearest"});}
+}
+function followTree(){
+  if(!followTerm||!LIVE){refreshTree();return;}      // off: legacy behaviour (re-render for the focused project)
+  const s=focusedId&&sessions.has(focusedId)?sessions.get(focusedId):null;
+  const root=treeRootPath().replace(/[\\/]+$/,"");
+  const cwd=s&&s.project===activeProject&&s.cwd?s.cwd.replace(/[\\/]+$/,""):null;
+  const rel=cwd&&root!=="~"&&!root.startsWith("~")&&cwd.startsWith(root)&&(cwd.length===root.length||/[\\/]/.test(cwd[root.length]))?cwd.slice(root.length):null;
+  if(rel===null){hereDir=null; markHere(); return;}  // unknown cwd / outside the shown root: leave the tree alone
+  let acc=root, fresh=false;
+  for(const seg of rel.split(/[\\/]/).filter(Boolean)){acc=joinPath(acc,seg); if(!treeOpen.has(acc)){treeOpen.add(acc);fresh=true;}}
+  hereDir=acc;
+  if(fresh||treeEl.firstChild===null) refreshTree(); else markHere();   // markHere also runs after each lazy fill
+}
 function treeNode(en,full,depth){
   const wrap=el("div");
   const row=el("div","tn"+(en.dir?" dir-node":""));
-  row.style.paddingLeft=(8+depth*14)+"px";
+  row.style.paddingLeft=(8+depth*14)+"px"; row.dataset.path=full;
   const reveal=()=>fetch("/api/reveal?path="+encodeURIComponent(full)).catch(()=>{});
   const openEditor=()=>fetch("/api/open-editor?path="+encodeURIComponent(full)).then(async(r)=>{
     if(!r.ok){const j=await r.json().catch(()=>({}));toast(ICON.warn,"Open in editor",j.error||"failed",3500);}
@@ -3877,6 +3902,10 @@ sbRefreshBtn.innerHTML=ICON.refresh;
 sbRefreshBtn.addEventListener("click",refreshTree); // same root keeps treeOpen → expanded folders restore, new files appear
 function syncHiddenBtn(){sbHiddenBtn.innerHTML=showHidden?ICON.eye:ICON.eyeOff;sbHiddenBtn.classList.toggle("on",showHidden);sbHiddenBtn.title=showHidden?"Hide hidden files":"Show hidden files";}
 syncHiddenBtn();
+const sbFollowBtn=document.getElementById("sb-follow-btn"); sbFollowBtn.innerHTML=ICON.locate;
+function syncFollowBtn(){sbFollowBtn.classList.toggle("on",followTerm);sbFollowBtn.title=followTerm?"Stop following focused terminal":"Follow focused terminal";}
+syncFollowBtn();
+sbFollowBtn.addEventListener("click",()=>{followTerm=!followTerm;localStorage.setItem("td-follow",followTerm?"1":"0");syncFollowBtn();if(!followTerm)hereDir=null;followTree();});
 sbHiddenBtn.addEventListener("click",()=>{showHidden=!showHidden;localStorage.setItem("td-hidden",showHidden?"1":"0");syncHiddenBtn();refreshTree();});
 
 /* ════════════════════════════════════════════════
