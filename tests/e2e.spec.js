@@ -288,4 +288,19 @@ test.describe('live backend', () => {
     await expect(here).toHaveCount(0);
     await expect(page.locator('.tn.dir-node.open')).toHaveCount(0);   // folders follow opened are collapsed again
   });
+  test('tree ↑ goes up one level; ⌂ returns to the project root', async ({ page }) => {
+    await boot(page, '/');
+    await page.locator('#folder').click();                       // first shell with a cwd anchors the project root
+    await page.locator('#cwd-input').fill(process.env.TD_E2E_HOME);
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.win')).toHaveCount(2);
+    await page.locator('#sb-btn').click();
+    const crumbs = page.locator('#sb-title .crumb');
+    await expect(crumbs.last()).toHaveText(path.basename(process.env.TD_E2E_HOME));
+    const n = await crumbs.count();
+    await page.locator('#sb-up-btn').click();
+    await expect(crumbs).toHaveCount(n - 1);
+    await page.locator('#sb-title .sb-reset').click();           // ⌂ → project root again
+    await expect(crumbs).toHaveCount(n);
+  });
 });

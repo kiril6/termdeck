@@ -84,7 +84,8 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   Turning it off collapses the folders it expanded (ones you opened yourself stay open).
   Live mode only; off keeps the project-anchored behaviour below.
 - 🖥️ **Breadcrumb navigation** — the sidebar header is a clickable path breadcrumb; click any ancestor
-  segment to re-root the tree there (step back / up), **⌂** resets to the project root, and **📌** pins the
+  segment to re-root the tree there (step back / up), the always-visible **↑** button goes up one level
+  (disabled at the filesystem top), **⌂** resets to the project root, and **📌** pins the
   current location as the project's persistent root. Deep paths scroll to keep the current folder in view.
   Switching projects clears the override.
 - 🖥️ **Empty / error state** — a genuinely empty or unreadable root shows a centered placeholder
