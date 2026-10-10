@@ -364,6 +364,14 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
 .fv-body.csv th,.fv-body.csv td{border:1px solid var(--line);padding:4px 9px;text-align:left;white-space:pre;max-width:360px;overflow:hidden;text-overflow:ellipsis;}
 .fv-body.csv th{position:sticky;top:0;background:var(--panel);z-index:1;} .fv-body.csv tr:nth-child(even) td{background:color-mix(in srgb,var(--btn-bg) 40%,transparent);}
 .fv-note{color:var(--muted);font:11px var(--mono);padding:8px 12px;}
+/* Restore layout picker rows */
+.lay-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid transparent;border-radius:8px;cursor:pointer;}
+.lay-row:hover{background:var(--btn-bg);border-color:var(--line);}
+.lay-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lay-meta{color:var(--muted);font-size:11px;white-space:nowrap;}
+.lay-del{width:22px;height:22px;flex:0 0 auto;padding:0;border:0;border-radius:4px;background:transparent;color:var(--muted);cursor:pointer;display:grid;place-items:center;}
+.lay-del:hover{background:#3a1a1c;color:#ff9b93;}
+.lay-del svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
 .fv-send{position:fixed;z-index:9997;display:none;font:inherit;font-size:12px;padding:5px 11px;border-radius:6px;border:1px solid var(--accent);background:var(--panel);color:var(--accent);cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);}
 .fv-send:hover{filter:brightness(1.2);}
 .fv-body .d-add{color:#46d17f;} .fv-body .d-del{color:#e0655f;}
@@ -4347,12 +4355,12 @@ async function openLayouts(){
   const close=()=>{o.remove();document.removeEventListener("keydown",onKey);};
   const onKey=(e)=>{if(e.key==="Escape"){e.stopPropagation();close();}};
   list.forEach((m)=>{
-    const row=el("div","pitem"); row.style.cssText="display:flex;align-items:center;gap:10px;cursor:pointer";
-    const t=el("span"); t.style.cssText="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"; t.textContent=m.name;
-    const meta=el("span","pcount"); meta.textContent=m.projects+" project"+(m.projects===1?"":"s")+" · "+m.windows+" window"+(m.windows===1?"":"s")+" · "+new Date(m.savedAt).toLocaleString([],{dateStyle:"medium",timeStyle:"short"});
-    const del=el("button","pdel"); del.innerHTML=ICON.x; del.title="Delete layout"; del.style.cssText="opacity:1;position:static;flex:0 0 auto";
+    const row=el("div","lay-row");
+    const t=el("span","lay-name"); t.textContent=m.name;
+    const meta=el("span","lay-meta"); meta.textContent=m.projects+" project"+(m.projects===1?"":"s")+" · "+m.windows+" window"+(m.windows===1?"":"s")+" · "+new Date(m.savedAt).toLocaleString([],{dateStyle:"medium",timeStyle:"short"});
+    const del=el("button","lay-del"); del.innerHTML=ICON.x; del.title="Delete layout"; del.setAttribute("aria-label","Delete layout "+m.name);
     del.addEventListener("click",async(e)=>{e.stopPropagation(); if(!(await confirmModal("Delete the saved layout “"+m.name+"”?","Delete",true)))return;
-      try{await layoutsApi.del(m.id); row.remove(); if(!card.querySelector(".pitem")) close();}catch(err){toast(ICON.warn,"Couldn't delete",err.message,3000);}});
+      try{await layoutsApi.del(m.id); row.remove(); if(!card.querySelector(".lay-row")) close();}catch(err){toast(ICON.warn,"Couldn't delete",err.message,3000);}});
     row.addEventListener("click",()=>{close(); restoreLayout(m.id);});
     row.append(t,meta,del); card.append(row);
   });

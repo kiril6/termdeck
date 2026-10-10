@@ -119,7 +119,7 @@ test.describe('layout presets + Alt+N (#51)', () => {
     await openPalette(page);
     await page.locator('#palette input').first().fill('restore layout');
     await labels(page).filter({ hasText: /^Restore layout/ }).first().click();
-    await expect(page.locator('.pitem', { hasText: 'Demo one' })).toBeVisible();
+    await expect(page.locator('.lay-row', { hasText: 'Demo one' })).toBeVisible();
   });
 });
 
@@ -435,7 +435,7 @@ test.describe('live backend', () => {
     await page.locator('#new').click();
     await expect(page.locator('.win')).toHaveCount(4);
     await runCmd(/^Restore layout/);
-    await page.locator('.pitem', { hasText: 'E2E three' }).click();
+    await page.locator('.lay-row', { hasText: 'E2E three' }).click();
     await page.getByRole('button', { name: 'Restore', exact: true }).click();   // confirm: open windows are replaced
     await expect(page.locator('.toast', { hasText: 'Layout restored' })).toBeVisible();
     await expect(page.locator('.win')).toHaveCount(3);
@@ -444,7 +444,7 @@ test.describe('live backend', () => {
     expect(JSON.stringify(full.data)).not.toMatch(/"agent":true/);
     // delete
     await runCmd(/^Restore layout/);
-    await page.locator('.pitem', { hasText: 'E2E three' }).locator('.pdel').click();
+    await page.locator('.lay-row', { hasText: 'E2E three' }).locator('.lay-del').click();
     await page.getByRole('button', { name: 'Delete', exact: true }).click();
     expect((await (await request.get('/api/layouts')).json()).find((l) => l.name === 'E2E three')).toBeUndefined();
     // guard + validation
