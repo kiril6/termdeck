@@ -341,4 +341,19 @@ test.describe('live backend', () => {
     await page.locator('#padd').click();
     await expect(mv).toBeEnabled();
   });
+  test('Terminal font… sets family + size live on open terminals and persists', async ({ page }) => {
+    await boot(page, '/');
+    await openPalette(page);
+    await page.locator('#palette input').first().fill('terminal font');
+    await labels(page).filter({ hasText: /^Terminal font/ }).first().click();
+    const dlg = page.locator('input[placeholder="JetBrains Mono"]');
+    await dlg.fill('Courier New');
+    await page.locator('input[placeholder="13"]').fill('17');
+    await page.getByRole('button', { name: 'Save' }).click();
+    const rows = page.locator('.win .xterm-char-measure-element').first();
+    await expect(rows).toHaveCSS('font-size', '17px');
+    await expect(rows).toHaveCSS('font-family', /Courier New/);
+    await page.reload();
+    await expect(page.locator('.win .xterm-char-measure-element').first()).toHaveCSS('font-size', '17px');   // persisted
+  });
 });
