@@ -221,6 +221,50 @@ app.get('/api/reveal', apiGuard, (req, res) => {     // open the OS file manager
   try { spawn(cmd, args, { stdio:'ignore', detached:true }).on('error', () => {}).unref(); } catch {}
   res.json({ ok:true });
 });
+// ── /api/layouts — named layout snapshots (#17) ─────────────────────────────────────────────────────────────
+// One JSON file in ~/.termdeck (0600, written atomically — same pattern as the approval rules). A snapshot is the
+// client's layout state: projects, windows, tabs, roots, cwds. The server stores it opaquely after a shape check;
+// it never executes or interprets it (the client strips agent/resume commands before saving). Same guard as /api.
+const LAYOUTS_FILE = path.join(os.homedir(), '.termdeck', 'layouts.json');
+const MAX_LAYOUTS = 50;
+let layoutStore = [];
+try { const j = JSON.parse(fs.readFileSync(LAYOUTS_FILE, 'utf8')); if (Array.isArray(j.layouts)) layoutStore = j.layouts.filter((l) => l && typeof l.id === 'string' && typeof l.name === 'string' && l.data); } catch {}
+function saveLayouts() {
+  fs.mkdirSync(path.dirname(LAYOUTS_FILE), { recursive: true, mode: 0o700 });
+  const tmp = LAYOUTS_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify({ version: 1, layouts: layoutStore }, null, 2), { mode: 0o600 });
+  fs.renameSync(tmp, LAYOUTS_FILE);
+}
+const layoutMeta = (l) => ({ id: l.id, name: l.name, savedAt: l.savedAt, projects: l.data.projects.length, windows: l.data.sessions.length });
+const validLayout = (d) => d && typeof d === 'object' && Array.isArray(d.projects) && Array.isArray(d.sessions) && d.projects.length > 0 && d.projects.length <= 50 && d.sessions.length <= 200;
+function layoutGuard(req, res, next) {
+  if (req.headers['sec-fetch-site'] === 'cross-site') return res.status(403).end();
+  apiGuard(req, res, next);
+}
+app.get('/api/layouts', layoutGuard, (_req, res) => res.json(layoutStore.map(layoutMeta).sort((a, b) => b.savedAt - a.savedAt)));
+app.get('/api/layouts/:id', layoutGuard, (req, res) => {
+  const l = layoutStore.find((x) => x.id === req.params.id);
+  l ? res.json(l) : res.status(404).json({ error: 'not found' });
+});
+app.post('/api/layouts', layoutGuard, (req, res) => {
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim().slice(0, 60) : '';
+  if (!name) return res.status(400).json({ error: 'name required' });
+  if (!validLayout(req.body.data)) return res.status(400).json({ error: 'invalid layout' });
+  let l = layoutStore.find((x) => x.name.toLowerCase() === name.toLowerCase());   // saving under an existing name replaces it
+  if (!l) {
+    if (layoutStore.length >= MAX_LAYOUTS) return res.status(400).json({ error: 'layout limit reached (' + MAX_LAYOUTS + ')' });
+    l = { id: require('crypto').randomBytes(8).toString('hex') }; layoutStore.push(l);
+  }
+  Object.assign(l, { name, savedAt: Date.now(), data: req.body.data });
+  try { saveLayouts(); } catch (e) { return res.status(500).json({ error: e.code || 'could not save' }); }
+  res.json(layoutMeta(l));
+});
+app.delete('/api/layouts/:id', layoutGuard, (req, res) => {
+  const n = layoutStore.length;
+  layoutStore = layoutStore.filter((x) => x.id !== req.params.id);
+  if (layoutStore.length !== n) { try { saveLayouts(); } catch {} }
+  res.json({ ok: true });
+});
 // ── /api/raw — bytes of a previewable media file for the viewer's <img>/<video>/<audio>/<iframe> (#24) ──
 // Extension ALLOWLIST (never sniffed, never a generic file server), same guard as the rest of /api, plus
 // Sec-Fetch-Site: a cross-site page can embed an <img> without sending an Origin header, so reject it explicitly.
