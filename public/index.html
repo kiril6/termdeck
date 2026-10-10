@@ -2095,8 +2095,9 @@ function createSession(desc, isLog){
   const footSnip=el("span","foot-snip"); footSnip.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/></svg>'; footSnip.title="Insert a saved snippet";
   footSnip.onclick=(e)=>{e.stopPropagation(); const sx=sessions.get(id); if(sx){focus(sx); openSnippetMenu(sx,footSnip);}};   // focus this tab so runSnippet targets it
   const footActions=el("span","foot-actions");   // right-aligned toolbar: passive status stays left, controls group right
+  footActions.append(badgePort);   // globe sits left of the snippet icon
   if(!isLog) footActions.append(footSnip);   // read-only log terminals ignore input, so no insert affordance
-  footActions.append(badgePort,footGame);
+  footActions.append(footGame);
   foot.append(badgeShell,badgeCwd,badgeCmd,footActions,uptimeEl);   // icons grouped, timer pinned to the trailing corner
   const grips=["n","s","e","w","nw","ne","sw","se"].map((d)=>{const g=el("div","wgrip wgrip-"+d);g.dataset.dir=d;return g;});
   win.append(head,panes,foot,...grips);
