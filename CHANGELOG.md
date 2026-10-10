@@ -2,6 +2,12 @@
 
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
+## 1.23.0
+- **Media & CSV preview** — the file viewer now shows images (png, jpg, gif, webp, avif, bmp, ico, svg), PDF, audio and video in place, and CSV / TSV as a table with a Raw toggle. Nothing to install. Binaries it can't preview offer *Reveal* and *Open in default app* (never for executables).
+- **Terminal font** — palette → *Terminal font…* sets the family and size for every terminal, live; the dialog explains using a Nerd Font for prompt glyphs.
+- The first-run tour gains a *Directory tree* step (⋯ menu: Follow, hidden files, project root, resize).
+- The dock chip's *Move to project* button is disabled while there is only one project; icon buttons such as **+** now show their tooltip.
+
 ## 1.22.0
 - **Follow focused terminal** (tree ⋯ menu) — focusing a window reveals its live working directory in the tree: ancestors expand, the folder is centered and pulses. It re-roots to your home folder when the terminal is outside the project root, and turning it off collapses what it opened.
 - **Tree header** — slim header with an always-visible ↑ up-one-level button, ↻ refresh (spins once as feedback) and a ⋯ menu for Follow, Show hidden files, Back to project root and Pin as project root.
