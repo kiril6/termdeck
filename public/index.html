@@ -4757,6 +4757,7 @@ const TOUR_STEPS=[
   {sel:null,title:"One worktree per agent",body:"Palette → New agent task cuts a git worktree for a branch and launches an agent in it, isolated from your other agents."},
   {sel:"#agent-btn",title:"Sessions",body:"Every agent across all projects in one queue: see which is working, waiting or blocked, and jump straight to it. Switch to Grid for a live view of every session."},
   {sel:"#projects",title:"Projects & dock",body:"Group shells into projects with these tabs. Minimized windows wait in the dock at the bottom."},
+  {sel:"#sb-more-btn",tree:true,title:"Directory tree",body:"Open it with "+kbd("⌘","B")+". The ⋯ menu holds Follow focused terminal (the tree reveals the focused window's live folder), Show hidden files, Back to project root and Pin as project root. ↑ goes up a level; drag the tree's right edge to resize."},
   {sel:"#sc-btn",title:"Help",body:"All shortcuts live here. Replay this tour any time from the palette (Take the tour)."},
 ];
 let tourEl=null;
@@ -4773,8 +4774,10 @@ function takeTour(){
   const close=()=>{
     try{localStorage.setItem(TOUR_KEY,"1");}catch{}
     document.removeEventListener("keydown",onKey,true); window.removeEventListener("resize",place);
+    if(treeByTour) closeSidebar();
     root.remove(); tourEl=null; if(prev&&prev.focus) prev.focus();
   };
+  let treeByTour=false;   // the tree step opens the sidebar; put it back when the tour leaves that step
   const go=(d)=>{ if(i+d>=TOUR_STEPS.length) return close(); i=Math.max(0,i+d); render(); };
   function place(){
     const st=TOUR_STEPS[i], t=st.sel&&document.querySelector(st.sel), r=t&&t.getBoundingClientRect();
@@ -4790,6 +4793,8 @@ function takeTour(){
   }
   function render(){
     const st=TOUR_STEPS[i], last=i===TOUR_STEPS.length-1;
+    if(st.tree&&!sidebarOpen){openSidebar(); treeByTour=true; setTimeout(place,260);}   // re-place once the slide-in settles
+    else if(!st.tree&&treeByTour){closeSidebar(); treeByTour=false;}
     card.innerHTML='<div class="tour-n">'+(i+1)+' / '+TOUR_STEPS.length+'</div><h3 id="tour-t"></h3><p id="tour-b"></p>'+
       '<div class="tour-foot"><button class="tour-skip" type="button">Skip tour</button>'+
       '<button class="btn" type="button" data-back'+(i?"":" hidden")+'>Back</button>'+
