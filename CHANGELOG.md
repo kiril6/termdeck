@@ -2,6 +2,10 @@
 
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
+## 1.23.1
+- **Palette categories regrouped** — *Settings* now holds only real preferences (theme, terminal font, scrollback); keyboard shortcuts and the tour moved to a new *Help* chip, the game and pixel pets to *Fun*, the usage / agent-order resets to *Agents* and the directory-tree toggle to *Layout*.
+- The "Take the tour" hints no longer claim a fixed number of steps.
+
 ## 1.23.0
 - **Media & CSV preview** — the file viewer now shows images (png, jpg, gif, webp, avif, bmp, ico, svg), PDF, audio and video in place, and CSV / TSV as a table with a Raw toggle. Nothing to install. Binaries it can't preview offer *Reveal* and *Open in default app* (never for executables).
 - **Terminal font** — palette → *Terminal font…* sets the family and size for every terminal, live; the dialog explains using a Nerd Font for prompt glyphs.
