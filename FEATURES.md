@@ -22,6 +22,14 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🖥️ Multiple tabs (shells) per window with a scrollable tab strip. **Double-click a tab name to rename it**; the tab count and custom names persist across reloads (`localStorage`).
 - 🖥️ Read-only **log panels** (`⌘⌥L`) — mirror output with input disabled.
 - 🖥️ Per-terminal **font zoom** — `⌘+` / `⌘-` / `⌘0`; PTY re-fits to the new size.
+- 💾 **Named layouts** (#17) — palette → *Save layout as…* names the whole workspace (projects, windows with position/size,
+  tabs, roots, folders); *Restore layout…* lists them (project/window counts, date) with a **×** to delete. Saving under
+  an existing name asks before replacing. **Live:** stored server-side in `~/.termdeck/layouts.json` (0600, atomic
+  write, max 50, `/api/layouts` behind `apiGuard` + cross-site rejection), shared by every browser on that server;
+  **demo:** `localStorage` (`td.layouts.v1`). A layout is **layout only** — restoring asks first, closes the open
+  windows and starts **new shells** in the saved folders (new ids, so it never clashes with a live tmux session);
+  running processes and output are not saved, and agent / resume commands are stripped so a restore can never launch an
+  agent. Both commands sit in the palette's *Layout* category.
 - 🖥️ **Terminal font** — palette → *Terminal font…* sets the font **family** and default **size** (8–28 px) for every
   terminal, applied live to open ones and to new ones, saved to `localStorage` (`td.font.v1`). Any font **installed on the
   machine** works (nothing is downloaded or bundled, so it stays offline); the dialog explains installing a **Nerd Font**

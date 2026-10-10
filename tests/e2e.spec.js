@@ -95,7 +95,7 @@ test.describe('layout presets + Alt+N (#51)', () => {
     await expect(page.locator('.win')).toHaveCount(3);
     await openPalette(page);
     await page.locator('.pal-cat', { hasText: 'Layout' }).click();
-    await expect(page.locator('.pal-item')).toHaveCount(7);           // Tile windows + 5 presets + Toggle directory tree
+    await expect(page.locator('.pal-item')).toHaveCount(9);           // Tile windows + 5 presets + Toggle directory tree + Save/Restore layout
     await page.keyboard.type('Layout 2×2');
     await page.keyboard.press('Enter');
     await expect(page.locator('.win:visible')).toHaveCount(3);        // 3 windows fit a 2×2
@@ -107,6 +107,19 @@ test.describe('layout presets + Alt+N (#51)', () => {
     await page.locator('body').click({ position: { x: 5, y: 5 } });
     await page.keyboard.press('Alt+2');
     await expect(page.locator('.win:visible')).toHaveCount(2);        // Alt+2 restored the 2nd window
+  });
+  test('named layouts work in demo mode via localStorage', async ({ page }) => {
+    await boot(page, '/?demo');
+    await openPalette(page);
+    await page.locator('#palette input').first().fill('save layout');
+    await labels(page).filter({ hasText: /^Save layout/ }).first().click();
+    await page.locator('input[placeholder="e.g. review day"]').fill('Demo one');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.locator('.toast', { hasText: 'this browser only' })).toBeVisible();
+    await openPalette(page);
+    await page.locator('#palette input').first().fill('restore layout');
+    await labels(page).filter({ hasText: /^Restore layout/ }).first().click();
+    await expect(page.locator('.pitem', { hasText: 'Demo one' })).toBeVisible();
   });
 });
 
@@ -402,5 +415,43 @@ test.describe('live backend', () => {
     expect(open2.status()).toBe(404);                                                    // missing file
     fs.writeFileSync(path.join(dir, 'run.sh'), 'echo hi');
     expect((await request.get('/api/open?path=' + encodeURIComponent(path.join(dir, 'run.sh')))).status()).toBe(403);   // executables are never launched
+  });
+  test('named layouts: save, restore (replaces windows), delete; /api/layouts is guarded', async ({ page, request }) => {
+    await boot(page, '/');
+    await page.locator('#new').click(); await page.locator('#new').click();
+    await expect(page.locator('.win')).toHaveCount(3);
+    const runCmd = async (re) => {
+      await openPalette(page);
+      await page.locator('#palette input').first().fill('layout');
+      await labels(page).filter({ hasText: re }).first().click();
+    };
+    await runCmd(/^Save layout/);
+    await page.locator('input[placeholder="e.g. review day"]').fill('E2E three');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.locator('.toast', { hasText: 'Layout saved' })).toBeVisible();
+    const list = await (await request.get('/api/layouts')).json();
+    const mine = list.find((l) => l.name === 'E2E three');
+    expect(mine).toMatchObject({ windows: 3, projects: 1 });
+    await page.locator('#new').click();
+    await expect(page.locator('.win')).toHaveCount(4);
+    await runCmd(/^Restore layout/);
+    await page.locator('.pitem', { hasText: 'E2E three' }).click();
+    await page.getByRole('button', { name: 'Restore', exact: true }).click();   // confirm: open windows are replaced
+    await expect(page.locator('.toast', { hasText: 'Layout restored' })).toBeVisible();
+    await expect(page.locator('.win')).toHaveCount(3);
+    // saved data holds no agent / resume commands
+    const full = await (await request.get('/api/layouts/' + mine.id)).json();
+    expect(JSON.stringify(full.data)).not.toMatch(/"agent":true/);
+    // delete
+    await runCmd(/^Restore layout/);
+    await page.locator('.pitem', { hasText: 'E2E three' }).locator('.pdel').click();
+    await page.getByRole('button', { name: 'Delete', exact: true }).click();
+    expect((await (await request.get('/api/layouts')).json()).find((l) => l.name === 'E2E three')).toBeUndefined();
+    // guard + validation
+    const post = (data, headers) => request.post('/api/layouts', { data, headers });
+    expect((await post({ name: 'x', data: { projects: [], sessions: [] } })).status()).toBe(400);   // not a layout
+    expect((await post({ name: '', data: full.data })).status()).toBe(400);                           // no name
+    expect((await post({ name: 'x', data: full.data }, { Origin: 'http://evil.example' })).status()).toBe(403);
+    expect((await post({ name: 'x', data: full.data }, { 'Sec-Fetch-Site': 'cross-site' })).status()).toBe(403);
   });
 });
