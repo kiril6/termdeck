@@ -352,6 +352,18 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
   color:var(--text);white-space:pre;overflow:auto;max-height:70vh;tab-size:4;}
 .fv-hl{display:block;background:color-mix(in srgb,var(--accent) 22%,transparent);}
 .fv-body.msg{white-space:pre-wrap;color:var(--muted);}
+.fv-body.media{white-space:normal;display:flex;justify-content:center;align-items:flex-start;padding:12px;}
+.fv-img{max-width:100%;max-height:66vh;object-fit:contain;border-radius:4px;background:repeating-conic-gradient(var(--btn-bg) 0 25%,transparent 0 50%) 0 0/16px 16px;}
+.fv-pdf{width:100%;height:66vh;border:0;border-radius:4px;background:#fff;}
+.fv-body.media video{max-width:100%;max-height:66vh;border-radius:4px;} .fv-body.media audio{width:100%;}
+.fv-acts{display:flex;gap:8px;margin-top:12px;}
+.fv-act{font:600 11px var(--mono);color:var(--text);background:var(--btn-bg);border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer;}
+.fv-act:hover{border-color:var(--accent);background:var(--chip-active);}
+.fv-body.csv{white-space:normal;padding:0;}
+.fv-body.csv table{border-collapse:collapse;font-size:11.5px;min-width:100%;}
+.fv-body.csv th,.fv-body.csv td{border:1px solid var(--line);padding:4px 9px;text-align:left;white-space:pre;max-width:360px;overflow:hidden;text-overflow:ellipsis;}
+.fv-body.csv th{position:sticky;top:0;background:var(--panel);z-index:1;} .fv-body.csv tr:nth-child(even) td{background:color-mix(in srgb,var(--btn-bg) 40%,transparent);}
+.fv-note{color:var(--muted);font:11px var(--mono);padding:8px 12px;}
 .fv-send{position:fixed;z-index:9997;display:none;font:inherit;font-size:12px;padding:5px 11px;border-radius:6px;border:1px solid var(--accent);background:var(--panel);color:var(--accent);cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);}
 .fv-send:hover{filter:brightness(1.2);}
 .fv-body .d-add{color:#46d17f;} .fv-body .d-del{color:#e0655f;}
@@ -3386,7 +3398,7 @@ const PAL_CMDS=[
   {icon:ICON.folderPlus,label:"New project",sub:"Add a project tab",kbd:"\u2318\u21e7M",run:()=>addProject()},
   {icon:ICON.keyboard,label:"Keyboard shortcuts",sub:"Show all shortcuts",kbd:"?",run:openShortcuts},
 {icon:ICON.eye,label:"Take the tour",sub:"A 5-step walkthrough of the main features",run:()=>{closePalette();takeTour();}},
-  {icon:ICON.log,label:"Open file\u2026",sub:"Peek any text file \u2014 Markdown renders formatted",kbd:"\u2318\u2325O",run:()=>{closePalette();openFilePrompt();}},
+  {icon:ICON.log,label:"Open file\u2026",sub:"Peek a file \u2014 text, Markdown, CSV, images, PDF, audio and video",kbd:"\u2318\u2325O",run:()=>{closePalette();openFilePrompt();}},
   {icon:ICON.folder,label:"Open directory\u2026",sub:"Spawn shell in a specific folder",kbd:"\u2318\u21e7O",run:()=>{closePalette();document.getElementById("folder").click();}},
   {icon:ICON.snippet,label:"Save snippet\u2026",sub:"Store a reusable command",kbd:"\u2318\u2325S",run:()=>{closePalette();addSnippet();}},
   {icon:ICON.terminal,label:"Add SSH host\u2026",sub:"Save an ssh target \u2014 connect in one click from here",run:()=>{closePalette();addSshHost();}},
@@ -3664,11 +3676,58 @@ function mdToHtml(src){
   }
   return h;
 }
-let fvText=null, fvRendered=false, fvLine=0;   // fvText = markdown source of the open file (null → not markdown)
+let fvText=null, fvRendered=false, fvLine=0, fvTable=false;   // fvText = source of the open markdown/CSV file (null → neither); fvTable → CSV
 function fvShowMd(rendered){
-  fvRendered=rendered; fvTog.textContent=rendered?"Raw":"Rendered";
-  if(rendered){fvBody.className="fv-body md"; fvBody.innerHTML=mdToHtml(fvText);}
+  fvRendered=rendered; fvTog.textContent=rendered?"Raw":(fvTable?"Table":"Rendered");
+  if(rendered&&fvTable) fvBody.replaceChildren(csvTable(fvText)), fvBody.className="fv-body csv";
+  else if(rendered){fvBody.className="fv-body md"; fvBody.innerHTML=mdToHtml(fvText);}
   else fvRaw(fvText);
+}
+// CSV / TSV → table. Small RFC-4180 parser (quoted fields, "" escapes, newlines inside quotes); delimiter sniffed from
+// the header line. Renders at most CSV_ROWS rows so a huge export can't freeze the tab.
+const CSV_ROWS=5000;
+function csvParse(t){
+  const head=t.slice(0,t.search(/\r?\n|$/)), cnt=(c)=>head.split(c).length-1;
+  const d=cnt("\t")>cnt(",")&&cnt("\t")>=cnt(";")?"\t":cnt(";")>cnt(",")?";":",";
+  const rows=[]; let row=[],f="",q=false;
+  for(let i=0;i<t.length;i++){
+    const c=t[i];
+    if(q){ if(c==='"'){ if(t[i+1]==='"'){f+='"';i++;} else q=false; } else f+=c; }
+    else if(c==='"'&&!f) q=true;
+    else if(c===d){row.push(f);f="";}
+    else if(c==="\n"||c==="\r"){ if(c==="\r"&&t[i+1]==="\n")i++; row.push(f);f=""; rows.push(row);row=[]; if(rows.length>CSV_ROWS)return rows; }
+    else f+=c;
+  }
+  if(f||row.length){row.push(f);rows.push(row);}
+  return rows;
+}
+function csvTable(t){
+  const rows=csvParse(t), box=el("div"), tb=el("table"); const cut=rows.length>CSV_ROWS; if(cut)rows.length=CSV_ROWS;
+  rows.forEach((r,i)=>{const tr=el("tr"); r.forEach((v)=>{const c=el(i?"td":"th"); c.textContent=v; c.title=v; tr.append(c);}); tb.append(tr);});
+  box.append(tb); if(cut){const n=el("div","fv-note"); n.textContent="Showing the first "+CSV_ROWS+" rows — use Raw for the rest."; box.append(n);}
+  return box;
+}
+// Extensions the server's /api/raw serves (keep in sync with RAW_TYPES in server.js) → how to display them.
+const FV_MEDIA={png:"img",jpg:"img",jpeg:"img",gif:"img",webp:"img",avif:"img",bmp:"img",ico:"img",svg:"img",pdf:"pdf",
+  mp3:"audio",wav:"audio",ogg:"audio",m4a:"audio",flac:"audio",mp4:"video",webm:"video",mov:"video"};
+// Message + the two ways out for a file the viewer can't show: reveal it, or open it in the OS default app.
+function fvFallback(msg,full){
+  fvBody.className="fv-body msg"; fvBody.textContent=msg;
+  const acts=el("div","fv-acts");
+  const mk=(label,url)=>{const b=el("button","fv-act"); b.type="button"; b.textContent=label;
+    b.addEventListener("click",async()=>{const r=await fetch(url+encodeURIComponent(full)).catch(()=>null);
+      if(!r||!r.ok){const j=r?await r.json().catch(()=>({})):{}; toast(ICON.warn,label,j.error||"failed",3000);}}); return b;};
+  acts.append(mk("Reveal in Finder / Explorer","/api/reveal?path="),mk("Open in default app","/api/open?path="));
+  fvBody.append(acts);
+}
+function fvMedia(kind,full){
+  const url="/api/raw?path="+encodeURIComponent(full);
+  let m;
+  if(kind==="img"){m=el("img","fv-img"); m.alt="";}
+  else if(kind==="pdf"){m=el("iframe","fv-pdf"); m.title="PDF preview";}
+  else{m=el(kind); m.controls=true; m.preload="metadata";}
+  m.addEventListener("error",()=>fvFallback("Can’t preview this file in the browser.",full));
+  m.src=url; fvBody.className="fv-body media"; fvBody.replaceChildren(m);
 }
 // Plain-text body; with fvLine set, that 1-based line is highlighted and scrolled into view.
 function fvRaw(text){
@@ -3695,27 +3754,30 @@ sendBtn.addEventListener("click",()=>{
 // text: optional preloaded content (demo mode has no backend to read from)
 async function openFileViewer(full,name,text,line){
   closeModals("file"); fvLine=line||0; fvMode="file"; fvRoot=full; fvProject=activeProject; hideSendBtn();
-  fvName.textContent=name; fvPath.textContent=full; fvText=null; fvTog.hidden=true;
+  fvName.textContent=name; fvPath.textContent=full; fvText=null; fvTable=false; fvRendered=false; fvTog.hidden=true;
   fvBody.className="fv-body msg"; fvBody.textContent="Loading…";
   fileOverlay.classList.add("open");
   fileOverlay.focus();   // pull focus off any terminal textarea so Esc closes the viewer
   try{
     let j={text};
+    const kind=LIVE&&text===undefined?FV_MEDIA[(name.split(".").pop()||"").toLowerCase()]:null;
+    if(kind){fvMedia(kind,full);return;}
     if(text===undefined){
       const r=await fetch("/api/read?path="+encodeURIComponent(full));
       j=await r.json().catch(()=>({}));
       if(!r.ok){fvBody.textContent="⚠ "+(j.error||("HTTP "+r.status));return;}
-      if(j.binary){fvBody.textContent="Binary file — can’t preview.\nUse the reveal button in the tree to open it in your OS.";return;}
+      if(j.binary){fvFallback("Binary file — can’t preview.",full);return;}
     }
     const body=(j.text||"")+(j.truncated?"\n\n… truncated (file larger than 2 MB) …":"");
     if(/\.(md|markdown)$/i.test(name)){fvText=body; fvTog.hidden=false; fvShowMd(!fvLine);}   // a :line target shows the raw source
+    else if(/\.(csv|tsv)$/i.test(name)&&!fvLine){fvText=j.text||""; fvTable=true; fvTog.hidden=false; fvShowMd(true);}
     else fvRaw(body);
   }catch(e){fvBody.textContent="⚠ "+e.message;}
 }
 // Palette → Open file…: path relative to the project root unless absolute/~.
 async function openFilePrompt(){
   if(!LIVE){openFileViewer("~/termdeck/README.md","README.md",DEMO_MD);return;}
-  const v=await inputModal("Open file",[{key:"p",label:"Path (relative to the project root, absolute, or ~/…) — .md renders",placeholder:"README.md"}],"Open");
+  const v=await inputModal("Open file",[{key:"p",label:"Path (relative to the project root, absolute, or ~/…) — text, .md, .csv, images, PDF, audio, video",placeholder:"README.md"}],"Open");
   if(!v||!v.p||!v.p.trim())return;
   const raw=v.p.trim(), full=/^([\/~]|[A-Za-z]:)/.test(raw)?raw:joinPath(treeRootPath(),raw);
   openFileViewer(full,full.split(/[\\/]/).pop());

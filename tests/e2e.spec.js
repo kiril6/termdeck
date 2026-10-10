@@ -356,4 +356,51 @@ test.describe('live backend', () => {
     await page.reload();
     await expect(page.locator('.win .xterm-char-measure-element').first()).toHaveCSS('font-size', '17px');   // persisted
   });
+  test('file viewer previews images, CSV, PDF and falls back for binaries; /api/raw is locked down', async ({ page, request }) => {
+    const dir = fs.mkdtempSync(path.join(process.env.TD_E2E_HOME, 'preview-'));
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+    fs.writeFileSync(path.join(dir, 'dot.png'), png);
+    fs.writeFileSync(path.join(dir, 'x.svg'), '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><script>alert(1)</script></svg>');
+    fs.writeFileSync(path.join(dir, 'x.pdf'), '%PDF-1.1\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF');
+    fs.writeFileSync(path.join(dir, 'data.csv'), 'name,qty\n"Smith, J",3\n"say ""hi""",4\n');
+    fs.writeFileSync(path.join(dir, 'blob.bin'), Buffer.from([1, 0, 2, 0, 3]));
+    fs.writeFileSync(path.join(dir, 'secret.txt'), 'nope');
+    await boot(page, '/');
+    const open = async (f) => {
+      await openPalette(page);
+      await page.locator('#palette input').first().fill('open file');
+      await labels(page).filter({ hasText: /^Open file/ }).first().click();
+      await page.locator('input[placeholder="README.md"]').fill(path.join(dir, f));
+      await page.getByRole('button', { name: 'Open', exact: true }).click();
+    };
+    await open('dot.png');
+    await expect(page.locator('#fv-body img.fv-img')).toBeVisible();
+    await expect.poll(() => page.locator('#fv-body img.fv-img').evaluate((i) => i.naturalWidth)).toBe(1);   // really decoded
+    await page.keyboard.press('Escape');
+    await open('x.pdf');
+    await expect(page.locator('#fv-body iframe.fv-pdf')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await open('data.csv');
+    const cells = page.locator('#fv-body table td, #fv-body table th');
+    await expect(cells).toHaveText(['name', 'qty', 'Smith, J', '3', 'say "hi"', '4']);   // quoted comma + escaped quote
+    await page.locator('#fv-tog').click();                                              // Raw
+    await expect(page.locator('#fv-body')).toContainText('"Smith, J",3');
+    await page.keyboard.press('Escape');
+    await open('blob.bin');
+    await expect(page.getByRole('button', { name: 'Open in default app' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Reveal in/ })).toBeVisible();
+    await page.keyboard.press('Escape');
+    // endpoint rules
+    const raw = (f, headers) => request.get('/api/raw?path=' + encodeURIComponent(path.join(dir, f)), { headers });
+    const ok = await raw('dot.png');
+    expect(ok.status()).toBe(200); expect(ok.headers()['content-type']).toBe('image/png'); expect(ok.headers()['x-content-type-options']).toBe('nosniff');
+    expect((await raw('x.svg')).headers()['content-security-policy']).toContain('sandbox');
+    expect((await raw('secret.txt')).status()).toBe(415);                                // not on the allowlist
+    expect((await raw('dot.png', { 'Sec-Fetch-Site': 'cross-site' })).status()).toBe(403);
+    expect((await raw('dot.png', { Origin: 'http://evil.example' })).status()).toBe(403);
+    const open2 = await request.get('/api/open?path=' + encodeURIComponent(path.join(dir, 'run.sh')));
+    expect(open2.status()).toBe(404);                                                    // missing file
+    fs.writeFileSync(path.join(dir, 'run.sh'), 'echo hi');
+    expect((await request.get('/api/open?path=' + encodeURIComponent(path.join(dir, 'run.sh')))).status()).toBe(403);   // executables are never launched
+  });
 });
