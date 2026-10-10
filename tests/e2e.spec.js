@@ -334,4 +334,11 @@ test.describe('live backend', () => {
     await page.locator('#sb-btn').click();
     await expect(sb).toHaveCSS('width', '240px');   // width is not remembered
   });
+  test('dock "move to project" is disabled with one project and enabled with two', async ({ page }) => {
+    await boot(page, '/');
+    const mv = page.locator('.chip .cmove').first();
+    await expect(mv).toBeDisabled();
+    await page.locator('#padd').click();
+    await expect(mv).toBeEnabled();
+  });
 });
