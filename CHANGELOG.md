@@ -2,6 +2,12 @@
 
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
+## 1.25.0
+- **Port globe** — a detected dev-server port now shows as a globe icon in the window footer, left of the snippet icon (it replaces the `:PORT` badge). Click opens `http://localhost:PORT` in a new tab; right-click offers *Open*, *Copy URL* and *Stop server*, which sends SIGTERM to the listener, only if it belongs to that terminal (macOS / Linux).
+- **Palette search ranks by relevance** — word-start matches come first, and presets sort after real commands.
+- **Sessions overview** — the active *Queue / Grid* toggle is now clearly visible, and the backdrop is blurred so the windows behind it no longer show through.
+- Styled the *Restore layout* picker rows and delete button (they were unstyled).
+
 ## 1.24.0
 - **Named layouts** — palette → *Save layout as…* names the whole workspace (projects, windows, tabs, folders) and *Restore layout…* brings it back, with a **×** to delete. Saved in `~/.termdeck/layouts.json` (browser storage in the demo). Restoring asks first, starts new shells in the saved folders and never relaunches agents.
 
