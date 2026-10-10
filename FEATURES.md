@@ -22,6 +22,11 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🖥️ Multiple tabs (shells) per window with a scrollable tab strip. **Double-click a tab name to rename it**; the tab count and custom names persist across reloads (`localStorage`).
 - 🖥️ Read-only **log panels** (`⌘⌥L`) — mirror output with input disabled.
 - 🖥️ Per-terminal **font zoom** — `⌘+` / `⌘-` / `⌘0`; PTY re-fits to the new size.
+- 🖥️ **Terminal font** — palette → *Terminal font…* sets the font **family** and default **size** (8–28 px) for every
+  terminal, applied live to open ones and to new ones, saved to `localStorage` (`td.font.v1`). Any font **installed on the
+  machine** works (nothing is downloaded or bundled, so it stays offline); the dialog explains installing a **Nerd Font**
+  for starship / powerlevel10k glyphs. Blank fields restore the default (JetBrains Mono, 13). `⌘0` resets a terminal's
+  zoom to this size. Also in the palette's *Settings* category.
 - 🖥️ **Configurable scrollback** — palette → *Set scrollback…* sets how many lines of history each
   terminal keeps (default 8000, clamped 500–200000). Applies to new terminals and live to open ones;
   saved to `localStorage` (`td.scrollback.v1`). Bigger = long build/test logs survive; smaller = less
