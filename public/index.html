@@ -734,14 +734,14 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 .win-foot .badge.cwd{color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;}
 .win-foot .badge.log{color:var(--demo);border-color:var(--demo);}
 .badge.cmd{color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono,monospace);}
-.badge.port{color:var(--accent);border-color:var(--accent-dim);cursor:pointer;}
-.badge.port:hover{background:var(--accent-dim);}
 .badge:empty{display:none;}
 .win-foot .uptime{color:var(--muted);flex:0 0 auto;}
 .win-foot .foot-actions{margin-left:auto;display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;}   /* interactive icons grouped, pinned right */
-.win-foot .foot-game,.win-foot .foot-snip{flex:0 0 auto;display:inline-flex;align-items:center;cursor:pointer;color:var(--muted);opacity:.7;transition:opacity .12s,color .12s;}
-.win-foot .foot-game svg,.win-foot .foot-snip svg{width:13px;height:13px;display:block;}
-.win-foot .foot-game:hover,.win-foot .foot-snip:hover{opacity:1;color:var(--live,#4fd6be);}
+.win-foot .foot-game,.win-foot .foot-snip,.win-foot .foot-port{flex:0 0 auto;display:inline-flex;align-items:center;cursor:pointer;color:var(--muted);opacity:.7;transition:opacity .12s,color .12s;}
+.win-foot .foot-game svg,.win-foot .foot-snip svg,.win-foot .foot-port svg{width:13px;height:13px;display:block;}
+.win-foot .foot-port{color:var(--accent);opacity:1;}
+.win-foot .foot-port[hidden]{display:none;}
+.win-foot .foot-game:hover,.win-foot .foot-snip:hover,.win-foot .foot-port:hover{opacity:1;color:var(--live,#4fd6be);}
 /* edge + corner resize handles on all four sides. z above the terminal canvas so
    they catch mousedown; .win-ctrls sits above them so title-bar buttons stay clickable. */
 .wgrip{position:absolute;z-index:6;touch-action:none;}
@@ -1069,6 +1069,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 
 /* Inline Lucide icons (MIT) for small controls — monochrome via currentColor, sized 1em by CSS. */
 const ICON={
+  globe:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>',
   x:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>',
   check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
   warn:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
@@ -2071,8 +2072,21 @@ function createSession(desc, isLog){
   const badgeShell=el("span","badge shell"); badgeShell.textContent=isLog?"\u25b6 log":"\u2013";
   if(LIVE&&!isLog){badgeShell.classList.add("pick"); badgeShell.title="Change shell"; badgeShell.onclick=(e)=>{e.stopPropagation(); const sx=sessions.get(id); if(sx) openShellMenu(sx,badgeShell);};}
   const badgeCwd=el("span","badge cwd"); badgeCwd.textContent=desc.cwd||"~";
-  const badgeCmd=el("span","badge cmd"), badgePort=el("span","badge port");   // last command + detected dev-server port of the active tab (#22)
-  badgePort.onclick=(e)=>{e.stopPropagation(); const t=activeTab(sessions.get(id)); if(t?.port&&LOCAL_PAGE) window.open("http://localhost:"+t.port,"_blank","noopener");};   // remote (tunnel/proxy): that port isn't reachable from here, so it's info only
+  const badgeCmd=el("span","badge cmd"), badgePort=el("span","foot-port");   // last command + detected dev-server port of the active tab (#22); the port is a globe icon in the action group
+  badgePort.hidden=true; badgePort.innerHTML=ICON.globe;
+  const portOf=()=>activeTab(sessions.get(id))?.port;
+  const openPort=(port)=>window.open("http://localhost:"+port,"_blank","noopener");
+  badgePort.onclick=(e)=>{e.stopPropagation(); const p=portOf(); if(p&&LOCAL_PAGE) openPort(p);};   // remote (tunnel/proxy): that port isn't reachable from here, so it's info only
+  badgePort.oncontextmenu=(e)=>{
+    e.preventDefault(); e.stopPropagation(); const port=portOf(); if(!port)return;
+    const url="http://localhost:"+port;
+    showCtxMenu(e.clientX,e.clientY,[
+      {label:"Open "+url.slice(7),disabled:!LOCAL_PAGE,run:()=>openPort(port)},
+      {label:"Copy URL",run:()=>navigator.clipboard?.writeText(url)},
+      {sep:true},
+      {label:"Stop server",run:()=>stopPort(id,port)},
+    ]);
+  };
   if(isLog){const bl=el("span","badge log"); bl.textContent="read-only"; foot.append(bl);}
   const uptimeEl=el("span","uptime"); uptimeEl.textContent="00:00";
   const footGame=el("span","foot-game"); footGame.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="11" x2="10" y2="11"/><line x1="8" y1="9" x2="8" y2="13"/><line x1="15" y1="12" x2="15.01" y2="12"/><line x1="18" y1="10" x2="18.01" y2="10"/><rect x="2" y="6" width="20" height="12" rx="2"/></svg>'; footGame.title="Play a game while this runs ("+kbd("⌘","⌥","G")+")";
@@ -2082,8 +2096,8 @@ function createSession(desc, isLog){
   footSnip.onclick=(e)=>{e.stopPropagation(); const sx=sessions.get(id); if(sx){focus(sx); openSnippetMenu(sx,footSnip);}};   // focus this tab so runSnippet targets it
   const footActions=el("span","foot-actions");   // right-aligned toolbar: passive status stays left, controls group right
   if(!isLog) footActions.append(footSnip);   // read-only log terminals ignore input, so no insert affordance
-  footActions.append(footGame);
-  foot.append(badgeShell,badgeCwd,badgeCmd,badgePort,footActions,uptimeEl);   // icons grouped, timer pinned to the trailing corner
+  footActions.append(badgePort,footGame);
+  foot.append(badgeShell,badgeCwd,badgeCmd,footActions,uptimeEl);   // icons grouped, timer pinned to the trailing corner
   const grips=["n","s","e","w","nw","ne","sw","se"].map((d)=>{const g=el("div","wgrip wgrip-"+d);g.dataset.dir=d;return g;});
   win.append(head,panes,foot,...grips);
   desktop.append(win);
@@ -2470,8 +2484,16 @@ const LOCAL_PAGE=/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 function updateCmdBadges(s){
   const t=activeTab(s); if(!t)return;
   s.badgeCmd.textContent=t.lastCmd?"$ "+t.lastCmd:""; s.badgeCmd.title=t.lastCmd?"Last command: "+t.lastCmd:"";
-  s.badgePort.textContent=t.port?":"+t.port:""; s.badgePort.title=t.port?(LOCAL_PAGE?"Open localhost:"+t.port:"Port "+t.port+" on the termdeck host"):"";
+  s.badgePort.hidden=!t.port; s.badgePort.title=t.port?(LOCAL_PAGE?"Open localhost:"+t.port:"Port "+t.port+" on the termdeck host")+" · right-click for more":"";
   s.badgePort.style.cursor=LOCAL_PAGE?"":"default";
+}
+async function stopPort(id,port){
+  try{
+    const r=await fetch("/api/stop-port",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,port})});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok) toast(ICON.check,"Stopping server","Sent SIGTERM to :"+port);
+    else toast(ICON.warn,"Couldn't stop server",j.error||"HTTP "+r.status);
+  }catch(e){toast(ICON.warn,"Couldn't stop server",String(e.message||e));}
 }
 function setCwdBadge(s,cwd){s.badgeCwd.textContent=tildePath(cwd); s.badgeCwd.title=cwd||"";}
 // Collapse the home dir to ~ for the cwd badge (Linux /home/<user>, macOS /Users/<user>).

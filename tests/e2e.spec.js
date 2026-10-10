@@ -183,8 +183,9 @@ test.describe('live backend', () => {
     await page.locator('.win .xterm').first().click({ force: true });
     await page.keyboard.type("node -e \"console.log('listening on http://localhost:4321');setTimeout(()=>{},3000)\"\n");
     await expect(page.locator('.win .badge.cmd').first()).toContainText('listening on');
-    await expect(page.locator('.win .badge.port').first()).toHaveText(':4321');
-    await expect(page.locator('.win .badge.port').first()).toHaveText('', { timeout: 8000 });   // prompt back → server gone
+    await expect(page.locator('.win .foot-port').first()).toBeVisible();
+    await expect(page.locator('.win .foot-port').first()).toHaveAttribute('title', /localhost:4321/);
+    await expect(page.locator('.win .foot-port').first()).toBeHidden({ timeout: 8000 });   // prompt back → server gone
     await page.keyboard.type('echo hi\x7fey\n');                                           // backspace edits are honoured
     await expect(page.locator('.win .badge.cmd').first()).toHaveText('$ echo hey');
   });

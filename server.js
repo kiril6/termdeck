@@ -349,6 +349,31 @@ const notify = (() => {   // #84: optional outgoing webhook; off unless TD_NOTIF
   try { return n.createNotifier(n.configFrom(process.env)); }
   catch (e) { console.error(`  TD_NOTIFY_URL ignored: ${e.message}`); return () => {}; }
 })();
+// "Stop server" from the footer globe: SIGTERM whatever listens on `port`, but only if it is the pane's own
+// shell or a descendant of it — the client sends an id+port, never a pid, so this can't kill arbitrary processes.
+const execP = (cmd, args) => new Promise((resolve) => execFile(cmd, args, { timeout: 3000 }, (_e, out) => resolve(out || '')));
+app.post('/api/stop-port', apiGuard, async (req, res) => {
+  const b = req.body, port = Number(b?.port);
+  const s = b && typeof b.id === 'string' ? live.get(b.id) : null;
+  if (!s || s.isLog || !Number.isInteger(port) || port < 1 || port > 65535) return res.status(400).end();
+  if (isWindows) return res.status(501).json({ error: 'not supported on Windows' });
+  const root = s.tmuxName
+    ? parseInt(await execP('tmux', ['display-message', '-p', '-t', s.tmuxName, '#{pane_pid}']), 10)   // the pty pid is only the tmux client
+    : s.term?.pid;
+  if (!root) return res.status(404).json({ error: 'shell not found' });
+  const kids = new Map();                                                 // ppid → [pid]
+  for (const line of (await execP('ps', ['-A', '-o', 'pid=,ppid='])).split('\n')) {
+    const [pid, ppid] = line.trim().split(/\s+/).map(Number);
+    if (pid && ppid >= 0) kids.set(ppid, [...(kids.get(ppid) || []), pid]);
+  }
+  const tree = new Set([root]);
+  for (const pid of tree) for (const k of kids.get(pid) || []) tree.add(k);
+  const listeners = (await execP('lsof', ['-nP', '-iTCP:' + port, '-sTCP:LISTEN', '-t'])).split('\n').map(Number).filter(Boolean);
+  const targets = listeners.filter((pid) => tree.has(pid) && pid !== root && pid !== process.pid);
+  if (!targets.length) return res.status(404).json({ error: 'no server found on :' + port + ' in this terminal' });
+  for (const pid of targets) { try { process.kill(pid, 'SIGTERM'); } catch {} }
+  res.json({ ok: true, pids: targets });
+});
 app.post('/api/agent-events', apiGuard, (req, res) => {
   const b = req.body;
   if (!b || typeof b !== 'object' || typeof b.id !== 'string' || !AGENT_EVT_TYPES.has(b.type)) return res.status(400).end();
