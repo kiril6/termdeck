@@ -2,6 +2,9 @@
 
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
+## 1.24.0
+- **Named layouts** — palette → *Save layout as…* names the whole workspace (projects, windows, tabs, folders) and *Restore layout…* brings it back, with a **×** to delete. Saved in `~/.termdeck/layouts.json` (browser storage in the demo). Restoring asks first, starts new shells in the saved folders and never relaunches agents.
+
 ## 1.23.1
 - **Palette categories regrouped** — *Settings* now holds only real preferences (theme, terminal font, scrollback); keyboard shortcuts and the tour moved to a new *Help* chip, the game and pixel pets to *Fun*, the usage / agent-order resets to *Agents* and the directory-tree toggle to *Layout*.
 - The "Take the tour" hints no longer claim a fixed number of steps.
