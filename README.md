@@ -106,6 +106,7 @@ See also [Known limits](#known-limits).
 
 **Terminals & layout**
 - Floating, draggable, resizable windows; snap and glue windows together, tabs per window.
+- **Named layouts:** palette → *Save layout as…* / *Restore layout…* saves the whole workspace (projects, windows, tabs, folders) under a name in `~/.termdeck/layouts.json`; restoring starts fresh shells in the saved folders and never relaunches agents.
 - **Terminal font and size** (palette → *Terminal font…*), applied live to every terminal; use any installed font, including a Nerd Font for starship / powerlevel10k glyphs.
 - **Layouts:** click *Tile* to auto-tile, or its **▾** for a fixed grid (1×1, 2×1, 1×2, 2×2, 3×2), *Restore minimized* and Fullscreen (also in the palette's *Layout* tab) — extra windows are minimized, not closed. `⌥1`–`9` jumps to the Nth window.
 - **Live overview:** the toolbar *Sessions* button → *Grid* (or palette → *Live overview*) shows a read-only tile per session across all projects with its latest output and state; click a tile to jump to it.
