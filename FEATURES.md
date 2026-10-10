@@ -61,6 +61,14 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   handled gracefully; **`.md` files render as formatted Markdown** with a *Raw / Rendered* toggle), and its **⤢** reveals it in the OS file manager (`/api/reveal`). Falls back to a
   static demo tree in `file://` demo mode.
 - 🖥️ **Markdown viewer** — `.md` / `.markdown` files open **rendered** (headings, bold/italic, inline + fenced
+- 🖥️ **Media & CSV preview** (#24) — the file viewer also shows **images** (png, jpg, gif, webp, avif, bmp, ico, svg), **PDF**
+  (the browser's own viewer), **audio** (mp3, wav, ogg, m4a, flac) and **video** (mp4, webm, mov, seekable) natively — no
+  plugins or libraries — via `GET /api/raw`: same `apiGuard`, an extension **allowlist** with fixed `Content-Type`,
+  `nosniff`, cross-site fetches (`Sec-Fetch-Site`) rejected, images/PDF capped at 25 MB; SVG is only ever shown through
+  `<img>` (and served with a sandboxing CSP). **CSV / TSV** render as a table (quoted fields, delimiter sniffed, first
+  5000 rows, sticky header) with a **Raw** toggle. Anything else binary shows *Reveal in Finder / Explorer* and *Open in
+  default app* buttons (`/api/open`, which refuses executable-looking types such as `.sh`, `.app`, `.exe`, `.bat`).
+  Live mode only — the hosted demo has no files to read. Clicking a path in terminal output opens it the same way.
   code, lists, blockquotes, tables, rules, `http(s)`/`mailto` links) in the file-viewer overlay; the header
   button flips to the raw source and back. Reach it by clicking a file in the tree **or** palette → *Open
   file…* (path relative to the project root, absolute, or `~/…`; works for any text file). Zero dependencies:
