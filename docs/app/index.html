@@ -183,7 +183,7 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
 .seg button{font:inherit;color:var(--muted);background:transparent;border:0;padding:4px 10px;cursor:pointer;}
 .seg button+button{border-left:1px solid var(--line);}
 .seg button:hover{color:var(--text);}
-.seg button.on{background:var(--btn-bg);color:var(--text);cursor:default;}
+.seg button.on{background:var(--accent);color:var(--on-accent,#08120f);font-weight:600;cursor:default;}
 .agent-pop-count{font-size:10px;color:var(--muted);letter-spacing:.06em;}
 .agent-list{display:flex;flex-direction:column;gap:3px;max-height:280px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--line) transparent;}
 .agent-list::-webkit-scrollbar{width:8px;}
@@ -293,7 +293,7 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
 .pal-foot{padding:10px 14px 6px;text-align:center;color:var(--muted);font-size:11px;}
 
 /* ── live grid overview (#25) ── */
-.ov-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9991;display:none;flex-direction:column;padding:3vh 3vw;}
+.ov-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);z-index:9991;display:none;flex-direction:column;padding:3vh 3vw;}
 .ov-overlay.open{display:flex;}
 .ov-head{display:flex;align-items:center;justify-content:space-between;color:var(--text);font-size:13px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;margin-bottom:12px;}
 .ov-title{display:flex;align-items:center;}
