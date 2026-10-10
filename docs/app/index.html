@@ -484,7 +484,8 @@ html.is-mac .sc-about b.kbd-inline{letter-spacing:.22em;}
 .tn .tn-act{flex:0 0 auto;border:0;background:transparent;color:var(--muted);cursor:pointer;
   font-size:12px;line-height:1;padding:3px 4px;opacity:0;transition:opacity .12s;}
 .tn:hover .tn-act{opacity:.75;}
-.tn .tn-act svg{pointer-events:none;}   /* button = one hover target, so its title tooltip isn't reset by the svg's child boundaries */
+.tn .tn-act svg{pointer-events:none;}
+button[title]>svg,[role=button][title]>svg{pointer-events:none;}   /* general rule: an icon button is one hover target, so its title tooltip shows (it was lost on e.g. the + project button) */   /* button = one hover target, so its title tooltip isn't reset by the svg's child boundaries */
 .tn .tn-act:hover{opacity:1;color:var(--accent);}
 .tree-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:7px;padding:36px 18px;height:100%;text-align:center;color:var(--muted);}
