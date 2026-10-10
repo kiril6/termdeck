@@ -111,7 +111,7 @@ See also [Known limits](#known-limits).
 - **Layouts:** click *Tile* to auto-tile, or its **▾** for a fixed grid (1×1, 2×1, 1×2, 2×2, 3×2), *Restore minimized* and Fullscreen (also in the palette's *Layout* tab) — extra windows are minimized, not closed. `⌥1`–`9` jumps to the Nth window.
 - **Live overview:** the toolbar *Sessions* button → *Grid* (or palette → *Live overview*) shows a read-only tile per session across all projects with its latest output and state; click a tile to jump to it.
 - **Projects** group windows; each remembers its folder. A **file tree** (`⌘B`, drag its edge to resize) with a built-in file viewer (text, Markdown, CSV tables, images, PDF, audio and video); its ⋯ menu has **Follow focused terminal**, which reveals the focused window's live folder in the tree.
-- **Live working directory, last command and dev-server port** in every window's footer (click the `:PORT` to open it when running locally), clickable links and `file:line` paths, search the terminal's history, GPU-accelerated rendering.
+- **Live working directory, last command and dev-server port** in every window's footer (a globe icon opens the port when running locally; right-click for Copy URL / Stop server), clickable links and `file:line` paths, search the terminal's history, GPU-accelerated rendering.
 - **Version, What's new and update check:** the version shows in the footer and Help; Help → *What's new* lists the changelog offline, a one-time toast appears after an upgrade, and *Check for updates* asks npm only when you click.
 - 24 themes (17 dark, 7 light), per terminal or for the whole dashboard.
 

@@ -587,7 +587,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   (`/#t=<terminal id>`) deep-links: opening it switches to that project and focuses/flashes the terminal. Hook events only —
   heuristic waiting states stay in the browser. Setup: [docs/remote-access.md](docs/remote-access.md).
 - 🖥️ **Last command + detected port in the window footer (#22)** — beside the cwd badge, the active tab shows `$ <last command>`
-  (hover for the full text) and, for dev servers, a `:PORT` badge (click opens `http://localhost:PORT` in a new tab when termdeck itself is open on localhost; over a tunnel/proxy such as Tailscale Serve that port isn't reachable from your device, so the badge is info only). Both are
+  (hover for the full text) and, for dev servers, a **globe icon** in the footer action group, left of the snippet icon (tooltip = the port; click opens `http://localhost:PORT` in a new tab when termdeck itself is open on localhost; over a tunnel/proxy such as Tailscale Serve that port isn't reachable from your device, so it's info only). **Right-click** the globe for *Open*, *Copy URL* and, last, *Stop server*: `POST /api/stop-port` takes only the terminal id + port, finds the listener with `lsof`, and SIGTERMs it only if it is the terminal's own shell tree (404 otherwise; macOS/Linux, not Windows). Both are
   heuristics kept deliberately conservative: the command is what you *typed* at Enter, recorded only when the line was plain
   typing (backspace OK; history recall, tab-complete or cursor keys make it unreliable, so nothing is recorded), not in a
   full-screen app or agent tab, and not answering a `password:`/`passphrase:`/`token:`-style prompt. The port is the latest
