@@ -572,6 +572,8 @@ button[title]>svg,[role=button][title]>svg{pointer-events:none;}   /* general ru
 .ptab .pdel{width:16px;height:16px;padding:0;border:0;background:transparent;color:var(--muted);
   border-radius:4px;cursor:pointer;display:grid;place-items:center;font-size:11px;}
 .ptab .pdel:hover{background:#3a1a1c;color:#ff9b93;}
+.ptab .pdel:disabled{opacity:.3;cursor:not-allowed;pointer-events:auto;}
+.ptab .pdel:disabled:hover{background:transparent;color:var(--muted);}
 .ptab .pdot{width:6px;height:6px;border-radius:50%;flex:0 0 auto;display:none;}
 .ptab.conflict .pdot{display:inline-block;background:#d9822b;box-shadow:0 0 6px #d9822b;}
 .ptab.waiting .pdot{display:inline-block;background:#e6a23c;box-shadow:0 0 6px #e6a23c;}
@@ -1951,7 +1953,7 @@ function renderProjectTab(p){
   nm.addEventListener("blur",commit);
   nm.addEventListener("keydown",(e)=>{if(e.key==="Enter"){e.preventDefault();nm.blur();} if(e.key==="Escape"){nm.textContent=p.name;nm.blur();} e.stopPropagation();});
   del.addEventListener("click",(e)=>{e.stopPropagation(); deleteProject(p.id);});
-  p.tab=tab; p.nameEl=nm; p.countEl=cnt; p.dot=dot;
+  p.tab=tab; p.nameEl=nm; p.countEl=cnt; p.dot=dot; p.delEl=del;
   updateProjectAttention(p.id);
 }
 async function deleteProject(pid){
@@ -3301,6 +3303,7 @@ projectsBar.addEventListener("dblclick",(e)=>{if(e.target===projectsBar||e.targe
 // moving a window needs somewhere to go: dim the dock's move buttons while there is only one project
 function syncMoveBtns(){
   const one=projectOrder.length<2;
+  projects.forEach((p)=>{if(p.delEl){p.delEl.disabled=one; p.delEl.title=one?"Can't delete the only project":"Delete project";}});   // the last project can't be deleted (deleteProject refuses) → show it
   sessions.forEach((s)=>{s.cmove.disabled=one; s.cmove.title=one?"Move to project\u2026 (add another project first)":"Move to project\u2026";});
 }
 function openMovePop(s,anchor){
