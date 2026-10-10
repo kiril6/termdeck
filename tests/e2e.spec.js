@@ -108,6 +108,18 @@ test.describe('layout presets + Alt+N (#51)', () => {
     await page.keyboard.press('Alt+2');
     await expect(page.locator('.win:visible')).toHaveCount(2);        // Alt+2 restored the 2nd window
   });
+  test('palette search ranks word-start matches first and layout presets after real commands', async ({ page }) => {
+    await boot(page, '/?demo');
+    await openPalette(page);
+    const input = page.locator('#palette input').first();
+    await input.fill('layout');
+    await expect(labels(page).first()).toHaveText(/^Save layout/);          // not "Layout 1×1"
+    await expect(labels(page).nth(1)).toHaveText(/^Restore layout/);
+    await input.fill('2x2');
+    await expect(labels(page).first()).toHaveText('Layout 2×2');            // presets still found
+    await input.fill('term');
+    await expect(labels(page).first()).toHaveText('New terminal');          // list order within a tier
+  });
   test('named layouts work in demo mode via localStorage', async ({ page }) => {
     await boot(page, '/?demo');
     await openPalette(page);

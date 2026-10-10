@@ -3466,7 +3466,14 @@ function buildPalette(q){
     cmdGroups.push(["Recent",rec],["Start",PAL_START.map(byLabel).filter((c)=>c&&!rec.includes(c))]);
   }else{
     const xq=q.replace(/\u00d7/g,"x"), hit=(t)=>t.toLowerCase().replace(/\u00d7/g,"x").includes(xq);   // "2x2" finds "Layout 2×2"
-    cmdGroups.push(["Commands",PAL_CMDS.filter((c)=>inCat(c.cat)&&(!q||hit(c.label)||hit(c.sub)))]);
+    const found=PAL_CMDS.filter((c)=>inCat(c.cat)&&(!q||hit(c.label)||hit(c.sub)));
+    if(q){   // rank: a label word starting with the query, then label contains it, then description only; ties → recently run first, layout presets last, then list order
+      const wordStart=new RegExp("(^|[^a-z0-9])"+xq.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")), recent=palRecent();
+      const score=(c)=>{const l=c.label.toLowerCase().replace(/\u00d7/g,"x"); return [wordStart.test(l)?0:hit(c.label)?1:2, recent.includes(c.label)?recent.indexOf(c.label):99, c.layout?1:0];};
+      const sc=new Map(found.map((c,i)=>[c,[...score(c),i]]));
+      found.sort((a,b)=>{const x=sc.get(a),y=sc.get(b); for(let k=0;k<4;k++) if(x[k]!==y[k]) return x[k]-y[k]; return 0;});
+    }
+    cmdGroups.push(["Commands",found]);
   }
   for(const [title,cmds] of cmdGroups){
     if(!cmds.length) continue;
