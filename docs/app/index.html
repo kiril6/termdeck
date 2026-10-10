@@ -3414,12 +3414,16 @@ const PAL_CMDS=[
   {icon:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><ellipse cx="6.5" cy="10" rx="1.7" ry="2.3"/><ellipse cx="10.5" cy="7.5" rx="1.8" ry="2.5"/><ellipse cx="15" cy="8" rx="1.8" ry="2.5"/><ellipse cx="18" cy="11" rx="1.7" ry="2.3"/><path d="M12 12.5c-2.6 0-4.7 1.9-4.7 3.9 0 1.7 1.6 2.6 4.7 2.6s4.7-.9 4.7-2.6c0-2-2.1-3.9-4.7-3.9z"/></svg>',label:"Toggle pixel pets",sub:"Cycle: auto (idle/away) → always on → off",kbd:"⌘⌥P",run:()=>togglePets()},
 ];
 
-// Category of each built-in command; unlisted ones fall under Settings. Snippets/SSH → Terminals, AI presets → Agents, sessions → Sessions.
-const PAL_CATS=["All","Terminals","Agents","Sessions","Layout","Settings"];
+// Category of each built-in command; unlisted ones fall under Settings (theme, font, scrollback). Snippets/SSH → Terminals, AI presets → Agents, sessions → Sessions.
+const PAL_CATS=["All","Terminals","Agents","Sessions","Layout","Settings","Help","Fun"];
 const PAL_CAT_OF={"New terminal":"Terminals","New log panel":"Terminals","Add SSH host\u2026":"Terminals","Save snippet\u2026":"Terminals",
   "Open file\u2026":"Terminals","Open directory\u2026":"Terminals","New project":"Terminals",
   "New agent task\u2026":"Agents","Finish agent task\u2026":"Agents","Review agent changes\u2026":"Agents","Add AI CLI preset\u2026":"Agents",
-  "Live overview":"Sessions","Search sessions":"Sessions"};
+  "Reset usage":"Agents","Reset agent order":"Agents",
+  "Live overview":"Sessions","Search sessions":"Sessions",
+  "Toggle directory tree":"Layout",
+  "Keyboard shortcuts":"Help","Take the tour":"Help",
+  "Play game":"Fun","Toggle pixel pets":"Fun"};
 PAL_CMDS.forEach((c)=>{c.cat=PAL_CAT_OF[c.label]||(c.layout?"Layout":"Settings");});
 // Empty palette shows a short list — Recent, then these — instead of every command; typing or a chip shows the rest.
 const PAL_START=["New terminal","New agent task\u2026","Open directory\u2026","Open file\u2026","New project"];
