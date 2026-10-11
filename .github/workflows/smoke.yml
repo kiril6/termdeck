@@ -10,14 +10,26 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash   # same scripts on every OS (Git Bash on Windows)
+
 jobs:
   check:
-    runs-on: ubuntu-latest
+    # Node: the engines floor (18) and the current LTS lines; macOS for the mac-only paths (launchd, spawn-helper, lsof).
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        node: ['18', '22', '24']
+        include:
+          - { os: macos-latest, node: '22' }
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node }}
       - run: node install.js
       - run: node -c server.js
       - run: node server.js --version
@@ -39,4 +51,29 @@ jobs:
       - run: node scripts/check-pack.js
       - run: node scripts/uninstall.test.js
       - run: node server.js autostart install --dry-run
+      - run: test "$(node server.js --bogus >/dev/null 2>&1; echo $?)" = 2
+
+  windows:
+    # Best-effort platform (README "Known limits"): install, CLI, the platform-neutral checks, and a real PTY spawn.
+    # The rest of the suite drives bash, tmux and POSIX signals.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: node install.js
+      - run: node -c server.js
+      - run: node server.js --version
+      - run: node server.js --help
+      - run: node -e "const p=require('node-pty').spawn('powershell.exe',['-NoProfile','-Command','exit 0'],{});p.onExit(({exitCode})=>{console.log('pty exit',exitCode);process.exit(exitCode)})"
+      - run: node scripts/check-hooks-docs.js
+      - run: node scripts/check-hooks.js
+      - run: node scripts/hooks.test.js
+      - run: node scripts/notify.test.js
+      - run: node scripts/check-rules.js
+      - run: node scripts/json-store.test.js
+      - run: node scripts/secret-race.test.js
+      - run: node scripts/check-usage.js
+      - run: node scripts/check-pack.js
       - run: test "$(node server.js --bogus >/dev/null 2>&1; echo $?)" = 2

@@ -34,8 +34,13 @@ module.exports = defineConfig({
     storageState: { cookies: [{ name: 'td_token', value: TOKEN, domain: '127.0.0.1', path: '/', expires: -1, httpOnly: true, secure: false, sameSite: 'Strict' }], origins: [] },
     trace: process.env.CI ? 'retain-on-failure' : 'off',   // CI uploads test-results/ when a test fails
     screenshot: 'only-on-failure',
-    launchOptions: process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
   },
+  // Chromium always; Firefox and WebKit (Safari's engine) with PW_ALL_BROWSERS=1, as CI does on Linux
+  // (locally: `npx playwright install firefox webkit` once, then `PW_ALL_BROWSERS=1 npm test`).
+  projects: [
+    { name: 'chromium', use: { browserName: 'chromium', launchOptions: process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {} } },
+    ...(process.env.PW_ALL_BROWSERS ? [{ name: 'firefox', use: { browserName: 'firefox' } }, { name: 'webkit', use: { browserName: 'webkit' } }] : []),
+  ],
   webServer: {
     command: 'node server.js',
     url: `http://127.0.0.1:${PORT}/`,

@@ -12,19 +12,28 @@ permissions:
 
 jobs:
   browser:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Linux runs every test in Chromium, Firefox and WebKit (Safari's engine); macOS runs Chromium for the mac paths.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, browsers: chromium firefox webkit, all: '1' }
+          - { os: macos-latest, browsers: chromium, all: '' }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      PW_ALL_BROWSERS: ${{ matrix.all }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '22'
       - run: node install.js
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps ${{ matrix.browsers }}
       - run: npm test
       - if: failure()   # trace + screenshot of each failed test (throwaway HOME and token, nothing real)
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-failures
+          name: e2e-failures-${{ matrix.os }}
           path: test-results/
           retention-days: 7
