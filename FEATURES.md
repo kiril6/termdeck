@@ -511,6 +511,11 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
 - 🖥️ **Responsive toolbar** — below ~1260px the secondary toolbar buttons (Tree, Sessions, Search, Tile ▾, Cast,
   Dir, Theme, Help) collapse into a single **⋯** overflow menu; the brand, connection
   status, `⌘K`, and **New terminal** stay on the bar. Prevents the toolbar overflowing off narrow windows.
+- 🖥️ **Phone layout (≤ 600 px wide)** — every window fills the window area (the focused one on top; switch from the
+  dock), resize grips and the drag handle hide, the connection text collapses to its LED (screen readers still read
+  it) and **New terminal** to its **+**. The page lays out at the phone's own width — before, a 390 px phone got a
+  706 px page with the window and toolbar cut off. Each window's desktop size and position are kept and come back on
+  a wide screen. Every control is at least 24 × 24 px (WCAG 2.2 target size), on desktop too.
 - 🖥️ Muted `© 2026 kiril6 · MIT` credit, bottom-right of the empty desktop only (hides with the
   "No sessions yet" hint once a shell is open).
 - 🖥️ **Ambient pixel pets (idle/away screensaver)** — low-opacity pixel critters (a cat, a

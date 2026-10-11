@@ -2968,8 +2968,8 @@ function renderCrumbs(root){
   parts.forEach((p,i)=>{
     acc+="/"+p; const path=acc, last=i===parts.length-1;
     if(i) sbTitleEl.append(Object.assign(el("span","crumb-sep"),{textContent:"/"}));
-    const c=el("span","crumb");c.textContent=p;c.title=path;
-    if(!last) c.addEventListener("click",()=>{treeRoot=path;refreshTree();});
+    const c=el(last?"span":"button","crumb");c.textContent=p;c.title=path;
+    if(!last){c.type="button"; c.addEventListener("click",()=>{treeRoot=path;refreshTree();});}
     sbTitleEl.append(c);
   });
   sbTitleEl.title=root; // full path on hover, also over the clipped part

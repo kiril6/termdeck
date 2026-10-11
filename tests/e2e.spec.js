@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+const { test, expect, devices } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -323,6 +323,24 @@ test.describe('accessibility', () => {
     await expect(win).not.toHaveClass(/kbd-move/);
     expect(await box()).toEqual({ x: b0.x, y: b0.y, w: b0.w - 10 });
     expect(typed).toEqual([]);
+  });
+
+  test('phone width: the page fits 390 px, the window fills the window area, every control is at least 24×24', async ({ browser, browserName }) => {
+    test.skip(browserName === 'firefox', 'Playwright has no mobile emulation for Firefox');
+    const { defaultBrowserType, ...phone } = devices['iPhone 13'];   // eslint-disable-line no-unused-vars
+    const ctx = await browser.newContext({ ...phone, baseURL: test.info().project.use.baseURL });
+    try {
+      const page = await ctx.newPage();
+      await boot(page, '/?demo');
+      const r = await page.evaluate(() => {
+        const box = (e) => { const b = e.getBoundingClientRect(); return [Math.round(b.width), Math.round(b.height)]; };
+        const small = [...document.querySelectorAll('button,a[href],[role="button"],[role="tab"],input,select,summary')]
+          .filter((e) => { const [w, h] = box(e); return w && h && !e.classList.contains('xterm-helper-textarea') && (w < 24 || h < 24); })
+          .map((e) => `${e.id || e.className} ${box(e).join('x')}`);
+        return { page: document.documentElement.scrollWidth, desktop: box(document.getElementById('desktop')), win: box(document.querySelector('.win')), small };
+      });
+      expect(r).toEqual({ page: 390, desktop: r.desktop, win: r.desktop, small: [] });
+    } finally { await ctx.close(); }
   });
 
   test('every theme keeps UI text at WCAG AA (4.5:1) on its surfaces; theme cards are buttons', async ({ page }) => {
