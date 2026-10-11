@@ -28,7 +28,7 @@ termdeck runs Claude Code, Codex, Gemini and your own shells as windows in your 
 npx @kiril6/termdeck
 ```
 
-Needs **Node.js 20+**. It opens **http://localhost:3000** in your browser. Optional: install **tmux** (a terminal session manager that keeps shells alive across restarts; `brew install tmux` / `sudo apt install tmux`) so shells survive a server restart. Other ways to install are [below](#install-and-run).
+Needs **Node.js 20+**. It opens **http://127.0.0.1:3000** in your browser (`localhost:3000` redirects there). Optional: install **tmux** (a terminal session manager that keeps shells alive across restarts; `brew install tmux` / `sudo apt install tmux`) so shells survive a server restart. Other ways to install are [below](#install-and-run).
 
 ---
 
@@ -114,7 +114,10 @@ See also [Known limits](#known-limits). Found a vulnerability? Report it private
 - **Projects** group windows; each remembers its folder. A **file tree** (`⌘B`, drag its edge to resize) with a built-in file viewer (text, Markdown, CSV tables, images, PDF, audio and video); its ⋯ menu has **Follow focused terminal**, which reveals the focused window's live folder in the tree.
 - **Live working directory, last command and dev-server port** in every window's footer (a globe icon opens the port when running locally; right-click for Copy URL / Stop server), clickable links and `file:line` paths, search the terminal's history, GPU-accelerated rendering.
 - **Version, What's new and update check:** the version shows in the footer and Help; Help → *What's new* lists the changelog offline, a one-time toast appears after an upgrade, and *Check for updates* asks npm only when you click.
-- 24 themes (17 dark, 7 light), per terminal or for the whole dashboard.
+- 24 themes (17 dark, 7 light), per terminal or for the whole dashboard, all with readable text (WCAG AA contrast).
+- **Export / import settings** (palette): theme, font, snippets, SSH hosts and AI CLI presets in one JSON file, for another browser or a backup.
+- **Keyboard and screen readers:** move or resize a window from the keyboard (palette → *Move or resize window*); the palette, dialogs and toasts work with screen readers.
+- **Phone layout:** on a screen 600 px wide or less, every window fills the screen; switch between them from the dock.
 
 ![Four terminals tiled with the file tree open, in the GitHub Light theme](https://raw.githubusercontent.com/kiril6/termdeck/master/docs/screenshots/workspace-light.png)
 
