@@ -4,7 +4,7 @@ Single source of truth for what the TermDeck does. **Keep this current:**
 any change that adds, removes, or alters user-facing behavior must update this file in
 the same change (see the rule in `CLAUDE.md`).
 
-Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 backend (`server.js`, `scripts/`) · 🖥️🔌 both ·
+Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backend (`server.js`, `scripts/`) · 🖥️🔌 both ·
 📄 docs and tooling
 
 ---
@@ -84,7 +84,7 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   code, lists, blockquotes, tables, rules, `http(s)`/`mailto` links) in the file-viewer overlay; the header
   button flips to the raw source and back. Reach it by clicking a file in the tree **or** palette → *Open
   file…* (path relative to the project root, absolute, or `~/…`; works for any text file). Zero dependencies:
-  a ~40-line renderer in `public/app.js`. Input is HTML-escaped first (including quotes, so a
+  a ~40-line renderer in `public/js/tree.js`. Input is HTML-escaped first (including quotes, so a
   link URL can't break out of its `href`) and images are shown as their alt text, so a file can't inject markup or trigger requests. Not full CommonMark (no nested lists /
   reference links). In the hosted demo the tree's `README.md` and the palette command open a sample document.
 - 🖥️ **Media & CSV preview** (#24) — the file viewer also shows **images** (png, jpg, gif, webp, avif, bmp, ico, svg), **PDF**
@@ -570,7 +570,7 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   pinned by an e2e test, so a format change has to come with a migration. Reading storage never throws: with site
   storage denied the app still starts (nothing is remembered).
   The applied theme's colours are also cached (`td.themevars.v1`) and painted by a one-line script in `<head>` before
-  `app.js` loads, so a light theme doesn't flash dark on reload; transitions stay off until the theme is applied.
+  the app scripts load, so a light theme doesn't flash dark on reload; transitions stay off until the theme is applied.
 - 🖥️ **Export / import settings** — palette → *Export settings…* downloads `termdeck-settings.json`
   (`{termdeck:"settings", version:1, settings:{…}}`) with this browser's theme, terminal font, scrollback, snippets, SSH
   hosts, AI CLI presets, pets and the tree / overview toggles — not the window layout (*Save layout as…*) and nothing

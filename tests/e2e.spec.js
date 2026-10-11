@@ -505,12 +505,16 @@ test.describe('accessibility', () => {
 });
 
 test('hosted demo copy matches a fresh npm run build:demo', () => {
-  const files = ['index.html', 'app.css', 'app.js'].map((n) => path.join(ROOT, 'docs', 'app', n));
-  const before = files.map((f) => (fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : null));
+  const dir = path.join(ROOT, 'docs', 'app');
+  const names = () => ['index.html', 'app.css', 'app.js', ...(fs.existsSync(path.join(dir, 'js')) ? fs.readdirSync(path.join(dir, 'js')).map((n) => 'js/' + n) : [])];
+  const snap = () => new Map(names().filter((n) => fs.existsSync(path.join(dir, n))).map((n) => [n, fs.readFileSync(path.join(dir, n), 'utf8')]));
+  const before = snap();
   execFileSync(process.execPath, [path.join(ROOT, 'scripts', 'build-demo.js')], { stdio: 'ignore' });
-  const after = files.map((f) => fs.readFileSync(f, 'utf8'));
-  files.forEach((f, i) => { if (after[i] !== before[i]) { if (before[i] === null) fs.unlinkSync(f); else fs.writeFileSync(f, before[i]); } });   // leave the tree as we found it
-  expect(after.every((a, i) => a === before[i]), 'docs/app is stale — run npm run build:demo').toBe(true);
+  const after = snap();
+  for (const n of after.keys()) if (!before.has(n)) fs.unlinkSync(path.join(dir, n));   // leave the tree as we found it
+  for (const [n, v] of before) if (after.get(n) !== v) { fs.mkdirSync(path.dirname(path.join(dir, n)), { recursive: true }); fs.writeFileSync(path.join(dir, n), v); }
+  const same = before.size === after.size && [...after].every(([n, v]) => before.get(n) === v);
+  expect(same, 'docs/app is stale — run npm run build:demo').toBe(true);
 });
 
 test.describe('live backend', () => {

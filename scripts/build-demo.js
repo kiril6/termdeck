@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Build the static "Try the demo" copy for GitHub Pages (docs/app/).
-// Copies public/index.html with /vendor/ rewritten to relative paths, app.css and app.js, plus the
+// Copies public/index.html with /vendor/ rewritten to relative paths, app.css and the scripts in public/js/, plus the
 // xterm assets they need. The app forces demo mode on github.io (no backend, no shells).
 // Re-run after editing anything in public/:  npm run build:demo
 const fs = require('fs');
@@ -19,9 +19,14 @@ const assets = [
   '@xterm/addon-unicode11/lib/addon-unicode11.js',
 ];
 
-// The app files with absolute /vendor/ made relative so they work under /termdeck/app/
+// The app files with absolute /vendor/ made relative so they work under /termdeck/app/. js/ is rebuilt from scratch so
+// a script removed from public/js/ doesn't linger in the demo.
 fs.mkdirSync(outDir, { recursive: true });
-for (const f of ['index.html', 'app.js', 'app.css']) {
+fs.rmSync(path.join(outDir, 'js'), { recursive: true, force: true });
+fs.rmSync(path.join(outDir, 'app.js'), { force: true });   // before the split into public/js/
+fs.mkdirSync(path.join(outDir, 'js'));
+const appFiles = ['index.html', 'app.css', ...fs.readdirSync(path.join(root, 'public', 'js')).filter((f) => f.endsWith('.js')).map((f) => 'js/' + f)];
+for (const f of appFiles) {
   const src = fs.readFileSync(path.join(root, 'public', f), 'utf8').replace(/(["'(])\/vendor\//g, '$1vendor/');
   fs.writeFileSync(path.join(outDir, f), src);
 }
@@ -39,4 +44,4 @@ for (const pkg of pkgs) {
   const own = path.join(root, 'node_modules', pkg, 'LICENSE');
   fs.copyFileSync(fs.existsSync(own) ? own : path.join(root, 'node_modules', '@xterm/xterm', 'LICENSE'), path.join(outDir, 'vendor', pkg, 'LICENSE'));
 }
-console.log(`built docs/app/ — index.html, app.css, app.js + ${assets.length} vendor files + ${pkgs.length} licences`);
+console.log(`built docs/app/ — index.html, app.css, ${appFiles.length - 2} scripts + ${assets.length} vendor files + ${pkgs.length} licences`);
