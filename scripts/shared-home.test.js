@@ -1,5 +1,6 @@
 // node scripts/shared-home.test.js — two termdeck servers on one HOME (easy with the auto port fallback) keep each
-// other's saved layouts and rule settings, and each sees the other's changes without a restart.
+// other's saved layouts and rule settings, and each sees the other's changes without a restart. The second one warns
+// that the first is running, and waits for its pinned port while something still holds it (an autostart restart).
 const assert = require('assert');
 const fs = require('fs');
 const http = require('http');
@@ -23,11 +24,21 @@ const layout = { projects: [{ id: 'p1', name: 'x' }], sessions: [] };
 
 (async () => {
   const ports = [await free(), await free()];
-  const servers = ports.map((port) => spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {
-    env: { ...process.env, HOME: home, PORT: String(port), NO_TMUX: '1', NO_OPEN: '1' }, stdio: 'ignore' }));
+  const start = (port) => spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {
+    env: { ...process.env, HOME: home, PORT: String(port), NO_TMUX: '1', NO_OPEN: '1' }, stdio: ['ignore', 'ignore', 'pipe'] });
+  const servers = [start(ports[0])];
   const done = (code) => { let left = servers.length; for (const s of servers) { s.once('exit', () => { if (!--left) { fs.rmSync(home, { recursive: true, force: true }); process.exit(code); } }); s.kill(); } };
   setTimeout(() => { console.error('shared-home.test: timed out'); done(1); }, 30000).unref();
   try {
+    const waitUp = async (port) => { let up = false; for (let i = 0; i < 100 && !up; i++) { up = await call(port, 'GET', '/').then(() => true, () => false); if (!up) await sleep(100); } return up; };
+    assert.ok(await waitUp(ports[0]));
+    // B's pinned port is still held for a second, like a server that is shutting down: B waits instead of exiting.
+    const blocker = net.createServer().listen(ports[1], '127.0.0.1');
+    servers.push(start(ports[1]));
+    let errB = ''; servers[1].stderr.on('data', (d) => { errB += d; });
+    await sleep(1000); blocker.close();
+    assert.ok(await waitUp(ports[1]), 'B came up on its pinned port once it was free\n' + errB);
+    assert.match(errB, new RegExp(`Another termdeck server is running.*pid ${servers[0].pid}`), 'B warns about A');
     for (const port of ports) { let up = false; for (let i = 0; i < 100 && !up; i++) { up = await call(port, 'GET', '/').then(() => true, () => false); if (!up) await sleep(100); } assert.ok(up); }
     cookie = 'td_token=' + fs.readFileSync(path.join(home, '.termdeck', 'token'), 'utf8').trim();   // both servers share it
     const [A, B] = ports;

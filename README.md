@@ -175,7 +175,7 @@ Set via environment variable; `--port`, `--host` and `--no-open` also exist as f
 
 | Variable / Flag | Default | Description |
 |---|---|---|
-| `PORT` / `--port <n>` | `3000` | Port to listen on. If unset, moves to the next free port. |
+| `PORT` / `--port <n>` | `3000` | Port to listen on. If unset, moves to the next free port; if set, waits up to 5 s for it, then exits. |
 | `HOST` / `--host <addr>` | `127.0.0.1` | Bind address. Non-loopback uses a random per-start access token (`/?t=…`) instead of the local one. |
 | `NO_OPEN` / `--no-open` | `0` | `1` = don't open the browser on start. |
 | `BROWSER` | *(default)* | Browser to launch (e.g. `Google Chrome`, `firefox`). |
@@ -188,6 +188,7 @@ Set via environment variable; `--port`, `--host` and `--no-open` also exist as f
 | `TD_LOG_DIR` | *(none)* | Write session logs (and the approval audit log) here. Off by default. |
 | `TD_ALLOWED_HOSTS` | *(none)* | Extra exact hostnames for a reverse proxy (e.g. `tailscale serve`). Switches to a per-start access token. |
 | `TD_NOTIFY_URL` | *(none)* | Webhook POSTed when an agent needs you (ntfy-ready). Also `TD_NOTIFY_EVENTS` (default `permission_request`), `TD_NOTIFY_DETAIL=1` (include the command). See [remote access](docs/remote-access.md#phone-notifications). |
+| `XDG_CONFIG_HOME` | `~/.config` | Linux only: where `termdeck autostart install` writes its systemd user unit (`systemd/user/termdeck.service`). |
 
 ### Updating
 

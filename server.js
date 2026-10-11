@@ -1298,6 +1298,10 @@ for (const sig of ['SIGINT', 'SIGTERM']) process.once(sig, () => {
 const portPinned = process.env.PORT != null && process.env.PORT !== '';
 const START_PORT = Number(process.env.PORT) || 3000;
 const MAX_PORT_TRIES = 20;
+// A pinned port (autostart always pins one) may still be held by the server we are replacing: a shutdown with many
+// tmux sessions takes over a second. Wait for it instead of exiting at once (launchd / systemd would throttle restarts).
+const PORT_WAIT_MS = 5000, PORT_WAIT_STEP = 250;
+let portWaited = 0;
 function listenOn(port, triesLeft) {
   let settled = false;
   // EADDRINUSE surfaces on the WebSocketServer (ws forwards the http server's error to
@@ -1307,6 +1311,7 @@ function listenOn(port, triesLeft) {
     if (settled) return; settled = true; cleanup();
     if (e.code === 'EADDRINUSE') {
       if (!portPinned && triesLeft > 0) { console.error(`  \x1b[2mPort ${port} in use — trying ${port + 1}…\x1b[0m`); return listenOn(port + 1, triesLeft - 1); }
+      if (portPinned && portWaited < PORT_WAIT_MS) { portWaited += PORT_WAIT_STEP; return setTimeout(() => listenOn(port, triesLeft), PORT_WAIT_STEP); }
       const hint = portPinned ? `PORT=${port + 1} npm start` : `PORT=8080 npm start`;
       console.error(`\n  Port ${port} is in use${portPinned ? '' : ' (and no free port found)'}. Start on another: \x1b[1m${hint}\x1b[0m\n`);
       process.exit(1);
@@ -1327,6 +1332,11 @@ function listenOn(port, triesLeft) {
     // No token in it: hooks authenticate with TD_HOOK_AUTH, which stays valid across restarts.
     try {
       const dir = path.join(os.homedir(), '.termdeck'), f = path.join(dir, 'server.json');
+      // Another live server on this home (easy with the port fallback): both work, but it is usually one left running.
+      let prev; try { prev = JSON.parse(fs.readFileSync(f, 'utf8')); } catch {}
+      if (prev?.pid && prev.pid !== process.pid && pidAlive(prev.pid)) {
+        console.error(`  \x1b[33m⚠ Another termdeck server is running on this account (pid ${prev.pid}, ${prev.url}).\x1b[0m\n    Both work and share ~/.termdeck; stop the one you don't use.`);
+      }
       fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
       fs.writeFileSync(f, JSON.stringify({ url: base, pid: process.pid, local: LOCAL_ONLY }), { mode: 0o600 });
       fs.chmodSync(f, 0o600);
@@ -1349,6 +1359,7 @@ function listenOn(port, triesLeft) {
   server.once('listening', onListening);
   server.listen(port, HOST);
 }
+function pidAlive(pid) { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } }
 maybePromptTmux().finally(() => listenOn(START_PORT, portPinned ? 0 : MAX_PORT_TRIES));
 
 // Open the dashboard on start (NO_OPEN=1 skips it). BROWSER=<name|path> picks the browser.
