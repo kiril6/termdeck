@@ -1,6 +1,15 @@
 (function(){
 "use strict";
 
+/* Storage keys are td.<name>.v<N>. Older builds spelled a few differently; carry each over once (the old key goes). */
+try{
+  for(const [from,to] of [["td-hidden","td.treeHidden.v1"],["td-follow","td.treeFollow.v1"],["td-tour-done","td.tourDone.v1"],["td-pal-recent","td.palRecent.v1"],["td_ov_filter","td.ovFilter.v1"]]){
+    const v=localStorage.getItem(from); if(v===null) continue;
+    if(localStorage.getItem(to)===null) localStorage.setItem(to,v);
+    localStorage.removeItem(from);
+  }
+}catch{}
+
 /* Inline Lucide icons (MIT) for small controls — monochrome via currentColor, sized 1em by CSS. */
 const ICON={
   monitor:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
@@ -77,7 +86,7 @@ const THEMES={
   paper:mkT("Paper",{"--bg":"#e7e0d0","--grid":"#ddd5c3","--panel":"#faf6ec","--panel-2":"#f1ebdc","--line":"#d8cfbb","--line-soft":"#e4dcc9","--text":"#33302b","--muted":"#8a8273","--accent":"#35638a","--accent-dim":"#a9bfd2","--head-a":"#f1ebdc","--head-b":"#e9e1d0","--chip-bg":"#efe8d8","--chip-active":"#e2d9c5","--btn-bg":"#efe8d8","--win-body":"#faf6ec","--ptab-hover":"#e9e1d0"},{background:"#faf6ec",foreground:"#33302b",cursor:"#35638a",cursorAccent:"#faf6ec",selectionBackground:"#d8c7a8",black:"#33302b",brightBlack:"#8a8273",red:"#a03232",brightRed:"#c14a4a",green:"#4f7a30",brightGreen:"#6b9640",yellow:"#a9781a",brightYellow:"#c8941f",blue:"#35638a",brightBlue:"#4f81a8",magenta:"#8a4d7a",brightMagenta:"#a86699",cyan:"#2f7d78",brightCyan:"#409a94",white:"#8a8273",brightWhite:"#33302b"},["#faf6ec","#35638a","#4f7a30","#8a4d7a"]),
 };
 const THEME_ORDER=["console","tokyoNight","dracula","catppuccin","rosePine","nord","oneDark","gruvbox","monokai","kanagawa","synthwave","everforest","github","amoled","highContrast","matrix","amber","githubLight","paper","solarizedLight","oneLight","catppuccinLatte","rosePineDawn","gruvboxLight"];
-const THEME_STORE="td.theme.v2", STORE="td.state.v5";
+const THEME_STORE="td.theme.v2", STORE="td.state.v5", TREE_HIDDEN_STORE="td.treeHidden.v1", TREE_FOLLOW_STORE="td.treeFollow.v1";
 let defaultThemeId="console";
 try{const sv=localStorage.getItem(THEME_STORE);if(sv&&THEMES[sv])defaultThemeId=sv;}catch{}
 // WCAG relative luminance and contrast ratio of #rrggbb colours.
@@ -718,7 +727,7 @@ setInterval(pollOverlaps,10000);
 // ── Scrollback: lines of history each terminal keeps. Global default, applied to new terminals at
 // creation and live to open ones. Big = long logs survive; small = less RAM across many terminals. ──
 const SCROLLBACK_STORE="td.scrollback.v1", SCROLLBACK_DEFAULT=8000;
-function getScrollback(){const n=parseInt(localStorage.getItem(SCROLLBACK_STORE),10);return Number.isFinite(n)?Math.min(200000,Math.max(500,n)):SCROLLBACK_DEFAULT;}
+function getScrollback(){let n=NaN; try{n=parseInt(localStorage.getItem(SCROLLBACK_STORE),10);}catch{}return Number.isFinite(n)?Math.min(200000,Math.max(500,n)):SCROLLBACK_DEFAULT;}
 async function setScrollback(){
   const v=await inputModal("Scrollback lines",[
     {key:"n",label:"Lines of history per terminal (500–200000)",placeholder:String(SCROLLBACK_DEFAULT),value:String(getScrollback())},
@@ -1173,10 +1182,13 @@ function closeFind(){
 function saveTabOutput(s,tab){
   let data=""; try{ data=tab.ser.serialize(); }catch{}
   const name=(s.name||"terminal").replace(/[^\w.-]+/g,"_")+"-"+tab.id+".log";
-  const a=el("a"); a.href=URL.createObjectURL(new Blob([data],{type:"text/plain"})); a.download=name;
+  downloadFile(name,data,"text/plain");
+  toast(ICON.check,"Saved",name);
+}
+function downloadFile(name,data,type){
+  const a=el("a"); a.href=URL.createObjectURL(new Blob([data],{type})); a.download=name;
   document.body.append(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-  toast(ICON.check,"Saved",name);
 }
 
 // Clickable file paths in output: `src/a.ts:42`, `./x.md`, `~/n.txt`, `/abs/f.js`. A token is linked
@@ -2419,7 +2431,7 @@ function tabTail(tab,n){
   return out.join("\n");
 }
 const OV_RANK={approval:0,waiting:1,working:2,run:3,idle:4,exited:5};   // most urgent first
-const OV_FILTER_STORE="td_ov_filter";
+const OV_FILTER_STORE="td.ovFilter.v1";
 let ovFilterPref=null;   // "all" | "active" once the user picks; null = auto (Active while anything is running, else All)
 try{const v=localStorage.getItem(OV_FILTER_STORE); if(v==="all"||v==="active") ovFilterPref=v;}catch{}
 function renderOverview(){
@@ -2485,6 +2497,8 @@ const PAL_CMDS=[
   {icon:ICON.search,label:"Search sessions",sub:"Filter by name or path",kbd:"\u2318F",run:()=>{closePalette();openSessSearch();}},
   {icon:ICON.theme,label:"Change theme",sub:"Open theme picker",kbd:"\u2318\u21e7P",run:()=>{closePalette();openThemePop(null,themeBtn);}},
   {icon:ICON.grid,label:"Save layout as\u2026",sub:"Name the current projects, windows and folders so you can bring them back later",run:()=>{closePalette();saveLayoutAs();}},
+  {icon:ICON.copy,label:"Export settings\u2026",sub:"Save theme, font, snippets, SSH hosts, AI CLI presets and toggles to a file \u2014 for another browser or a backup",run:()=>{closePalette();exportSettings();}},
+  {icon:ICON.folder,label:"Import settings\u2026",sub:"Load a file made by Export settings \u2014 replaces those settings here, then reloads",run:()=>{closePalette();importSettings();}},
   {icon:ICON.grid,label:"Restore layout\u2026",sub:"Pick a saved layout \u2014 replaces the open windows with new shells in the saved folders",run:()=>{closePalette();openLayouts();}},
   {icon:ICON.folderPlus,label:"New project",sub:"Add a project tab",kbd:"\u2318\u21e7M",run:()=>addProject()},
   {icon:ICON.keyboard,label:"Keyboard shortcuts",sub:"Show all shortcuts",kbd:"?",run:openShortcuts},
@@ -2518,7 +2532,7 @@ const PAL_CAT_OF={"New terminal":"Terminals","New log panel":"Terminals","Add SS
 PAL_CMDS.forEach((c)=>{c.cat=PAL_CAT_OF[c.label]||(c.layout?"Layout":"Settings");});
 // Empty palette shows a short list — Recent, then these — instead of every command; typing or a chip shows the rest.
 const PAL_START=["New terminal","New agent task\u2026","Open directory\u2026","Open file\u2026","New project"];
-const PAL_RECENT_KEY="td-pal-recent", PAL_RECENT_MAX=5;
+const PAL_RECENT_KEY="td.palRecent.v1", PAL_RECENT_MAX=5;
 function palRecent(){try{const a=JSON.parse(localStorage.getItem(PAL_RECENT_KEY));return Array.isArray(a)?a:[];}catch{return [];}}
 function notePalRecent(label){try{localStorage.setItem(PAL_RECENT_KEY,JSON.stringify([label,...palRecent().filter((l)=>l!==label)].slice(0,PAL_RECENT_MAX)));}catch{}}
 let palCat="All", aiMore=false;   // aiMore: "More agents" expanded
@@ -2954,7 +2968,7 @@ function openSidebar(){sidebarOpen=true;resetSbWidth();sidebar.classList.add("op
 function closeSidebar(){sidebarOpen=false;resetSbWidth();sidebar.classList.remove("open");desktop.classList.remove("sb-open");}
 
 let treeRoot=null; // breadcrumb override; null = follow project/focus
-let showHidden=localStorage.getItem("td-hidden")==="1"; // include dotfiles in the tree
+let showHidden=false; try{showHidden=localStorage.getItem(TREE_HIDDEN_STORE)==="1";}catch{}   // include dotfiles in the tree
 const treeOpen=new Set();  // absolute paths of expanded folders — survives a refresh so state + new files both show
 let treeLastRoot=null;
 function treeRootPath(){
@@ -3031,7 +3045,8 @@ async function fillNode(container,dir,depth){
 function mountTree(container,dir){ fillNode(container,dir,0); }
 
 // ── follow focused terminal: reveal its cwd in the tree (expand ancestors, highlight, scroll) — never re-roots ──
-let followTerm=localStorage.getItem("td-follow")==="1", hereDir=null, treeHome=null, hereBlink=false;
+let followTerm=false, hereDir=null, treeHome=null, hereBlink=false;
+try{followTerm=localStorage.getItem(TREE_FOLLOW_STORE)==="1";}catch{}
 const followOpened=new Set();   // folders follow-mode expanded itself (not the user) — collapsed again when follow is turned off
 function markHere(){
   treeEl.querySelectorAll(".tn.here").forEach((n)=>n.classList.remove("here"));
@@ -3173,11 +3188,11 @@ const sbMoreBtn=document.getElementById("sb-more-btn"); sbMoreBtn.innerHTML=ICON
 const syncMoreBtn=()=>sbMoreBtn.classList.toggle("flag",followTerm);   // accent dot: a toggle inside the menu is on
 syncMoreBtn();
 function toggleFollow(){
-  followTerm=!followTerm; try{localStorage.setItem("td-follow",followTerm?"1":"0");}catch{} syncMoreBtn();
+  followTerm=!followTerm; try{localStorage.setItem(TREE_FOLLOW_STORE,followTerm?"1":"0");}catch{} syncMoreBtn();
   if(!followTerm){hereDir=null;followOpened.forEach((d)=>treeOpen.delete(d));followOpened.clear();}
   if(followTerm) followTree(); else refreshTree();   // off: re-render so the folders follow opened collapse
 }
-function toggleHidden(){showHidden=!showHidden;try{localStorage.setItem("td-hidden",showHidden?"1":"0");}catch{}refreshTree();}
+function toggleHidden(){showHidden=!showHidden;try{localStorage.setItem(TREE_HIDDEN_STORE,showHidden?"1":"0");}catch{}refreshTree();}
 sbMoreBtn.addEventListener("click",()=>{
   const r=sbMoreBtn.getBoundingClientRect(), blank='<svg viewBox="0 0 24 24" aria-hidden="true"></svg>';
   const it=[
@@ -3398,6 +3413,43 @@ function applyState(data){
   if(data.sessions?.length) data.sessions.forEach((d)=>createSession(d));
   updateProjCounts(); updateProjectAttention(); updateAgentOverview(); updateGlueUI();
   hint.style.display=[...sessions.values()].some((s)=>s.project===activeProject&&!s.minimized)?"none":"";
+}
+
+/* ── Settings export / import: one JSON file with the preferences kept in this browser — theme, terminal font,
+   scrollback, snippets, SSH hosts, AI CLI presets, pets, and the tree / overview toggles. Not the window layout (that is
+   Save layout as…) and nothing per-tab (lock, caches, usage, the tour). Import merges key by key, then reloads; the
+   terminals reconnect. ── */
+const settingsKeys=()=>[THEME_STORE,FONT_STORE,SCROLLBACK_STORE,SNIP_STORE,SSH_STORE,AICLI_STORE,PETS_STORE,TREE_HIDDEN_STORE,TREE_FOLLOW_STORE,OV_FILTER_STORE];
+function exportSettings(){
+  const settings={};
+  for(const k of settingsKeys()){let v=null; try{v=localStorage.getItem(k);}catch{} if(v!==null) settings[k]=v;}
+  downloadFile("termdeck-settings.json",JSON.stringify({termdeck:"settings",version:1,exportedAt:new Date().toISOString(),settings},null,2)+"\n","application/json");
+  toast(ICON.check,"Settings exported",Object.keys(settings).length+" setting"+(Object.keys(settings).length===1?"":"s")+" \u00b7 termdeck-settings.json");
+}
+// Only known keys with string values are taken from the file; each store re-validates its own value when it is read.
+function parseSettingsFile(text){
+  const j=JSON.parse(text);
+  if(!j||j.termdeck!=="settings"||!j.settings||typeof j.settings!=="object") throw new Error("not a termdeck settings file");
+  if(j.version!==1) throw new Error("made by a newer termdeck \u2014 update this one first");
+  const allowed=new Set(settingsKeys());
+  const entries=Object.entries(j.settings).filter(([k,v])=>allowed.has(k)&&typeof v==="string");
+  if(!entries.length) throw new Error("it holds no settings");
+  return entries;
+}
+function importSettings(){
+  const inp=el("input"); inp.type="file"; inp.accept=".json,application/json";
+  inp.addEventListener("change",async()=>{
+    const f=inp.files&&inp.files[0]; if(!f) return;
+    let entries;
+    try{ if(f.size>2e6) throw new Error("larger than 2 MB"); entries=parseSettingsFile(await f.text()); }
+    catch(e){ toast(ICON.warn,"Settings not imported",f.name+": "+(e instanceof SyntaxError?"not valid JSON":e.message),5000); return; }
+    const ok=await confirmModal("Import "+entries.length+" setting"+(entries.length===1?"":"s")+" from \u201c"+f.name+"\u201d, replacing the same ones in this browser? Snippets and AI CLI presets run commands when you use them \u2014 import only a file you trust. The page then reloads; your terminals reconnect.","Import");
+    if(!ok) return;
+    try{ for(const [k,v] of entries) localStorage.setItem(k,v); localStorage.removeItem("td.themevars.v1"); }   // the colour cache belongs to the old theme
+    catch(e){ toast(ICON.warn,"Settings not imported","This browser refused to store them ("+(e.name||"error")+").",5000); return; }
+    selfReload=true; location.reload();
+  });
+  inp.click();
 }
 
 /* ── Named layouts (#17): save the whole workspace under a name, restore it later. Live: ~/.termdeck/layouts.json via
@@ -3986,7 +4038,7 @@ const PETS_STORE="td.pets.v1";
 let pets=[], petTimers=[];
 const petRand=(a,b)=>a+Math.random()*(b-a);
 // tri-state: "auto" (idle/away screensaver, default) · "on" (always visible) · "off" (never). legacy "1"→auto, "0"→off.
-function petsMode(){const v=localStorage.getItem(PETS_STORE);
+function petsMode(){let v=null; try{v=localStorage.getItem(PETS_STORE);}catch{}
   if(v==="on"||v==="off"||v==="auto")return v;
   return v==="0"?"off":"auto";}
 
@@ -4092,7 +4144,7 @@ petAway=document.hidden; petEval();
 /* ════════════════════════════════════════════════
    FIRST-RUN TOUR — spotlight + card, no deps, no network. Auto-shows once; replay: palette / Help.
    ════════════════════════════════════════════════ */
-const TOUR_KEY="td-tour-done";
+const TOUR_KEY="td.tourDone.v1";
 const TOUR_STEPS=[
   {sel:"#pal-btn",title:"Command palette",body:"Press "+kbd("⌘","K")+" for everything: new terminals, agent tasks, themes, snippets, sessions. Tab switches categories."},
   {sel:null,title:"One worktree per agent",body:"Palette → New agent task cuts a git worktree for a branch and launches an agent in it, isolated from your other agents."},

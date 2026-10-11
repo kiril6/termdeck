@@ -1,5 +1,6 @@
 // node scripts/json-store.test.js — two servers sharing one ~/.termdeck file keep each other's updates, see each
-// other's writes, and an unreadable file is kept aside instead of being overwritten.
+// other's writes, an unreadable file is kept aside instead of being overwritten, and a file in a newer format is read
+// but never written back.
 const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
@@ -10,7 +11,8 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'td-store-'));
 const file = path.join(dir, 'items.json');
 const opts = {
   parse: (j) => { if (j.items !== undefined && !Array.isArray(j.items)) throw new Error('items is not a list'); return { items: j.items || [] }; },
-  serialize: (v) => ({ version: 1, items: v.items }),
+  serialize: (v) => ({ items: v.items }),
+  version: 1,
 };
 const quiet = console.error; console.error = () => {};
 try {
@@ -37,6 +39,15 @@ try {
   fs.writeFileSync(file, '{"items": "not a list"}');                 // valid JSON, wrong shape: also kept aside
   assert.deepStrictEqual(b.load(), { items: [] });
   assert.strictEqual(fs.readdirSync(dir).filter((f) => f.startsWith('items.json.corrupt-')).length, 2);
+
+  a.update((d) => { d.items = ['v1']; return true; });
+  assert.strictEqual(JSON.parse(fs.readFileSync(file, 'utf8')).version, 1, 'the store writes its format version');
+  const newer = JSON.stringify({ version: 2, items: ['from-v2'], extra: { kept: true } });
+  fs.writeFileSync(file, newer);                                     // a newer termdeck shares this home
+  assert.deepStrictEqual(b.load().items, ['from-v2'], 'read as far as understood');
+  assert.throws(() => b.update((d) => { d.items.push('x'); return true; }), (e) => e.code === 'ENEWER' && /newer termdeck/.test(e.message));
+  assert.strictEqual(fs.readFileSync(file, 'utf8'), newer, 'never written back');
+  assert.strictEqual(fs.readdirSync(dir).filter((f) => f.startsWith('items.json.corrupt-')).length, 2, 'not treated as corrupt');
 
   const iso = Date.prototype.toISOString; Date.prototype.toISOString = () => '2026-01-01T00:00:00.000Z';   // all in one ms
   try { for (let i = 0; i < 3; i++) { fs.writeFileSync(file, 'x'.repeat(i + 1)); a.load(); } }   // must keep distinct names

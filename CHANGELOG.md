@@ -3,6 +3,8 @@
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
 ## 1.26.0
+- **Export / import settings** — palette → *Export settings…* saves your theme, terminal font, scrollback, snippets, SSH hosts, AI CLI presets and toggles to one file; *Import settings…* loads it in another browser (or after clearing site data). The window layout stays separate (*Save layout as…*).
+- **Fixed: a blank page when the browser denies site storage** — with storage blocked for the site, termdeck stopped while starting and showed no windows. It now starts normally (nothing is remembered between visits).
 - **Lighter when idle** — the window clocks no longer redraw every window every second: 10 idle windows went from ~3 % to under 1 % of the browser's main thread, and nothing ticks while the tab is in the background.
 - **Works on a phone** — on a narrow screen (e.g. over Tailscale) termdeck now fits the screen: one window at a time, full size, switched from the dock, with a compact header. Before, the page was wider than the phone and the window and toolbar were cut off. Small buttons (window controls, tab +, project ×, dock move) are now at least 24 px, easier to hit by touch.
 - **Easier to read, on every theme** — secondary text (descriptions, hints, counters) was too faint on 22 of the 24 themes (Nord the worst). Every theme now meets the WCAG AA contrast minimum for UI text, keeping its colours; light themes also get a readable accent where it colours text. Themes can be picked with the keyboard, the command palette works with screen readers, and keyboard focus is always visible. Dialogs keep keyboard focus inside while open and give it back when closed. **Move or resize a window with the keyboard**: ⌘K → *Move or resize window*, then arrows / Shift+arrows, Enter to keep, Esc to undo. Screen readers now hear notifications and can jump between the page's regions.
@@ -30,6 +32,11 @@ User-facing changes per release, newest first. Shown in the app under Help → W
 - **Sign in once per browser** — termdeck now only answers browsers that hold its access cookie, so other programs on your computer (another user account, or an agent running inside termdeck) can no longer type into your terminals or click Approve for you. Nothing changes in the normal flow: the tab termdeck opens on start is already signed in, and the cookie survives restarts. A different browser shows a short page — run `termdeck open` once.
 - **`termdeck open`** — opens the running dashboard in your browser, signed in (`--no-open` prints the link).
 - **Agent hooks** use a per-terminal credential (`TD_HOOK_AUTH`) instead of the access token, which no longer appears in any terminal's environment or in `~/.termdeck/server.json`. Shells started before this update still show agent state; open a new terminal to get Approve / Deny from the queue there.
+
+### Upgrade notes
+- **Node.js 20 or newer** is required.
+- Nothing to do by hand: the tmux "don't ask again" flag moves into `~/.termdeck`, and five browser-storage keys get their new names (`td-tour-done` → `td.tourDone.v1`, and the same for the tree, palette-recent and overview settings) the first time 1.26 loads.
+- `~/.termdeck/layouts.json` and `approval-rules.json` now carry a format version. A file written by a newer termdeck is still read, but this version will not change it — update termdeck instead of losing what the newer one saved.
 
 ## 1.25.2
 - **Safer rendering** — rendered Markdown in the file viewer and command-palette labels now escape every character that could be read as markup.

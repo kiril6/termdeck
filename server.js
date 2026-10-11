@@ -275,7 +275,8 @@ const layoutsFile = createStore(LAYOUTS_FILE, {
     if (j.layouts !== undefined && !Array.isArray(j.layouts)) throw new Error('"layouts" is not a list');
     return (j.layouts || []).filter((l) => l && typeof l.id === 'string' && typeof l.name === 'string' && l.data);
   },
-  serialize: (layouts) => ({ version: 1, layouts }),
+  serialize: (layouts) => ({ layouts }),
+  version: 1,
 });
 const layoutMeta = (l) => ({ id: l.id, name: l.name, savedAt: l.savedAt, projects: l.data.projects.length, windows: l.data.sessions.length });
 const validLayout = (d) => d && typeof d === 'object' && Array.isArray(d.projects) && Array.isArray(d.sessions) && d.projects.length > 0 && d.projects.length <= 50 && d.sessions.length <= 200;
@@ -299,7 +300,7 @@ app.post('/api/layouts', apiGuard, (req, res) => {
       Object.assign(l, { name, savedAt: Date.now(), data: req.body.data });
       return l;
     });
-  } catch (e) { return res.status(500).json({ error: e.code || 'could not save' }); }
+  } catch (e) { return res.status(500).json({ error: e.code === 'ENEWER' ? e.message : e.code || 'could not save' }); }
   if (!saved) return res.status(400).json({ error: 'layout limit reached (' + MAX_LAYOUTS + ')' });
   res.json(layoutMeta(saved));
 });
@@ -520,6 +521,7 @@ const rulesFile = createStore(RULES_FILE, {   // shared safely by several server
     return { enabled: j.enabled === true, rules: (j.rules || []).filter(validRule).slice(0, MAX_RULES) };
   },
   serialize: (v) => v,
+  version: 1,
 });
 function updateRules(fn) {
   try { return rulesFile.update(fn); } catch (e) { console.error('  [rules] save failed:', e.message); return undefined; }

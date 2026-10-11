@@ -97,6 +97,85 @@ test.describe('demo mode (no backend)', () => {
     expect(await page.evaluate(() => window.__out)).toEqual(mac ? ['\x1bb', '\x1bf'] : ['\x1b[1;5D', '\x1b[1;5C']);
   });
 
+  // A layout saved by an older build must keep loading. If this fails, the saved format changed: add a migration from
+  // this shape (and keep this blob) instead of editing it, or every user's layout is dropped on upgrade.
+  test('a td.state.v5 layout saved by an older build restores exactly', async ({ page }) => {
+    const v5 = {
+      activeProject: 'p2',
+      projects: [{ id: 'p1', name: 'api', root: null, base: null, baseBranch: null }, { id: 'p2', name: 'web', root: null, base: null, baseBranch: null }],
+      sessions: [
+        { id: 's1', project: 'p1', name: 'server', cwd: '', themeId: null, isLog: false, left: '40px', top: '30px', width: '500px', height: '300px', minimized: false, maximized: false, prevRect: null, glue: null, tabs: [{ id: 't1', name: 'tab 1', cwd: '', agent: false, shell: '', resume: '', rtpl: '' }] },
+        { id: 's2', project: 'p2', name: 'build', cwd: '', themeId: 'nord', isLog: false, left: '120px', top: '60px', width: '520px', height: '320px', minimized: false, maximized: false, prevRect: null, glue: null, tabs: [{ id: 't2', name: 'one', cwd: '', agent: false, shell: '', resume: '', rtpl: '' }, { id: 't3', name: 'two', cwd: '', agent: false, shell: '', resume: '', rtpl: '' }] },
+        { id: 's3', project: 'p2', name: 'logs', cwd: '', themeId: null, isLog: true, left: '200px', top: '90px', width: '480px', height: '280px', minimized: true, maximized: false, prevRect: null, glue: null, tabs: [{ id: 't4', name: 'tab 1', cwd: '', agent: false, shell: '', resume: '', rtpl: '' }] },
+      ],
+    };
+    await page.addInitScript((d) => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('td.state.v5', JSON.stringify(d)); sessionStorage.setItem('seeded', '1'); } }, v5);
+    await page.addInitScript(() => localStorage.setItem('td-tour-done', '1'));
+    await page.goto('/?demo');
+    await expect(page.locator('.ptab')).toHaveCount(2);
+    await expect(page.locator('.ptab.active')).toContainText('web');
+    await expect(page.locator('.win:visible')).toHaveCount(1);          // build; logs is minimized
+    const win = page.locator('.win:visible');
+    expect(await win.evaluate((w) => [w.style.left, w.style.top, w.style.width])).toEqual(['120px', '60px', '520px']);
+    await expect(win.locator('.wtab')).toHaveText(['one', 'two']);
+    await expect(page.locator('.chip:visible')).toHaveCount(2);         // build + minimized logs
+    await page.locator('.ptab', { hasText: 'api' }).click();
+    await expect(page.locator('.win:visible')).toHaveCount(1);
+  });
+
+  test('old storage key names are carried over once (td-* / td_* → td.<name>.v1)', async ({ page }) => {
+    await page.addInitScript(() => { localStorage.setItem('td-follow', '1'); localStorage.setItem('td-pal-recent', '["Tile windows"]'); });
+    await boot(page, '/?demo');                                          // boot() also sets the old td-tour-done
+    expect(await page.evaluate(() => ['td-follow', 'td-pal-recent', 'td-tour-done', 'td.treeFollow.v1', 'td.palRecent.v1', 'td.tourDone.v1'].map((k) => localStorage.getItem(k))))
+      .toEqual([null, null, null, '1', '["Tile windows"]', '1']);
+    await openPalette(page);
+    await expect(labels(page).first()).toHaveText('Tile windows');     // the migrated Recent list is in use
+  });
+
+  test('settings export → import round trip; unknown keys and bad files are refused', async ({ page }, info) => {
+    await boot(page, '/?demo');
+    const mine = { 'td.font.v1': '{"family":"Menlo","size":15}', 'td.treeFollow.v1': '1', 'td.snippets.v1': '[{"name":"hi","cmd":"echo hi"}]' };
+    await page.evaluate((m) => { for (const k in m) localStorage.setItem(k, m[k]); }, mine);
+    const runCmd = async (label) => { await openPalette(page); await page.locator('#pal-input').fill(label); await page.keyboard.press('Enter'); };
+    const dl = page.waitForEvent('download');
+    await runCmd('Export settings');
+    const file = info.outputPath('termdeck-settings.json');
+    await (await dl).saveAs(file);
+    const out = JSON.parse(fs.readFileSync(file, 'utf8'));
+    expect(out).toMatchObject({ termdeck: 'settings', version: 1, settings: mine });
+    expect(Object.keys(out.settings)).not.toContain('td.state.v5');      // the layout is not a setting
+    // wipe them, and add a key no settings file may set
+    await page.evaluate((m) => { for (const k in m) localStorage.removeItem(k); }, mine);
+    out.settings['td.notASetting.v1'] = 'x';
+    fs.writeFileSync(file, JSON.stringify(out));
+    const chooser = page.waitForEvent('filechooser');
+    await runCmd('Import settings');
+    await (await chooser).setFiles(file);
+    await page.getByRole('dialog', { name: /Import 3 settings/ }).getByRole('button', { name: 'Import' }).click();
+    await page.waitForLoadState('load');
+    await expect(page.locator('.win')).toHaveCount(1);
+    expect(await page.evaluate((ks) => ks.map((k) => localStorage.getItem(k)), [...Object.keys(mine), 'td.notASetting.v1'])).toEqual([...Object.values(mine), null]);
+    // not a settings file
+    const bad = info.outputPath('bad.json');
+    fs.writeFileSync(bad, '{"hello":1}');
+    const chooser2 = page.waitForEvent('filechooser');
+    await runCmd('Import settings');
+    await (await chooser2).setFiles(bad);
+    await expect(page.locator('.toast', { hasText: 'not a termdeck settings file' })).toBeVisible();
+  });
+
+  test('site storage denied outright (every localStorage access throws): still boots, no errors', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.addInitScript(() => Object.defineProperty(window, 'localStorage', { configurable: true, get() { throw new DOMException('denied', 'SecurityError'); } }));
+    await page.goto('/?demo');
+    await expect(page.locator('.win')).toHaveCount(1);
+    await page.locator('#new').click();
+    await expect(page.locator('.win')).toHaveCount(2);
+    await page.waitForTimeout(500);
+    expect(errors).toEqual([]);
+  });
+
   test('full or blocked browser storage: one "Layout not saved" warning, no errors', async ({ page }) => {
     const errors = await boot(page, '/?demo');
     await page.evaluate(() => { Storage.prototype.setItem = () => { throw new DOMException('full', 'QuotaExceededError'); }; });

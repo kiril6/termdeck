@@ -31,7 +31,8 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   an existing name asks before replacing. **Live:** stored server-side in `~/.termdeck/layouts.json` (0600, atomic
   write, max 50, `/api/layouts` behind `apiGuard` + cross-site rejection), shared by every browser on that server
   and by every server on the same home folder (each save re-reads the file first; a file that can't be parsed is
-  kept as `layouts.json.corrupt-<time>` instead of being overwritten);
+  kept as `layouts.json.corrupt-<time>` instead of being overwritten; the file carries a format `version`, and one
+  written by a newer termdeck is read but never written back — the same for `approval-rules.json`);
   **demo:** `localStorage` (`td.layouts.v1`). A layout is **layout only** — restoring asks first, closes the open
   windows and starts **new shells** in the saved folders (new ids, so it never clashes with a live tmux session);
   running processes and output are not saved, and agent / resume commands are stripped so a restore can never launch an
@@ -95,8 +96,8 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   reference links). In the hosted demo the tree's `README.md` and the palette command open a sample document.
 - 📦 **Move to project (dock chip)** — the folder-arrow button on a dock chip moves that window to another project; it is **disabled (dimmed) while there is only one project** and enables as soon as a second exists.
 - 📦 **Last project can't be deleted** — the **×** on a project tab is dimmed and disabled (tooltip *Can't delete the only project*) while only one project exists, and enables once a second is added.
-- 🧭 **First-run tour** — a 6-step spotlight walkthrough (⌘K palette → New agent task → agent queue → projects & dock → directory tree ⋯ menu → Help; the tree step opens the sidebar and closes it again on leaving) that auto-shows once on a first visit (not on narrow/touch screens) and never again once closed (`td-tour-done` in `localStorage`). Replay: palette → *Take the tour*, the Help sheet, or the empty-desktop link. Esc closes, ←/→ step, focus stays in the card; no layout shift, no network, animation off under `prefers-reduced-motion`. Works in the hosted demo.
-- 🗂️ **Short empty palette** — with nothing typed (category *All*) ⌘K lists only **Recent** (the last 5 palette commands you ran, `td-pal-recent` in `localStorage`), **Start** (New terminal · New agent task… · Open directory… · Open file… · New project), your snippets / SSH hosts, the top AI CLIs and open sessions, plus a *Type to search all N commands* footer. Typing searches **every** command (an `x` matches `×`, so `2x2` finds *Layout 2×2*); a category chip lists all of its commands.
+- 🧭 **First-run tour** — a 6-step spotlight walkthrough (⌘K palette → New agent task → agent queue → projects & dock → directory tree ⋯ menu → Help; the tree step opens the sidebar and closes it again on leaving) that auto-shows once on a first visit (not on narrow/touch screens) and never again once closed (`td.tourDone.v1` in `localStorage`). Replay: palette → *Take the tour*, the Help sheet, or the empty-desktop link. Esc closes, ←/→ step, focus stays in the card; no layout shift, no network, animation off under `prefers-reduced-motion`. Works in the hosted demo.
+- 🗂️ **Short empty palette** — with nothing typed (category *All*) ⌘K lists only **Recent** (the last 5 palette commands you ran, `td.palRecent.v1` in `localStorage`), **Start** (New terminal · New agent task… · Open directory… · Open file… · New project), your snippets / SSH hosts, the top AI CLIs and open sessions, plus a *Type to search all N commands* footer. Typing searches **every** command (an `x` matches `×`, so `2x2` finds *Layout 2×2*); a category chip lists all of its commands.
 - 🗂️ **Palette search ranking** — typed searches order commands by relevance: a label **word starting** with the text first, then labels merely containing it, then description-only matches; ties go to recently run commands, with the fixed-grid layout presets after real commands (so `layout` lists *Save layout as…* / *Restore layout…* before *Layout 1×1…*), then list order.
 - 🗂️ **Palette categories** — a chip row under the ⌘K input (*All · Terminals · Agents · Sessions · Layout · Settings · Help · Fun*; *Terminals* also holds snippets and SSH hosts, *Agents* the agent tasks, CLI presets and the usage / agent-order resets, *Sessions* the Live overview, Search sessions and open sessions, *Layout* Tile windows, the fixed-grid presets, the directory-tree toggle and *Move or resize window*, *Settings* only real preferences — theme, terminal font, scrollback — *Help* keyboard shortcuts and the tour, *Fun* the game and pixel pets) narrows the list; click a chip or press **Tab / Shift+Tab** to cycle, and the search text still applies inside the chosen category. Resets to *All* each time the palette opens. A **×** in the input (or **Ctrl+U**) clears the typed text.
 - ⌨️ **Palette shortcut hints** — every palette command that has a shortcut shows it, matching the real binding.
@@ -113,7 +114,7 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   `/api/ls?all=1`) as check-marked toggles (persisted in `localStorage`), plus — once you've re-rooted —
   **Back to project root** and **Pin as project root**. A small accent dot on ⋯ shows Follow is on.
 - 🖥️ **Follow focused terminal** — the toggle in the tree header's **⋯ menu** (off by default, persisted in
-  `localStorage` as `td-follow`). When on, focusing a terminal **reveals its working directory** in the tree:
+  `localStorage` as `td.treeFollow.v1`). When on, focusing a terminal **reveals its working directory** in the tree:
   ancestors expand, the folder is highlighted, centered in the panel and pulses briefly (skipped under
   `prefers-reduced-motion`). It never collapses or
   re-renders unrelated folders, and does nothing when the cwd is unknown. If the focused shell is outside the shown
@@ -553,8 +554,18 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
 ## Persistence & safety
 - 🖥️ Layout (windows, projects, themes) saved to `localStorage` (`td.state.v5`, `td.theme.v2`),
   debounced 300ms.
+  Every key is named `td.<name>.v<N>`; five older spellings (`td-tour-done`, `td-pal-recent`, `td-follow`, `td-hidden`,
+  `td_ov_filter`) are carried over to the new names once on load. A saved `td.state.v5` layout from an older build is
+  pinned by an e2e test, so a format change has to come with a migration. Reading storage never throws: with site
+  storage denied the app still starts (nothing is remembered).
   The applied theme's colours are also cached (`td.themevars.v1`) and painted by a one-line script in `<head>` before
   `app.js` loads, so a light theme doesn't flash dark on reload; transitions stay off until the theme is applied.
+- 🖥️ **Export / import settings** — palette → *Export settings…* downloads `termdeck-settings.json`
+  (`{termdeck:"settings", version:1, settings:{…}}`) with this browser's theme, terminal font, scrollback, snippets, SSH
+  hosts, AI CLI presets, pets and the tree / overview toggles — not the window layout (*Save layout as…*) and nothing
+  per-tab (lock, caches, usage, the tour). *Import settings…* takes only those known keys with string values, asks first
+  (it warns that snippets and AI presets run commands), writes them over the same keys here, and reloads; terminals
+  reconnect. A file from a newer format, invalid JSON or a non-settings file is refused with a toast.
 - 🖥️ **Single-instance guard** — a timestamped `localStorage` lock + heartbeat elects one active
   tab; extra dashboard tabs go passive behind an overlay so they can't clobber shared state.
 - 🖥️ **Confirm before losing shells** — `beforeunload` native prompt on browser close/refresh when
