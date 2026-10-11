@@ -25,7 +25,9 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 💾 **Named layouts** (#17) — palette → *Save layout as…* names the whole workspace (projects, windows with position/size,
   tabs, roots, folders); *Restore layout…* lists them (project/window counts, date) with a **×** to delete. Saving under
   an existing name asks before replacing. **Live:** stored server-side in `~/.termdeck/layouts.json` (0600, atomic
-  write, max 50, `/api/layouts` behind `apiGuard` + cross-site rejection), shared by every browser on that server;
+  write, max 50, `/api/layouts` behind `apiGuard` + cross-site rejection), shared by every browser on that server
+  and by every server on the same home folder (each save re-reads the file first; a file that can't be parsed is
+  kept as `layouts.json.corrupt-<time>` instead of being overwritten);
   **demo:** `localStorage` (`td.layouts.v1`). A layout is **layout only** — restoring asks first, closes the open
   windows and starts **new shells** in the saved folders (new ids, so it never clashes with a live tmux session);
   running processes and output are not saved, and agent / resume commands are stripped so a restore can never launch an
@@ -382,7 +384,8 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   options (`-x`, `--x`), no `name=value`, no quotes, no absolute / `~` / `..` paths, since many tools take options
   that run or write arbitrary things (`npm test src/a.test.js` matches a `npm test` rule; `npm test -- --watch`
   needs a click or an exact rule), the same agent, Bash only, inside
-  the scope dir. Stored `0600` in `~/.termdeck/approval-rules.json`; capped at 100. **Visible, never silent:**
+  the scope dir. Stored `0600` in `~/.termdeck/approval-rules.json`; capped at 100; shared safely by several servers
+  on one home folder, and an unparsable file is kept aside (`.corrupt-<time>`) rather than replaced. **Visible, never silent:**
   each automatic answer is a toast ("Auto-allowed by rule") and an audit entry (*source: rule*, rule id) next to
   your manual ones; under the queue, *Auto-allow rules* lists them with **✕ delete** and **pause / resume**
   (pause keeps the rules). **Hard deny-list** (`scripts/approval-rules.js`): recursive `rm`, `sudo`, `git push --force` /

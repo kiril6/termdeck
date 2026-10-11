@@ -32,6 +32,8 @@ jobs:
       - run: npm audit --omit=dev --audit-level=high
       - run: node scripts/update-check.test.js
       - run: node scripts/check-rules.js
+      - run: node scripts/json-store.test.js
+      - run: node scripts/shared-home.test.js
       - run: node scripts/check-usage.js
       - run: node server.js autostart install --dry-run
       - run: test "$(node server.js --bogus >/dev/null 2>&1; echo $?)" = 2

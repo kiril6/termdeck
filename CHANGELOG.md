@@ -3,6 +3,7 @@
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
 ## 1.26.0
+- **Two servers, one home folder** — saved layouts and *Always allow* rules no longer get lost when two termdeck servers run at once (for example on two ports); each sees the other's changes without a restart. A `layouts.json` or `approval-rules.json` that can't be read is now kept as `<file>.corrupt-<time>` instead of being silently replaced with an empty one.
 - **Steadier under heavy output** — output is sent in small batches (about a third of the server CPU when a command prints a lot), and a browser tab that can't keep up — asleep, stalled or slow — no longer makes the server's memory grow without limit; when it catches up, its screen is refreshed from the replay buffer.
 - **Hardened API** — one cross-site check covers every API route; *Reveal*, *Open in default app* and *Open in editor* now use POST; responses forbid framing by other sites and send no referrer.
 - **Stricter "Always allow" rules** — a *starting with* rule now covers the command's first two words followed by plain words only (for example `npm test src/a.test.js`). Options, `name=value` and paths outside the project need a click or an exact rule, because many tools take options that run or write arbitrary things. Existing rules keep working with the stricter match. The deny-list also catches any command that touches shell startup files (`.bashrc`, `.zshrc`, `.profile`…).

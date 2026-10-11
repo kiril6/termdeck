@@ -255,43 +255,52 @@ app.post('/api/reveal', apiGuard, (req, res) => {    // open the OS file manager
   res.json({ ok:true });
 });
 // ── /api/layouts — named layout snapshots (#17) ─────────────────────────────────────────────────────────────
-// One JSON file in ~/.termdeck (0600, written atomically — same pattern as the approval rules). A snapshot is the
+// One JSON file in ~/.termdeck (0600, atomic, shared safely by several servers — scripts/json-store.js). A snapshot is the
 // client's layout state: projects, windows, tabs, roots, cwds. The server stores it opaquely after a shape check;
 // it never executes or interprets it (the client strips agent/resume commands before saving). Same guard as /api.
 const LAYOUTS_FILE = path.join(os.homedir(), '.termdeck', 'layouts.json');
 const MAX_LAYOUTS = 50;
-let layoutStore = [];
-try { const j = JSON.parse(fs.readFileSync(LAYOUTS_FILE, 'utf8')); if (Array.isArray(j.layouts)) layoutStore = j.layouts.filter((l) => l && typeof l.id === 'string' && typeof l.name === 'string' && l.data); } catch {}
-function saveLayouts() {
-  fs.mkdirSync(path.dirname(LAYOUTS_FILE), { recursive: true, mode: 0o700 });
-  const tmp = LAYOUTS_FILE + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify({ version: 1, layouts: layoutStore }, null, 2), { mode: 0o600 });
-  fs.renameSync(tmp, LAYOUTS_FILE);
-}
+const { createStore } = require('./scripts/json-store');
+const layoutsFile = createStore(LAYOUTS_FILE, {
+  parse: (j) => {
+    if (j.layouts !== undefined && !Array.isArray(j.layouts)) throw new Error('"layouts" is not a list');
+    return (j.layouts || []).filter((l) => l && typeof l.id === 'string' && typeof l.name === 'string' && l.data);
+  },
+  serialize: (layouts) => ({ version: 1, layouts }),
+});
 const layoutMeta = (l) => ({ id: l.id, name: l.name, savedAt: l.savedAt, projects: l.data.projects.length, windows: l.data.sessions.length });
 const validLayout = (d) => d && typeof d === 'object' && Array.isArray(d.projects) && Array.isArray(d.sessions) && d.projects.length > 0 && d.projects.length <= 50 && d.sessions.length <= 200;
-app.get('/api/layouts', apiGuard, (_req, res) => res.json(layoutStore.map(layoutMeta).sort((a, b) => b.savedAt - a.savedAt)));
+app.get('/api/layouts', apiGuard, (_req, res) => res.json(layoutsFile.load().map(layoutMeta).sort((a, b) => b.savedAt - a.savedAt)));
 app.get('/api/layouts/:id', apiGuard, (req, res) => {
-  const l = layoutStore.find((x) => x.id === req.params.id);
+  const l = layoutsFile.load().find((x) => x.id === req.params.id);
   l ? res.json(l) : res.status(404).json({ error: 'not found' });
 });
 app.post('/api/layouts', apiGuard, (req, res) => {
   const name = typeof req.body?.name === 'string' ? req.body.name.trim().slice(0, 60) : '';
   if (!name) return res.status(400).json({ error: 'name required' });
   if (!validLayout(req.body.data)) return res.status(400).json({ error: 'invalid layout' });
-  let l = layoutStore.find((x) => x.name.toLowerCase() === name.toLowerCase());   // saving under an existing name replaces it
-  if (!l) {
-    if (layoutStore.length >= MAX_LAYOUTS) return res.status(400).json({ error: 'layout limit reached (' + MAX_LAYOUTS + ')' });
-    l = { id: require('crypto').randomBytes(8).toString('hex') }; layoutStore.push(l);
-  }
-  Object.assign(l, { name, savedAt: Date.now(), data: req.body.data });
-  try { saveLayouts(); } catch (e) { return res.status(500).json({ error: e.code || 'could not save' }); }
-  res.json(layoutMeta(l));
+  let saved;
+  try {
+    saved = layoutsFile.update((layouts) => {
+      let l = layouts.find((x) => x.name.toLowerCase() === name.toLowerCase());   // saving under an existing name replaces it
+      if (!l) {
+        if (layouts.length >= MAX_LAYOUTS) return null;
+        l = { id: require('crypto').randomBytes(8).toString('hex') }; layouts.push(l);
+      }
+      Object.assign(l, { name, savedAt: Date.now(), data: req.body.data });
+      return l;
+    });
+  } catch (e) { return res.status(500).json({ error: e.code || 'could not save' }); }
+  if (!saved) return res.status(400).json({ error: 'layout limit reached (' + MAX_LAYOUTS + ')' });
+  res.json(layoutMeta(saved));
 });
 app.delete('/api/layouts/:id', apiGuard, (req, res) => {
-  const n = layoutStore.length;
-  layoutStore = layoutStore.filter((x) => x.id !== req.params.id);
-  if (layoutStore.length !== n) { try { saveLayouts(); } catch {} }
+  try {
+    layoutsFile.update((layouts) => {
+      const i = layouts.findIndex((x) => x.id === req.params.id);
+      return i < 0 ? null : layouts.splice(i, 1);
+    });
+  } catch {}
   res.json({ ok: true });
 });
 // ── /api/raw — bytes of a previewable media file for the viewer's <img>/<video>/<audio>/<iframe> (#24) ──
@@ -426,7 +435,8 @@ app.post('/api/agent-events', apiGuard, (req, res) => {
   if (cmd !== null) {
     const full = { agent: ev.agent, tool: ev.tool, command: cmd, cwd: cap(b.cwd, 500) };
     const risk = rules.riskReason(cmd);
-    const hit = !risk && ruleStore.enabled && ruleStore.rules.find((r) => rules.matches(r, full));
+    const ruleSet = rulesFile.load();                              // re-read if another server changed it
+    const hit = !risk && ruleSet.enabled && ruleSet.rules.find((r) => rules.matches(r, full));
     if (hit) {
       settleApproval(b.id, null, 'superseded');
       recordApproval({ ts: now, id: b.id, agent: ev.agent, tool: ev.tool, detail: ev.detail, cwd: full.cwd, decision: 'allow', source: 'rule', ruleId: hit.id });
@@ -489,17 +499,17 @@ const RECENT_REQ_MS = 10 * 60 * 1000, MAX_RULES = 100;
 const recentReqs = new Map();         // reqId -> { agent, tool, command, cwd, ts }
 const validRule = (r) => r && typeof r.id === 'string' && r.tool === 'Bash' && typeof r.agent === 'string' && (r.mode === 'exact' || r.mode === 'prefix')
   && typeof r.pattern === 'string' && r.pattern && typeof r.dir === 'string' && path.isAbsolute(r.dir);
-let ruleStore = { enabled: false, rules: [] };
-try { const j = JSON.parse(fs.readFileSync(RULES_FILE, 'utf8')); ruleStore = { enabled: j.enabled === true, rules: (Array.isArray(j.rules) ? j.rules : []).filter(validRule).slice(0, MAX_RULES) }; } catch {}
-function saveRules() {
-  try {
-    fs.mkdirSync(path.dirname(RULES_FILE), { recursive: true, mode: 0o700 });
-    const tmp = RULES_FILE + '.' + process.pid + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(ruleStore, null, 2), { mode: 0o600 }); fs.renameSync(tmp, RULES_FILE);
-    return true;
-  } catch (e) { console.error('  [rules] save failed:', e.message); return false; }
+const rulesFile = createStore(RULES_FILE, {   // shared safely by several servers; an unreadable file is kept aside, never overwritten
+  parse: (j) => {
+    if (j.rules !== undefined && !Array.isArray(j.rules)) throw new Error('"rules" is not a list');
+    return { enabled: j.enabled === true, rules: (j.rules || []).filter(validRule).slice(0, MAX_RULES) };
+  },
+  serialize: (v) => v,
+});
+function updateRules(fn) {
+  try { return rulesFile.update(fn); } catch (e) { console.error('  [rules] save failed:', e.message); return undefined; }
 }
-app.get('/api/approval-rules', apiGuard, (req, res) => res.json(ruleStore));
+app.get('/api/approval-rules', apiGuard, (req, res) => res.json(rulesFile.load()));
 app.post('/api/approval-rules', apiGuard, async (req, res) => {
   const { reqId, mode } = req.body || {};
   const r = recentReqs.get(reqId);
@@ -512,24 +522,27 @@ app.post('/api/approval-rules', apiGuard, async (req, res) => {
   if (!r.cwd || !path.isAbsolute(r.cwd)) return res.status(400).json({ error: 'the agent did not report a working directory' });
   let dir = r.cwd;                                        // scope = the repo / worktree root, so a `cd` into a subfolder still matches
   try { dir = (await gitP(['rev-parse', '--show-toplevel'], r.cwd)).trim() || dir; } catch {}
-  let rule = ruleStore.rules.find((x) => x.agent === r.agent && x.mode === mode && x.pattern === pattern && x.dir === dir);
-  if (!rule) {
-    if (ruleStore.rules.length >= MAX_RULES) return res.status(400).json({ error: 'rule limit reached (' + MAX_RULES + ')' });
-    rule = { id: require('crypto').randomUUID(), agent: r.agent, tool: 'Bash', mode, pattern, dir, created: Date.now() };
-    ruleStore.rules.push(rule);
-  }
-  ruleStore.enabled = true;
-  if (!saveRules()) return res.status(500).json({ error: 'could not save the rule file' });
+  const rule = updateRules((store) => {
+    let found = store.rules.find((x) => x.agent === r.agent && x.mode === mode && x.pattern === pattern && x.dir === dir);
+    if (!found) {
+      if (store.rules.length >= MAX_RULES) return null;
+      found = { id: require('crypto').randomUUID(), agent: r.agent, tool: 'Bash', mode, pattern, dir, created: Date.now() };
+      store.rules.push(found);
+    }
+    store.enabled = true;
+    return found;
+  });
+  if (rule === null) return res.status(400).json({ error: 'rule limit reached (' + MAX_RULES + ')' });
+  if (!rule) return res.status(500).json({ error: 'could not save the rule file' });
   res.json(rule);
 });
 app.delete('/api/approval-rules/:id', apiGuard, (req, res) => {
-  const n = ruleStore.rules.length;
-  ruleStore.rules = ruleStore.rules.filter((x) => x.id !== req.params.id);
-  if (ruleStore.rules.length !== n) saveRules();
+  updateRules((store) => { const i = store.rules.findIndex((x) => x.id === req.params.id); return i < 0 ? null : store.rules.splice(i, 1); });
   res.status(204).end();
 });
 app.post('/api/approval-rules/enabled', apiGuard, (req, res) => {   // pause / resume without losing the rules
-  ruleStore.enabled = req.body?.enabled === true; saveRules(); res.json(ruleStore);
+  updateRules((store) => { store.enabled = req.body?.enabled === true; return true; });
+  res.json(rulesFile.load());
 });
 
 // ── /api/git — worktree-per-agent + read-only diff review ────────────────────

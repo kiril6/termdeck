@@ -1,0 +1,44 @@
+// node scripts/json-store.test.js — two servers sharing one ~/.termdeck file keep each other's updates, see each
+// other's writes, and an unreadable file is kept aside instead of being overwritten.
+const assert = require('assert');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { createStore } = require('./json-store');
+
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'td-store-'));
+const file = path.join(dir, 'items.json');
+const opts = {
+  parse: (j) => { if (j.items !== undefined && !Array.isArray(j.items)) throw new Error('items is not a list'); return { items: j.items || [] }; },
+  serialize: (v) => ({ version: 1, items: v.items }),
+};
+const quiet = console.error; console.error = () => {};
+try {
+  const a = createStore(file, opts), b = createStore(file, opts);   // two servers, one home
+  assert.deepStrictEqual(a.load(), { items: [] });
+  assert.deepStrictEqual(b.load(), { items: [] });                  // b has a cached (empty) copy now
+  a.update((d) => { d.items.push('from-a'); return true; });
+  b.update((d) => { d.items.push('from-b'); return true; });        // must not overwrite a's update with its stale copy
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(file, 'utf8')).items, ['from-a', 'from-b']);
+  assert.deepStrictEqual(a.load().items, ['from-a', 'from-b']);     // a sees b's write without a restart
+  if (process.platform !== 'win32') assert.strictEqual(fs.statSync(file).mode & 0o777, 0o600);
+
+  assert.strictEqual(a.update((d) => { d.items.push('nope'); return null; }), null);   // null cancels the write
+  assert.deepStrictEqual(b.load().items, ['from-a', 'from-b']);
+
+  fs.writeFileSync(file, '{"items": [broken');                       // hand-edit gone wrong
+  assert.deepStrictEqual(a.load(), { items: [] });
+  const kept = fs.readdirSync(dir).filter((f) => f.startsWith('items.json.corrupt-'));
+  assert.strictEqual(kept.length, 1, 'corrupt file is kept aside');
+  assert.strictEqual(fs.readFileSync(path.join(dir, kept[0]), 'utf8'), '{"items": [broken');
+  a.update((d) => { d.items.push('fresh'); return true; });
+  assert.deepStrictEqual(b.load().items, ['fresh']);
+
+  fs.writeFileSync(file, '{"items": "not a list"}');                 // valid JSON, wrong shape: also kept aside
+  assert.deepStrictEqual(b.load(), { items: [] });
+  assert.strictEqual(fs.readdirSync(dir).filter((f) => f.startsWith('items.json.corrupt-')).length, 2);
+  console.log('json-store.test: ok');
+} finally {
+  console.error = quiet;
+  fs.rmSync(dir, { recursive: true, force: true });
+}
