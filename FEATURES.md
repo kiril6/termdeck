@@ -561,7 +561,12 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   argument array (no shell), so a branch name or prompt can't inject a command.
 - 🔌 **`/api/ls` + `/api/reveal` + `/api/read`** — sidebar-tree filesystem read, OS-file-manager reveal,
   and file-text read for the in-app viewer (2 MB cap, NUL-byte binary detection), all behind the
-  **same** Origin+Host guard as the WS (`apiGuard`) so a cross-site page can't read the disk.
+  **same** Origin+Host guard as the WS (`apiGuard`) so a cross-site page can't read the disk. `apiGuard` also rejects
+  `Sec-Fetch-Site: cross-site` for every route (a cross-site `<img>`/`<script>` sends no `Origin`), and the routes that
+  launch a program on the host — `/api/reveal`, `/api/open`, `/api/open-editor` — are **POST-only** (JSON `{path}`).
+- 🔌 **Baseline response headers** — every response carries `Content-Security-Policy: frame-ancestors 'self'` and
+  `X-Frame-Options: SAMEORIGIN` (no other site can frame termdeck and trick a click on Approve or Merge; the viewer's
+  own PDF preview still frames), `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`.
 - 🔌 **Auto-open browser** on `npm start` — launches the dashboard in the default browser
   (OS opener: `open`/`start`/`xdg-open`). `NO_OPEN=1` skips it; `BROWSER=<name|path>` picks a
   specific browser (e.g. `BROWSER="Google Chrome"` on macOS, `BROWSER=firefox` on Linux).

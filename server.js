@@ -57,6 +57,15 @@ if (!pty) {
 
 // ── Express + static files ───────────────────────────────────────────────────
 const app = express();
+// Baseline headers on every response. frame-ancestors 'self': no other site can frame termdeck (clickjacking an
+// Approve / Merge button), while the file viewer can still frame its own /api/raw PDF preview.
+app.use((_req, res, next) => {
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');   // never leak /?t=… or paths to a site a link opens
+  next();
+});
 const HOST = process.env.HOST || '127.0.0.1';   // set HOST=0.0.0.0 (or a LAN IP) to expose deliberately
 const LOOPBACK = ['127.0.0.1', 'localhost', '::1'].includes(HOST);
 // Every HTTP request and WS upgrade needs the td_token cookie: open /?t=<token> once (auto-opened on start, or
@@ -134,7 +143,7 @@ app.get('/', (_req, res) => {
 });
 
 // ── /debug — open this if terminals won't start ──────────────────────────────
-app.get('/debug', (_req, res) => {
+app.get('/debug', apiGuard, (_req, res) => {
   const info = {
     node:      process.version,
     platform:  os.platform(),
@@ -198,11 +207,13 @@ Then run <code>node install.js</code> again.
 // SECURITY: these read/reveal real paths, so they carry the SAME Origin+Host guard
 // as the WS. Loopback bind already blocks remote reach; this blocks a cross-site page
 // from driving them. `ls` responses are also same-origin-protected by the browser.
+// Sec-Fetch-Site: a cross-site <img>/<script> sends no Origin header, so reject it explicitly (every route, one place).
 function apiGuard(req, res, next) {
   const host   = hostnameOf(req.headers.host);
   const origin = hostnameOf(req.headers.origin);
   if (host   && !ALLOWED_HOSTS.has(host))   return res.status(403).end();
   if (origin && !ALLOWED_HOSTS.has(origin)) return res.status(403).end();
+  if (req.headers['sec-fetch-site'] === 'cross-site') return res.status(403).end();
   next();
 }
 function expandDir(d) {                              // "" / "~" / "~/x" → absolute path
@@ -232,8 +243,8 @@ app.get('/api/ls', apiGuard, (req, res) => {
 app.get('/api/shells', apiGuard, (_req, res) => {      // shells the "Shell" picker may offer (the same allowlist spawn enforces)
   res.json({ shells: shellCandidates().map((p) => ({ path: p, name: baseName(p) })) });
 });
-app.get('/api/reveal', apiGuard, (req, res) => {     // open the OS file manager at a path
-  const target = expandDir(req.query.path);
+app.post('/api/reveal', apiGuard, (req, res) => {    // open the OS file manager at a path (POST: it launches a program)
+  const target = expandDir(req.body?.path);
   if (!fs.existsSync(target)) return res.status(404).end();
   const isDir = safeDir(target);
   let cmd, args;
@@ -259,16 +270,12 @@ function saveLayouts() {
 }
 const layoutMeta = (l) => ({ id: l.id, name: l.name, savedAt: l.savedAt, projects: l.data.projects.length, windows: l.data.sessions.length });
 const validLayout = (d) => d && typeof d === 'object' && Array.isArray(d.projects) && Array.isArray(d.sessions) && d.projects.length > 0 && d.projects.length <= 50 && d.sessions.length <= 200;
-function layoutGuard(req, res, next) {
-  if (req.headers['sec-fetch-site'] === 'cross-site') return res.status(403).end();
-  apiGuard(req, res, next);
-}
-app.get('/api/layouts', layoutGuard, (_req, res) => res.json(layoutStore.map(layoutMeta).sort((a, b) => b.savedAt - a.savedAt)));
-app.get('/api/layouts/:id', layoutGuard, (req, res) => {
+app.get('/api/layouts', apiGuard, (_req, res) => res.json(layoutStore.map(layoutMeta).sort((a, b) => b.savedAt - a.savedAt)));
+app.get('/api/layouts/:id', apiGuard, (req, res) => {
   const l = layoutStore.find((x) => x.id === req.params.id);
   l ? res.json(l) : res.status(404).json({ error: 'not found' });
 });
-app.post('/api/layouts', layoutGuard, (req, res) => {
+app.post('/api/layouts', apiGuard, (req, res) => {
   const name = typeof req.body?.name === 'string' ? req.body.name.trim().slice(0, 60) : '';
   if (!name) return res.status(400).json({ error: 'name required' });
   if (!validLayout(req.body.data)) return res.status(400).json({ error: 'invalid layout' });
@@ -281,15 +288,15 @@ app.post('/api/layouts', layoutGuard, (req, res) => {
   try { saveLayouts(); } catch (e) { return res.status(500).json({ error: e.code || 'could not save' }); }
   res.json(layoutMeta(l));
 });
-app.delete('/api/layouts/:id', layoutGuard, (req, res) => {
+app.delete('/api/layouts/:id', apiGuard, (req, res) => {
   const n = layoutStore.length;
   layoutStore = layoutStore.filter((x) => x.id !== req.params.id);
   if (layoutStore.length !== n) { try { saveLayouts(); } catch {} }
   res.json({ ok: true });
 });
 // ── /api/raw — bytes of a previewable media file for the viewer's <img>/<video>/<audio>/<iframe> (#24) ──
-// Extension ALLOWLIST (never sniffed, never a generic file server), same guard as the rest of /api, plus
-// Sec-Fetch-Site: a cross-site page can embed an <img> without sending an Origin header, so reject it explicitly.
+// Extension ALLOWLIST (never sniffed, never a generic file server), same guard as the rest of /api (which also
+// rejects Sec-Fetch-Site: cross-site, since a cross-site page can embed an <img> without sending an Origin header).
 // SVG is only ever shown through <img>; its CSP sandbox also blocks scripts if the URL is opened directly.
 const RAW_TYPES = {
   png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', webp:'image/webp', avif:'image/avif',
@@ -299,7 +306,6 @@ const RAW_TYPES = {
 };
 const RAW_MAX = 25 * 1024 * 1024;                     // images/PDF; audio/video are streamed with Range, so uncapped
 app.get('/api/raw', apiGuard, (req, res) => {
-  if (req.headers['sec-fetch-site'] === 'cross-site') return res.status(403).end();
   const target = expandDir(req.query.path);
   const ext = path.extname(target).slice(1).toLowerCase();
   const type = RAW_TYPES[ext];
@@ -316,9 +322,8 @@ app.get('/api/raw', apiGuard, (req, res) => {
 // anything executable-looking: a click on a path in terminal output must not be able to run a script.
 const NO_OPEN = new Set(['app','command','tool','sh','bash','zsh','csh','ksh','fish','bat','cmd','com','exe','msi','scr',
   'ps1','vbs','vbe','js','jse','wsf','jar','lnk','url','pkg','dmg','workflow','action','terminal','desktop','appimage','run','pif','reg','hta']);
-app.get('/api/open', apiGuard, (req, res) => {
-  if (req.headers['sec-fetch-site'] === 'cross-site') return res.status(403).end();
-  const target = expandDir(req.query.path);
+app.post('/api/open', apiGuard, (req, res) => {      // open a file in its default app (POST: it launches a program)
+  const target = expandDir(req.body?.path);
   let st;
   try { st = fs.statSync(target); } catch { return res.status(404).json({ error:'not found' }); }
   if (!st.isFile()) return res.status(400).json({ error:'not a file' });
@@ -328,8 +333,8 @@ app.get('/api/open', apiGuard, (req, res) => {
   res.json({ ok:true });
 });
 const EDITOR = process.env.TD_EDITOR || 'code';     // fixed by config, never by the request; no shell → a path can't inject a command
-app.get('/api/open-editor', apiGuard, (req, res) => {  // open a path in the configured editor
-  const target = expandDir(req.query.path);
+app.post('/api/open-editor', apiGuard, (req, res) => { // open a path in the configured editor (POST: it launches a program)
+  const target = expandDir(req.body?.path);
   if (!fs.existsSync(target)) return res.status(404).json({ error:'path not found' });
   const child = spawn(EDITOR, [target], { stdio:'ignore', detached:true });
   child.once('error', (e) => res.status(e.code === 'ENOENT' ? 404 : 500)

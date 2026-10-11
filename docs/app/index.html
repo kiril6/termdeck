@@ -3793,13 +3793,15 @@ function csvTable(t){
 const FV_MEDIA={png:"img",jpg:"img",jpeg:"img",gif:"img",webp:"img",avif:"img",bmp:"img",ico:"img",svg:"img",pdf:"pdf",
   mp3:"audio",wav:"audio",ogg:"audio",m4a:"audio",flac:"audio",mp4:"video",webm:"video",mov:"video"};
 // Message + the two ways out for a file the viewer can't show: reveal it, or open it in the OS default app.
+// Routes that launch something on the host are POST-only (a GET can be triggered by any link or image).
+const apiPost=(url,body)=>fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
 function fvFallback(msg,full){
   fvBody.className="fv-body msg"; fvBody.textContent=msg;
   const acts=el("div","fv-acts");
   const mk=(label,url)=>{const b=el("button","fv-act"); b.type="button"; b.textContent=label;
-    b.addEventListener("click",async()=>{const r=await fetch(url+encodeURIComponent(full)).catch(()=>null);
+    b.addEventListener("click",async()=>{const r=await apiPost(url,{path:full}).catch(()=>null);
       if(!r||!r.ok){const j=r?await r.json().catch(()=>({})):{}; toast(ICON.warn,label,j.error||"failed",3000);}}); return b;};
-  acts.append(mk("Reveal in Finder / Explorer","/api/reveal?path="),mk("Open in default app","/api/open?path="));
+  acts.append(mk("Reveal in Finder / Explorer","/api/reveal"),mk("Open in default app","/api/open"));
   fvBody.append(acts);
 }
 function fvMedia(kind,full){
@@ -4044,8 +4046,8 @@ function treeNode(en,full,depth){
   const wrap=el("div");
   const row=el("div","tn"+(en.dir?" dir-node":""));
   row.style.paddingLeft=(8+depth*14)+"px"; row.dataset.path=full;
-  const reveal=()=>fetch("/api/reveal?path="+encodeURIComponent(full)).catch(()=>{});
-  const openEditor=()=>fetch("/api/open-editor?path="+encodeURIComponent(full)).then(async(r)=>{
+  const reveal=()=>apiPost("/api/reveal",{path:full}).catch(()=>{});
+  const openEditor=()=>apiPost("/api/open-editor",{path:full}).then(async(r)=>{
     if(!r.ok){const j=await r.json().catch(()=>({}));toast(ICON.warn,"Open in editor",j.error||"failed",3500);}
   }).catch(()=>toast(ICON.warn,"Open in editor","request failed",3500));
   const copyPath=()=>{try{navigator.clipboard.writeText(full);toast(ICON.copy,"Path copied",full,1600);}catch{}};

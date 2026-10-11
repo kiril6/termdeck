@@ -397,6 +397,24 @@ test.describe('live backend', () => {
     await page.reload();
     await expect(page.locator('.win .xterm-char-measure-element').first()).toHaveCSS('font-size', '17px');   // persisted
   });
+  test('API guard: baseline headers, one cross-site check for every route, launch routes are POST-only', async ({ request }) => {
+    const home = await request.get('/');
+    expect(home.headers()['content-security-policy']).toContain("frame-ancestors 'self'");
+    expect(home.headers()['x-frame-options']).toBe('SAMEORIGIN');
+    expect(home.headers()['x-content-type-options']).toBe('nosniff');
+    expect(home.headers()['referrer-policy']).toBe('no-referrer');
+    const q = encodeURIComponent(process.env.TD_E2E_HOME);
+    for (const p of [`/api/ls?dir=${q}`, `/api/read?path=${q}/README.md`, `/api/stat?path=${q}/README.md`, '/api/layouts', '/api/shells', '/debug']) {
+      expect((await request.get(p)).status(), p).toBe(200);
+      expect((await request.get(p, { headers: { 'Sec-Fetch-Site': 'cross-site' } })).status(), p + ' cross-site').toBe(403);
+    }
+    for (const p of ['/api/reveal', '/api/open', '/api/open-editor']) {
+      expect((await request.get(`${p}?path=${q}`)).status(), 'GET ' + p).toBe(404);   // launching needs a POST
+      expect((await request.post(p, { data: { path: '/nonexistent-td-path' }, headers: { 'Sec-Fetch-Site': 'cross-site' } })).status(), p + ' cross-site').toBe(403);
+      expect((await request.post(p, { data: { path: '/nonexistent-td-path' } })).status(), 'POST ' + p).toBe(404);   // reaches the route
+    }
+  });
+
   test('rendered markdown: a link URL cannot break out of href', async ({ page }) => {
     const dir = fs.mkdtempSync(path.join(process.env.TD_E2E_HOME, 'md-'));
     fs.writeFileSync(path.join(dir, 'evil.md'), '[docs](https://a"onmouseover="window.__pwned=1"x=")\n\n[ok](https://example.com/a?b=1&c=2)\n');
@@ -457,10 +475,10 @@ test.describe('live backend', () => {
     expect((await raw('secret.txt')).status()).toBe(415);                                // not on the allowlist
     expect((await raw('dot.png', { 'Sec-Fetch-Site': 'cross-site' })).status()).toBe(403);
     expect((await raw('dot.png', { Origin: 'http://evil.example' })).status()).toBe(403);
-    const open2 = await request.get('/api/open?path=' + encodeURIComponent(path.join(dir, 'run.sh')));
+    const open2 = await request.post('/api/open', { data: { path: path.join(dir, 'run.sh') } });
     expect(open2.status()).toBe(404);                                                    // missing file
     fs.writeFileSync(path.join(dir, 'run.sh'), 'echo hi');
-    expect((await request.get('/api/open?path=' + encodeURIComponent(path.join(dir, 'run.sh')))).status()).toBe(403);   // executables are never launched
+    expect((await request.post('/api/open', { data: { path: path.join(dir, 'run.sh') } })).status()).toBe(403);   // executables are never launched
   });
   test('named layouts: save, restore (replaces windows), delete; /api/layouts is guarded', async ({ page, request }) => {
     await boot(page, '/');
