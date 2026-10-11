@@ -810,6 +810,26 @@ test.describe('live backend', () => {
     }
   });
 
+  test('CSP: the app runs under the full policy, inline boot script allowed by hash, no violations', async ({ page, request }) => {
+    const csp = (await request.get('/')).headers()['content-security-policy'];
+    expect(csp).toMatch(/script-src 'self' 'sha256-[A-Za-z0-9+/]+=*'/);
+    for (const d of ["default-src 'self'", "connect-src 'self';", "object-src 'none'", "base-uri 'none'", "frame-ancestors 'self'"]) expect(csp).toContain(d);
+    await page.addInitScript(() => {
+      window.__csp = []; document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(e.violatedDirective + ' ' + e.blockedURI));
+      localStorage.setItem('td.themevars.v1', JSON.stringify({ '--td-csp-probe': '1' }));   // only the inline boot script reads this
+    });
+    await trackTerms(page);
+    const errors = await boot(page, '/');
+    await page.locator('.win .xterm').first().click({ force: true });
+    await page.keyboard.type('echo csp-$((40+2))\n');
+    const screen = () => page.evaluate(() => { const b = window.__terms[0].buffer.active, out = [];
+      for (let i = 0; i < b.length; i++) out.push(b.getLine(i)?.translateToString(true)); return out.join('\n'); });
+    await expect.poll(screen).toContain('csp-42');                                      // WebSocket + shell work
+    expect(await page.evaluate(() => document.documentElement.style.getPropertyValue('--td-csp-probe'))).toBe('1');
+    expect(await page.evaluate(() => window.__csp)).toEqual([]);
+    expect(errors.filter((e) => /Content Security Policy/i.test(e))).toEqual([]);
+  });
+
   test('rendered markdown: a link URL cannot break out of href', async ({ page }) => {
     const dir = fs.mkdtempSync(path.join(process.env.TD_E2E_HOME, 'md-'));
     fs.writeFileSync(path.join(dir, 'evil.md'), '[docs](https://a"onmouseover="window.__pwned=1"x=")\n\n[ok](https://example.com/a?b=1&c=2)\n');

@@ -622,9 +622,15 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   **same** Origin+Host guard as the WS (`apiGuard`) so a cross-site page can't read the disk. `apiGuard` also rejects
   `Sec-Fetch-Site: cross-site` for every route (a cross-site `<img>`/`<script>` sends no `Origin`), and the routes that
   launch a program on the host — `/api/reveal`, `/api/open`, `/api/open-editor` — are **POST-only** (JSON `{path}`).
-- 🔌 **Baseline response headers** — every response carries `Content-Security-Policy: frame-ancestors 'self'` and
+- 🔌 **Baseline response headers** — every response carries a Content-Security-Policy and
   `X-Frame-Options: SAMEORIGIN` (no other site can frame termdeck and trick a click on Approve or Merge; the viewer's
-  own PDF preview still frames), `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`.
+  own PDF preview still frames), `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`. The policy:
+  `default-src 'self'`; scripts only from termdeck itself plus `index.html`'s inline boot-theme script, allowed by its
+  SHA-256 hash (computed from the file at start); `style-src 'self' 'unsafe-inline'` (xterm.js and the markup set
+  inline styles); images also from `data:`/`blob:`; `connect-src 'self'` (CSP3 browsers count same-host `ws:`/`wss:` as `'self'`); `object-src 'none'`;
+  `base-uri 'none'`; `form-action 'self'`; `frame-ancestors 'self'`. `/api/raw` (the viewer's media/PDF bytes) keeps only
+  `frame-ancestors 'self'`, so the browser's PDF viewer works; an SVG there gets its own `sandbox` policy. An e2e test
+  boots the live app under the policy and fails on any violation.
 - 🔌 Express static server + `ws` WebSocket PTY multiplexer; node-pty (standard or Linux prebuilt fork).
 - 🔌 **Fully offline** — xterm.js + addons (the scoped `@xterm/*` packages, 6.0) are served locally from `node_modules` at `/vendor/@xterm/…` (no CDN); after `npm install` the app needs no internet.
 - 🖥️ **Unicode 11 character widths** — the unicode11 addon is on, so emoji and CJK take two cells as modern shells and TUIs (vim, htop, Claude Code…) count them; with xterm's default Unicode 6 table, lines with emoji drifted out of line.

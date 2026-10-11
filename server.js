@@ -59,8 +59,23 @@ if (!pty) {
 const app = express();
 // Baseline headers on every response. frame-ancestors 'self': no other site can frame termdeck (clickjacking an
 // Approve / Merge button), while the file viewer can still frame its own /api/raw PDF preview.
-app.use((_req, res, next) => {
-  res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
+// The rest of the CSP limits what an injected script could do: scripts only from this origin, plus index.html's
+// inline boot-theme script by hash (read from the file at start, so editing it can't break the page). Styles stay
+// 'unsafe-inline': xterm.js and the markup set inline styles. /api/raw keeps only frame-ancestors (the browser's PDF
+// viewer runs inside that response; SVG gets its own sandbox there).
+const INLINE_SCRIPTS = (() => {
+  try {
+    return [...fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').matchAll(/<script>([\s\S]*?)<\/script>/g)]
+      .map((m) => `'sha256-${require('crypto').createHash('sha256').update(m[1]).digest('base64')}'`).join(' ');
+  } catch { return ''; }
+})();
+const CSP = [
+  "default-src 'self'", `script-src 'self' ${INLINE_SCRIPTS}`.trim(), "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:", "connect-src 'self'", "object-src 'none'", "base-uri 'none'",
+  "form-action 'self'", "frame-ancestors 'self'",
+].join('; ');
+app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy', req.path === '/api/raw' ? "frame-ancestors 'self'" : CSP);
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');   // never leak /?t=… or paths to a site a link opens
