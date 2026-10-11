@@ -3,6 +3,7 @@
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
 ## 1.26.0
+- **Two servers starting together sign you in the same way** — servers started at the same moment on a fresh home folder could end up with different access secrets, so one of them rejected your browser. They now always agree on one.
 - **Clear warning when the layout can't be saved** — if the browser refuses to store it (storage full, or blocked in a private window), a toast says so once instead of losing the layout silently on reload. Toggling *Follow*, *Show hidden files* or pixel pets no longer fails there.
 - **Git calls time out** — local git commands behind the agent-worktree features give up after 60 s with a clear error instead of hanging on a held lock.
 - **Smaller npm package** — ships only the files termdeck runs (19 instead of 56; no tests or fixtures). Install with `npx @kiril6/termdeck` or `npm i -g @kiril6/termdeck`; the docs no longer suggest `npx github:…`, which runs unreleased code.

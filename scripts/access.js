@@ -21,16 +21,20 @@ function loadOrCreateSecret() {
   if (cur) return cur;
   fs.mkdirSync(path.dirname(file()), { recursive: true, mode: 0o700 });
   const s = crypto.randomBytes(24).toString('hex');
-  try { fs.writeFileSync(file(), s + '\n', { mode: 0o600, flag: 'wx' }); return s; }   // wx: two servers starting at once agree on one
-  catch (e) {
-    if (e.code !== 'EEXIST') throw e;
-    const other = readSecret();
-    if (other) return other;
-    const tmp = `${file()}.${process.pid}.tmp`;                                          // unreadable/garbled file: replace it
-    fs.writeFileSync(tmp, s + '\n', { mode: 0o600 });
-    fs.renameSync(tmp, file());
-    return s;
-  }
+  // Two servers starting at once must agree on one secret. Write it whole to a temp file, then link it into place:
+  // the link appears complete in one step and fails if the file exists (a plain 'wx' write leaves a moment where the
+  // file exists but is still empty, and the other server would take it as garbled and replace it).
+  const tmp = `${file()}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, s + '\n', { mode: 0o600 });
+  try {
+    try { fs.linkSync(tmp, file()); return s; }
+    catch (e) {
+      if (e.code === 'EEXIST') { const other = readSecret(); if (other) return other; }   // the other server won
+      else { try { fs.writeFileSync(file(), s + '\n', { mode: 0o600, flag: 'wx' }); return s; } catch (e2) { if (e2.code !== 'EEXIST') throw e2; const other = readSecret(); if (other) return other; } }   // no hard links here
+      fs.renameSync(tmp, file());                                                        // unreadable/garbled file: replace it
+      return s;
+    }
+  } finally { try { fs.unlinkSync(tmp); } catch {} }
 }
 
 const hookAuth = (secret, id) => crypto.createHmac('sha256', secret).update('hook:' + id).digest('hex');
