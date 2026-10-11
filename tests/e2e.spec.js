@@ -29,7 +29,8 @@ const openPalette = async (page) => { await page.keyboard.press('ControlOrMeta+k
 
 test.describe('demo mode (no backend)', () => {
   test('window clocks: one shared tick; a minimized window pauses and catches up when restored', async ({ page }) => {
-    await page.clock.install();
+    await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
+    await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));        // paused before the app starts: its start time and its 1 s tick are pinned
     await boot(page, '/?demo');
     const up = page.locator('.win .uptime').first();
     await page.clock.runFor(3000);
