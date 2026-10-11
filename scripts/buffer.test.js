@@ -1,5 +1,6 @@
 // node scripts/buffer.test.js — the replay ring keeps the last TD_BUFFER chars across many chunks, and a
 // reattach replays only that tail (the ring is trimmed lazily, so it may briefly hold up to 2× before trimming).
+// Also: opening the same id elsewhere tells and closes the old socket, and the new one drives the shell.
 const assert = require('assert');
 const fs = require('fs');
 const net = require('net');
@@ -43,7 +44,16 @@ const free = () => new Promise((ok) => { const s = net.createServer().listen(0, 
   assert.ok(replay.length > 0 && replay.length <= BUFFER, `replay is ${replay.length} chars, want 1..${BUFFER}`);
   assert.ok(replay.includes('2999') && replay.includes('ENDMARK'), 'replay lost the newest output');
   assert.ok(!/(^|\n)10\r?\n11\r?\n/.test(replay), 'replay still holds the oldest output');
-  r.ws.send(JSON.stringify({ type: 'kill' })); r.ws.close();
+
+  // Opening the same id elsewhere while r is still connected: r is told and closed (it must not keep typing blind).
+  const rClosed = new Promise((res) => r.ws.on('close', (code) => res(code)));
+  const t = await connect();
+  assert.strictEqual(await rClosed, 4001, 'the old socket is closed on takeover');
+  assert.ok(r.msgs.some((m) => m.type === 'taken'), 'the old socket is told why');
+  t.ws.send(JSON.stringify({ type: 'input', data: 'echo TAK""EN\r' }));
+  for (let i = 0; i < 50 && !t.msgs.some((m) => m.type === 'output' && m.data.includes('TAKEN')); i++) await new Promise((res) => setTimeout(res, 100));
+  assert.ok(t.msgs.some((m) => m.type === 'output' && m.data.includes('TAKEN')), 'the new socket drives the shell');
+  t.ws.send(JSON.stringify({ type: 'kill' })); t.ws.close();
   console.log('buffer.test: ok');
   done(0);
 })().catch((e) => { console.error(e); process.exit(1); });

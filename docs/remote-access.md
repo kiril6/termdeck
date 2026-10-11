@@ -45,7 +45,8 @@ TD_NOTIFY_URL=https://ntfy.sh/my-secret-topic npm start     # subscribe to the t
 ```
 
 - `TD_NOTIFY_EVENTS=permission_request,stop` — which events fire (default `permission_request`).
-- `TD_NOTIFY_DETAIL=0` — leave the command/detail out of the message (commands can contain secrets).
+- `TD_NOTIFY_DETAIL=1` — include the command/detail in the message. Off by default: commands can contain secrets,
+  and the message goes to a third party.
 - Max one message per terminal per event type per minute; a dead webhook is ignored (one warning).
 - The body carries a `url` (`/#t=<id>`); tapping the ntfy notification opens termdeck on that terminal.
   The link uses the host you reached termdeck on, so use it via Tailscale Serve (option 1).

@@ -2852,6 +2852,11 @@ function openTabWS(s,tab){
       const lim=Number.isFinite(m.limit)?m.limit:"?";
       tab.term.write("\r\n\x1b[31m[terminal limit reached ("+lim+") \u2014 close a window or raise TD_MAX_PANELS, then click \u27f3 to retry]\x1b[0m\r\n");
       if(Date.now()-capToastAt>3000){capToastAt=Date.now(); toast(ICON.warn,"Terminal limit reached","The server allows "+lim+" live terminals. Close one, then click \u27f3 on this window.",6000,()=>revealWindow(s));}
+    }else if(m.type==="taken"){
+      // The same terminal was opened in another browser / device: the shell lives on there. Don't reconnect on our
+      // own (the two would steal it back and forth); the window's ⟳ takes it back.
+      tab.exited=true; setTabStatus(s,tab,"dead");
+      tab.term.write("\r\n\x1b[33m[opened on another device — click ⟳ to use it here]\x1b[0m\r\n");
     }else if(m.type==="exit"){
       tab.exited=true; setTabStatus(s,tab,"dead");
       if(tab.agent) updateAgentOverview();

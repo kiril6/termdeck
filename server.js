@@ -969,7 +969,10 @@ wss.on('connection', (ws, req) => {
   if (existing) {
     clearTimeout(existing.killTimer);
     existing.killTimer = null;
+    // Opened on another device / browser: close the old socket so it can't keep typing into a screen it no longer sees.
+    const prev = existing.ws;
     existing.ws = ws;
+    if (prev && prev !== ws) { send(prev, { type:'taken' }); prev.close(4001, 'opened elsewhere'); }
     replayTo(existing, ws, id);
     if (existing.agentEvt) {   // a replayed request is only answerable while its hook is still held; settled ones lose the reqId
       const e = existing.agentEvt, held = pendingApprovals.get(id)?.reqId === e.reqId;
@@ -1080,7 +1083,7 @@ wss.on('connection', (ws, req) => {
 function bindWsEvents(ws, id) {
   ws.on('message', (raw) => {
     let m; try { m = JSON.parse(raw.toString()); } catch { return; }
-    const s = live.get(id); if (!s) return;
+    const s = live.get(id); if (!s || s.ws !== ws) return;   // a taken-over socket is read-only until it closes
     if      (m.type === 'input'  && !s.isLog) {
       // Typing in the terminal = you're handling the prompt there; stop holding the hook (Codex blocks on it
       // before showing its prompt). Terminal-generated replies (cursor/device reports, focus) don't count.

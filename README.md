@@ -84,7 +84,7 @@ TD_ALLOWED_HOSTS=mybox.tail1234.ts.net TD_NOTIFY_URL=https://ntfy.sh/my-unguessa
 tailscale serve --bg 3000
 ```
 
-Needs the [agent hooks](docs/agent-hooks.md) for Approve and the exact state. Alerts include the command unless `TD_NOTIFY_DETAIL=0`. Full steps: [remote access](docs/remote-access.md).
+Needs the [agent hooks](docs/agent-hooks.md) for Approve and the exact state. Alerts leave out the command unless `TD_NOTIFY_DETAIL=1`. Full steps: [remote access](docs/remote-access.md).
 
 ---
 
@@ -184,7 +184,7 @@ Set via environment variable; `--port`, `--host` and `--no-open` also exist as f
 | `TD_CHECK_TIMEOUT` | `600` | Seconds the *Finish agent task* check may run before landing is blocked. |
 | `TD_LOG_DIR` | *(none)* | Write session logs (and the approval audit log) here. Off by default. |
 | `TD_ALLOWED_HOSTS` | *(none)* | Extra exact hostnames for a reverse proxy (e.g. `tailscale serve`). Switches to a per-start access token. |
-| `TD_NOTIFY_URL` | *(none)* | Webhook POSTed when an agent needs you (ntfy-ready). Also `TD_NOTIFY_EVENTS` (default `permission_request`), `TD_NOTIFY_DETAIL=0`. See [remote access](docs/remote-access.md#phone-notifications). |
+| `TD_NOTIFY_URL` | *(none)* | Webhook POSTed when an agent needs you (ntfy-ready). Also `TD_NOTIFY_EVENTS` (default `permission_request`), `TD_NOTIFY_DETAIL=1` (include the command). See [remote access](docs/remote-access.md#phone-notifications). |
 
 ### Updating
 

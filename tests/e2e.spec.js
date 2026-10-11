@@ -263,6 +263,21 @@ test.describe('live backend', () => {
     await expect(page.locator('#ov-overlay.open')).toHaveCount(0);
   });
 
+  test('opening a terminal elsewhere parks it here; ⟳ takes it back', async ({ page }) => {
+    const ids = [];
+    page.on('websocket', (ws) => { const m = /[?&]id=([^&]+)/.exec(ws.url()); if (m) ids.push(decodeURIComponent(m[1])); });
+    await boot(page, '/');
+    await expect.poll(() => ids.length).toBe(1);
+    await expect(page.locator('.win.dead')).toHaveCount(0);
+    await page.evaluate((id) => { window.__other = new WebSocket('ws://' + location.host + '/?id=' + encodeURIComponent(id)); }, ids[0]);   // "another device"
+    await expect(page.locator('.win.dead')).toHaveCount(1);              // parked, and it does not reconnect on its own
+    await page.waitForTimeout(1500);
+    await expect(page.locator('.win.dead')).toHaveCount(1);
+    await page.locator('.win .wbtn.restart').click();
+    await expect(page.locator('.win.dead')).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => window.__other.readyState)).toBe(3);   // and the other one is closed now
+  });
+
   test('terminal runs a command; reload reattaches and replays the buffer', async ({ page }) => {
     const frames = [];
     page.on('websocket', (ws) => ws.on('framereceived', (f) => frames.push(String(f.payload))));

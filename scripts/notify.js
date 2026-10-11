@@ -14,7 +14,7 @@ function configFrom(env) {
   const u = new URL(raw);
   if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('TD_NOTIFY_URL must be http(s)');
   const events = (env.TD_NOTIFY_EVENTS || '').split(',').map((s) => s.trim()).filter(Boolean);
-  return { url: u, events: new Set(events.length ? events : DEFAULT_EVENTS), detail: env.TD_NOTIFY_DETAIL !== '0' };
+  return { url: u, events: new Set(events.length ? events : DEFAULT_EVENTS), detail: env.TD_NOTIFY_DETAIL === '1' };   // commands can hold secrets: opt in
 }
 
 const ascii = (s) => String(s).replace(/[^\x20-\x7e]/g, '').slice(0, 120);   // header values must be plain ASCII

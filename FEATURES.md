@@ -172,6 +172,10 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   tmux, leak the old `td_*` session) instead of reattaching.
   `TD_GRACE_MS` and `TD_BUFFER` override those defaults with positive numeric values;
   invalid, zero, and negative values safely fall back to the defaults.
+- 🔌 **Opened elsewhere** — one terminal has one live screen. Opening the same terminal from another browser or device
+  (e.g. a phone over Tailscale) moves it there: the old socket gets `{type:'taken'}` and is closed (code 4001), and
+  input from it is ignored, so a stale screen can't keep typing blind. The old window shows *opened on another device*
+  and does not reconnect on its own (two screens would steal it back and forth); its **⟳** takes it back.
 - 🔌 **Live output: batching + backpressure** — the replay ring gets every byte; what goes to the socket is batched:
   a chunk with nothing pending is sent at once (typing echo stays instant), and chunks arriving within the next 8 ms
   are merged into one message (30 000 lines → ~17 frames; about a third of the server CPU under heavy output). A
@@ -612,8 +616,8 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   (`event, project, session, tool, detail, url`) when an agent hook event matches `TD_NOTIFY_EVENTS` (default
   `permission_request`; also `stop`, `error`, …). Works with ntfy.sh (sends `Title`/`Click` headers, so a tap opens
   termdeck), Slack/Discord/Home Assistant webhooks or any script. Node-core `http(s)`, no dependencies. Max one per terminal
-  per event type per 60 s; 5 s timeout; fire-and-forget, one warning on failure, never affects the terminal. `TD_NOTIFY_DETAIL=0`
-  drops `detail` (commands can hold secrets). Unset = no network calls. `termdeck doctor` validates the URL. The `url`
+  per event type per 60 s; 5 s timeout; fire-and-forget, one warning on failure, never affects the terminal. `detail` (the command / file
+  path) is left out unless `TD_NOTIFY_DETAIL=1` (commands can hold secrets). Unset = no network calls. `termdeck doctor` validates the URL. The `url`
   (`/#t=<terminal id>`) deep-links: opening it switches to that project and focuses/flashes the terminal. Hook events only —
   heuristic waiting states stay in the browser. Setup: [docs/remote-access.md](docs/remote-access.md).
 - 🖥️ **Last command + detected port in the window footer (#22)** — beside the cwd badge, the active tab shows `$ <last command>`

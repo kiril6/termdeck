@@ -7,6 +7,8 @@ assert.strictEqual(configFrom({}), null);
 assert.throws(() => configFrom({ TD_NOTIFY_URL: 'nope' }));
 assert.throws(() => configFrom({ TD_NOTIFY_URL: 'ftp://x/y' }));
 assert.deepStrictEqual([...configFrom({ TD_NOTIFY_URL: 'http://x/y' }).events], ['permission_request']);
+assert.strictEqual(configFrom({ TD_NOTIFY_URL: 'http://x/y' }).detail, false);                       // off unless opted in
+assert.strictEqual(configFrom({ TD_NOTIFY_URL: 'http://x/y', TD_NOTIFY_DETAIL: '1' }).detail, true);
 
 const got = [];
 const srv = http.createServer((req, res) => { let b = ''; req.on('data', (d) => b += d); req.on('end', () => { got.push({ h: req.headers, b: JSON.parse(b) }); res.end(); }); });
