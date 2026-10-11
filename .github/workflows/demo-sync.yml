@@ -1,5 +1,5 @@
 name: demo-sync
-# Fails a PR/push when public/index.html or public/app.css changed but the generated GitHub Pages
+# Fails a PR/push when public/index.html, app.css or app.js changed but the generated GitHub Pages
 # demo (docs/app/) wasn't rebuilt. Keeps the hosted demo from silently drifting.
 on:
   push:
@@ -8,6 +8,7 @@ on:
     paths:
       - 'public/index.html'
       - 'public/app.css'
+      - 'public/app.js'
       - 'scripts/build-demo.js'
       - 'docs/app/**'
 jobs:

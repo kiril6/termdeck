@@ -5,7 +5,7 @@ Contributions welcome. To keep the project simple and dependable, a few ground r
 ## Principles
 
 - **Keep the backend dependency-light.** It intentionally uses only `express`, `ws`, and `node-pty`. Don't add dependencies for what a few lines can do.
-- **No build step.** The frontend is hand-edited `public/index.html` (markup + JS) and `public/app.css`. Please keep it that way — no bundler, no framework.
+- **No build step.** The frontend is hand-edited `public/index.html` (markup), `public/app.js` and `public/app.css`. Please keep it that way — no bundler, no framework.
 - **Preserve the reattach invariant** (see [Architecture](README.md#architecture)). Test that a browser refresh doesn't kill or lose a shell.
 - **Test on more than one OS** when touching shell spawning or paths (`server.js`, `install.js`).
 - **Keep `FEATURES.md` current.** Any change that adds, removes, or alters user-facing behavior must update `FEATURES.md` in the same change.
@@ -21,13 +21,13 @@ This project is built with the help of [Claude Code](https://claude.com/claude-c
 
 ```bash
 npm start          # start the server
-# edit public/index.html or server.js, then reload the browser
-npm run build:demo # ONLY if you changed public/index.html — resync the GitHub Pages demo
+# edit public/* or server.js, then reload the browser
+npm run build:demo # ONLY if you changed public/ — resync the GitHub Pages demo
 ```
 
-There's no linter. `npm test` runs a small Playwright suite in Chromium (demo mode + one live-server run, ~30 s; first time `npx playwright install chromium`). CI also runs it in Firefox and WebKit on Linux; to do the same locally, `npx playwright install firefox webkit` once, then `PW_ALL_BROWSERS=1 npm test`. It also fails if `docs/app/index.html` is stale — run `npm run build:demo`. Verify UI changes by hand too, and keep any new tests lightweight.
+There's no linter. `npm test` runs a small Playwright suite in Chromium (demo mode + one live-server run, ~30 s; first time `npx playwright install chromium`). CI also runs it in Firefox and WebKit on Linux; to do the same locally, `npx playwright install firefox webkit` once, then `PW_ALL_BROWSERS=1 npm test`. It also fails if `docs/app/` is stale — run `npm run build:demo`. Verify UI changes by hand too, and keep any new tests lightweight.
 
-> **After editing `public/index.html`, run `npm run build:demo` and commit the result.** The hosted demo at `docs/app/` is a generated copy of the frontend; without a rebuild it drifts from the real app.
+> **After editing anything in `public/`, run `npm run build:demo` and commit the result.** The hosted demo at `docs/app/` is a generated copy of the frontend; without a rebuild it drifts from the real app.
 
 ## Submitting changes
 

@@ -32,7 +32,7 @@ Three files. Backend + frontend, no framework beyond Express.
 - `log=1` query param = read-only terminal (input from client is ignored — `isLog` gate in `bindWsEvents`).
 - `cwd` validated by `safeDir()` before spawn, falls back to `$HOME`.
 
-**`public/index.html`** + **`public/app.css`** — the frontend: markup and all JS in `index.html` (~300KB), styles in `app.css` (no bundler; split further in the refinement plan's R5).
+**`public/index.html`** + **`public/app.js`** + **`public/app.css`** — the frontend: markup in `index.html`, all JS in `app.js` (~280KB, one classic script wrapped in an IIFE — not an ES module, so the `file://` demo keeps working), styles in `app.css`. No bundler.
 - xterm.js + addons served locally from `node_modules` at `/vendor` (see `server.js`) — no CDN, runs fully offline after `npm install`.
 - Floating draggable/resizable window panes, tiling, projects sidebar, theme picker, command palette (⌘K), search.
 - Each pane opens its own WebSocket to the backend, passing `id`, `cols`, `rows`, `cwd`, optional `log`.
@@ -40,7 +40,7 @@ Three files. Backend + frontend, no framework beyond Express.
 - Demo mode (no backend): forced on `file://`, `?demo`, or a `github.io` host (`FORCE_DEMO`). Static hosts get the UI + a fake shell, no PTYs.
 
 **`docs/`** — GitHub Pages showcase (served at `kiril6.github.io/termdeck/`). `docs/index.html` is the landing page; `docs/app/` is a backend-free copy of the frontend for the live "Try the demo" link.
-- ⚠️ **`docs/app/index.html` and `docs/app/app.css` are generated copies of `public/`.** After ANY edit to `public/index.html` or `public/app.css`, run `npm run build:demo` (→ `scripts/build-demo.js`) and commit the result, or the hosted demo drifts from the real app. The script copies the HTML with `/vendor/` rewritten to relative paths, copies `app.css`, and re-copies the xterm assets.
+- ⚠️ **`docs/app/index.html`, `app.js` and `app.css` are generated copies of `public/`.** After ANY edit to `public/index.html`, `public/app.js` or `public/app.css`, run `npm run build:demo` (→ `scripts/build-demo.js`) and commit the result, or the hosted demo drifts from the real app. The script copies the HTML with `/vendor/` rewritten to relative paths, copies `app.js` and `app.css`, and re-copies the xterm assets.
 
 **`install.js`** — one-shot dependency installer. Picks node-pty variant by platform, installs base deps `--ignore-scripts` first, falls back to plain `npm install` on failure.
 
@@ -54,5 +54,5 @@ change.** Read it first when you need to know what already exists.
 
 - Backend is deliberately dependency-light (express, ws, node-pty only). Keep it that way.
 - The reattach/grace-timer + ring-buffer is the core invariant — changes to WS lifecycle in `bindWsEvents`/`connection` must preserve "disconnect ≠ kill, reconnect replays buffer".
-- UI icons are **monochrome inline SVGs** from the `ICON` map in `public/index.html` (`currentColor`, same style as the header buttons) — including toast icons. No emoji or text glyphs as icons; add a new `ICON` entry if none fits. Exceptions: status LED dots (`.led`, tab dots, `DEAD_DOT`) stay as coloured dots, and the "Needs approval" toast keeps its red tint.
+- UI icons are **monochrome inline SVGs** from the `ICON` map in `public/app.js` (`currentColor`, same style as the header buttons) — including toast icons. No emoji or text glyphs as icons; add a new `ICON` entry if none fits. Exceptions: status LED dots (`.led`, tab dots, `DEAD_DOT`) stay as coloured dots, and the "Needs approval" toast keeps its red tint.
 - **Never commit or push directly to `master`.** Before any commit run `git branch --show-current`; if it is `master` (or an already-merged branch), create a fresh feature branch first, push that, and open a PR.

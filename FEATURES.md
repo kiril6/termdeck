@@ -4,7 +4,7 @@ Single source of truth for what the TermDeck does. **Keep this current:**
 any change that adds, removes, or alters user-facing behavior must update this file in
 the same change (see the rule in `CLAUDE.md`).
 
-Legend: 🖥️ frontend (`public/index.html` + `public/app.css`) · 🔌 backend (`server.js`)
+Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 backend (`server.js`)
 
 ---
 
@@ -86,7 +86,7 @@ Legend: 🖥️ frontend (`public/index.html` + `public/app.css`) · 🔌 backen
   code, lists, blockquotes, tables, rules, `http(s)`/`mailto` links) in the file-viewer overlay; the header
   button flips to the raw source and back. Reach it by clicking a file in the tree **or** palette → *Open
   file…* (path relative to the project root, absolute, or `~/…`; works for any text file). Zero dependencies:
-  a ~40-line renderer inline in `public/index.html`. Input is HTML-escaped first (including quotes, so a
+  a ~40-line renderer in `public/app.js`. Input is HTML-escaped first (including quotes, so a
   link URL can't break out of its `href`) and images are shown as their alt text, so a file can't inject markup or trigger requests. Not full CommonMark (no nested lists /
   reference links). In the hosted demo the tree's `README.md` and the palette command open a sample document.
 - 📦 **Move to project (dock chip)** — the folder-arrow button on a dock chip moves that window to another project; it is **disabled (dimmed) while there is only one project** and enables as soon as a second exists.

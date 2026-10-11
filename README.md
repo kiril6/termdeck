@@ -286,7 +286,7 @@ Three files, no framework beyond Express, no build step.
 | File | Role |
 |---|---|
 | **`server.js`** | Express static server + `ws` WebSocket PTY multiplexer. One WebSocket per terminal, keyed by a client-supplied `id`. On disconnect the PTY is **not** killed — a grace timer holds it so reconnecting replays the buffer. |
-| **`public/index.html`** + **`app.css`** | The frontend: markup and JS in `index.html`, styles in `app.css`. No bundler. xterm.js is served locally from `node_modules`. State is saved to `localStorage`. |
+| **`public/index.html`** + **`app.js`** + **`app.css`** | The frontend: markup in `index.html`, JS in `app.js`, styles in `app.css`. No bundler. xterm.js is served locally from `node_modules`. State is saved to `localStorage`. |
 | **`install.js`** | One-shot installer that picks the right prebuilt `node-pty` for your platform. |
 
 **Core invariant:** *disconnect ≠ kill, reconnect replays the buffer.* Any change to the WebSocket lifecycle must preserve it.

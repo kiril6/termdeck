@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Build the static "Try the demo" copy for GitHub Pages (docs/app/).
-// Copies public/index.html with /vendor/ rewritten to relative paths, plus the
-// xterm assets it needs. The app forces demo mode on github.io (no backend, no shells).
-// Re-run after editing public/index.html:  npm run build:demo
+// Copies public/index.html with /vendor/ rewritten to relative paths, app.css and app.js, plus the
+// xterm assets they need. The app forces demo mode on github.io (no backend, no shells).
+// Re-run after editing anything in public/:  npm run build:demo
 const fs = require('fs');
 const path = require('path');
 
@@ -19,12 +19,12 @@ const assets = [
   '@xterm/addon-unicode11/lib/addon-unicode11.js',
 ];
 
-// index.html with absolute /vendor/ made relative so it works under /termdeck/app/
-const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8')
-  .replace(/(["'(])\/vendor\//g, '$1vendor/');
+// The app files with absolute /vendor/ made relative so they work under /termdeck/app/
 fs.mkdirSync(outDir, { recursive: true });
-fs.writeFileSync(path.join(outDir, 'index.html'), html);
-fs.copyFileSync(path.join(root, 'public', 'app.css'), path.join(outDir, 'app.css'));
+for (const f of ['index.html', 'app.js', 'app.css']) {
+  const src = fs.readFileSync(path.join(root, 'public', f), 'utf8').replace(/(["'(])\/vendor\//g, '$1vendor/');
+  fs.writeFileSync(path.join(outDir, f), src);
+}
 
 for (const rel of assets) {
   const src = path.join(root, 'node_modules', rel);
@@ -39,4 +39,4 @@ for (const pkg of pkgs) {
   const own = path.join(root, 'node_modules', pkg, 'LICENSE');
   fs.copyFileSync(fs.existsSync(own) ? own : path.join(root, 'node_modules', '@xterm/xterm', 'LICENSE'), path.join(outDir, 'vendor', pkg, 'LICENSE'));
 }
-console.log(`built docs/app/ — index.html, app.css + ${assets.length} vendor files + ${pkgs.length} licences`);
+console.log(`built docs/app/ — index.html, app.css, app.js + ${assets.length} vendor files + ${pkgs.length} licences`);
