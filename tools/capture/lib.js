@@ -10,6 +10,7 @@ const HOME = process.env.TD_CAPTURE_HOME || '/Users/Shared/dev';
 const REPO_DIR = process.env.TD_CAPTURE_REPO || '/Users/Shared/code/shop-api';
 const PORT = 4791, URL = `http://127.0.0.1:${PORT}`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let token = '';   // the sign-in secret; hook events send it too, or an approval is not held (no Approve / Deny buttons)
 
 async function boot({ width = 1440, height = 900, dsf = 2, theme = 'tokyoNight' } = {}) {
   execFileSync(path.join(__dirname, 'setup.sh'), [HOME, REPO_DIR], { stdio: 'inherit' });
@@ -25,7 +26,7 @@ async function boot({ width = 1440, height = 900, dsf = 2, theme = 'tokyoNight' 
     args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
   });
   const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: dsf });
-  const token = fs.readFileSync(path.join(HOME, '.termdeck', 'token'), 'utf8').trim();   // sign in like `termdeck open` does
+  token = fs.readFileSync(path.join(HOME, '.termdeck', 'token'), 'utf8').trim();   // sign in like `termdeck open` does
   await ctx.addCookies([{ name: 'td_token', value: token, url: URL }]);
   const page = await ctx.newPage();
   const ids = [];   // {id, cwd} per terminal websocket, in creation order
@@ -47,7 +48,7 @@ async function boot({ width = 1440, height = 900, dsf = 2, theme = 'tokyoNight' 
   return { page, ids, done };
 }
 
-const evt = (id, body) => fetch(URL + '/api/agent-events', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: URL }, body: JSON.stringify({ id, ...body }) });
+const evt = (id, body) => fetch(URL + '/api/agent-events', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: URL, Cookie: `td_token=${token}` }, body: JSON.stringify({ id, ...body }) });
 
 async function palette(page, label) {
   await page.keyboard.press('ControlOrMeta+k');
