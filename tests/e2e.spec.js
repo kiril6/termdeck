@@ -2,6 +2,7 @@ const { test, expect } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const AxeBuilder = require('@axe-core/playwright').default;
 
 const ROOT = path.join(__dirname, '..');
 const STATE = 'td.state.v5';
@@ -213,6 +214,60 @@ test.describe('layout presets + Alt+N (#51)', () => {
     await page.locator('#palette input').first().fill('restore layout');
     await labels(page).filter({ hasText: /^Restore layout/ }).first().click();
     await expect(page.locator('.lay-row', { hasText: 'Demo one' })).toBeVisible();
+  });
+});
+
+// axe-core's WCAG checks; serious/critical findings fail, moderate ones (landmark structure) are not gated.
+async function axeIssues(page, where) {
+  const { violations } = await new AxeBuilder({ page }).analyze();
+  return violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')
+    .map((v) => `${where}: ${v.id} — ${v.nodes.slice(0, 5).map((n) => n.target.join(' ')).join(', ')}`);
+}
+
+test.describe('accessibility', () => {
+  for (const theme of ['console', 'solarizedLight']) {
+    test(`no serious/critical axe findings on the main surfaces (${theme})`, async ({ page }) => {
+      test.setTimeout(60000);
+      await page.addInitScript((t) => localStorage.setItem('td.theme.v2', t), theme);
+      await boot(page, '/?demo');
+      const found = await axeIssues(page, 'desktop');
+      await openPalette(page);
+      await page.keyboard.press('ArrowDown');   // the highlighted row is announced through aria-activedescendant
+      expect(await page.locator('#pal-input').getAttribute('aria-activedescendant')).toBe(await page.locator('#pal-list .pal-item.hi').getAttribute('id'));
+      found.push(...await axeIssues(page, 'palette')); await page.keyboard.press('Escape');
+      for (const [btn, where] of [['#sc-btn', 'help'], ['#agent-btn', 'sessions'], ['#theme-btn', 'theme picker'], ['#search-btn', 'session search'], ['#sb-btn', 'directory tree']]) {
+        await page.locator(btn).click(); await page.waitForTimeout(250);
+        found.push(...await axeIssues(page, where)); await page.keyboard.press('Escape');
+      }
+      await page.locator('#agent-btn').click(); await page.locator('#agent-to-grid').click(); await page.waitForTimeout(250);
+      found.push(...await axeIssues(page, 'live overview'));
+      expect(found).toEqual([]);
+    });
+  }
+
+  test('every theme keeps UI text at WCAG AA (4.5:1) on its surfaces; theme cards are buttons', async ({ page }) => {
+    await boot(page, '/?demo');
+    await page.locator('#theme-btn').click();
+    const cards = page.locator('#theme-grid button.tcard');
+    const n = await cards.count();
+    expect(n).toBeGreaterThan(20);
+    const low = [];
+    for (let i = 0; i < n; i++) {
+      await cards.nth(i).click();
+      await expect(cards.nth(i)).toHaveAttribute('aria-pressed', 'true');
+      low.push(...await page.evaluate(() => {
+        const css = getComputedStyle(document.documentElement), v = (k) => css.getPropertyValue(k).trim();
+        const lum = (h) => { const c = [1, 3, 5].map((j) => { const x = parseInt(h.slice(j, j + 2), 16) / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+        const cr = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+        const out = [];
+        for (const fg of ['--text', '--muted', '--accent-text']) for (const bg of ['--bg', '--panel', '--panel-2', '--win-body', '--btn-bg', '--chip-bg', '--chip-active']) {
+          if (!/^#[0-9a-f]{6}$/i.test(v(bg))) continue;
+          const r = cr(v(fg), v(bg)); if (r < 4.5) out.push(`${document.querySelector('#theme-grid .tcard.current .tname').textContent} ${fg} on ${bg}: ${r.toFixed(2)}`);
+        }
+        return out;
+      }));
+    }
+    expect(low).toEqual([]);
   });
 });
 

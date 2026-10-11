@@ -79,13 +79,35 @@ const THEME_ORDER=["console","tokyoNight","dracula","catppuccin","rosePine","nor
 const THEME_STORE="td.theme.v2", STORE="td.state.v5";
 let defaultThemeId="console";
 try{const sv=localStorage.getItem(THEME_STORE);if(sv&&THEMES[sv])defaultThemeId=sv;}catch{}
+// WCAG relative luminance and contrast ratio of #rrggbb colours.
+function lum(hex){
+  const c=[1,3,5].map((i)=>{const v=parseInt(hex.slice(i,i+2),16)/255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4);});
+  return .2126*c[0]+.7152*c[1]+.0722*c[2];
+}
+const contrast=(a,b)=>{const x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
 // Readable text for accent-filled surfaces (primary button, hovered menu row): whichever of near-black / white has the higher WCAG contrast on the accent.
 function onAccent(hex){
-  const c=[1,3,5].map((i)=>{const v=parseInt(hex.slice(i,i+2),16)/255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4);});
-  const L=.2126*c[0]+.7152*c[1]+.0722*c[2];
+  const L=lum(hex);
   return 1.05/(L+.05)>(L+.05)/.05?"#ffffff":"#08120f";   // contrast vs white  >  contrast vs #08120f (L≈.005)
 }
-function applyUITheme(id){const t=THEMES[id]||THEMES.console;const r=document.documentElement.style;Object.entries(t.ui).forEach(([k,v])=>r.setProperty(k,v));r.setProperty("--on-accent",onAccent(t.ui["--accent"]));}
+// Text tokens reach WCAG AA (4.5:1) on every surface they sit on. A theme whose --text/--muted is dimmer than that is
+// lifted toward `pole` in 5% steps, so it keeps its tint and its muted-vs-text hierarchy as far as AA allows.
+function readable(fg,bgs,pole){
+  const mix=(t)=>"#"+[1,3,5].map((i)=>Math.round(parseInt(fg.slice(i,i+2),16)*(1-t)+parseInt(pole.slice(i,i+2),16)*t).toString(16).padStart(2,"0")).join("");
+  for(let i=0;i<=20;i++){const c=mix(i/20);if(bgs.every((b)=>contrast(c,b)>=4.5))return c;}
+  return pole;
+}
+const TEXT_SURFACES=["--bg","--panel","--panel-2","--win-body","--btn-bg","--chip-bg","--chip-active","--ptab-hover"];
+function applyUITheme(id){
+  const t=THEMES[id]||THEMES.console, u=t.ui, r=document.documentElement.style;
+  Object.entries(u).forEach(([k,v])=>r.setProperty(k,v));
+  r.setProperty("--on-accent",onAccent(u["--accent"]));
+  const bgs=TEXT_SURFACES.map((k)=>u[k]).filter((v)=>/^#[0-9a-f]{6}$/i.test(v||""));
+  const pole=lum(u["--panel"])<.18?"#ffffff":"#000000", text=readable(u["--text"],bgs,pole);
+  r.setProperty("--text",text);
+  r.setProperty("--muted",readable(u["--muted"],bgs,text));
+  r.setProperty("--accent-text",readable(u["--accent"],bgs,pole));   // --accent stays as-is for fills, borders and glows
+}
 applyUITheme(defaultThemeId);
 
 /* ════════════════════════════════════════════════
@@ -2312,7 +2334,7 @@ function renderThemeGrid(filter){
   THEME_ORDER.forEach((id)=>{
     const t=THEMES[id]; if(!t)return;
     if(filter&&!t.name.toLowerCase().includes(filter))return;
-    const card=el("div","tcard"+(id===aid?" current":""));
+    const card=el("button","tcard"+(id===aid?" current":"")); card.type="button"; card.setAttribute("aria-pressed",String(id===aid));
     const nm=el("div","tname");const nt=el("span");nt.textContent=t.name;const chk=el("span","tcheck");chk.textContent="\u2713";nm.append(nt,chk);
     const sw=el("div","tswatch");sw.style.background=t.dots[0];t.dots.slice(1).forEach((c)=>{const d=el("span","tdot");d.style.background=c;sw.append(d);});
     card.append(nm,sw);
@@ -2563,7 +2585,6 @@ function buildPalette(q){
     });
     if(!q&&extra.length){   // toggle row: a normal list item, so arrow keys + Enter reach it
       const item=el("div","pal-item pal-more");
-      item.setAttribute("role","button"); item.setAttribute("aria-expanded",aiMore);
       const body=el("div","pi-body");
       const lb=el("div","pi-label");lb.textContent=aiMore?"Fewer agents":"More agents ("+extra.length+")";
       body.append(lb);
@@ -2573,7 +2594,7 @@ function buildPalette(q){
       item.addEventListener("click",()=>{
         aiMore=!aiMore; palMatches=buildPalette(palInput.value);
         const k=palMatches.findIndex((m)=>m.classList.contains("pal-more"));   // keep the highlight on the toggle
-        if(k>=0){palMatches.forEach((m)=>m.classList.remove("hi")); palHi=k; palMatches[k].classList.add("hi");}
+        if(k>=0){palHi=k; palMark();}
         palInput.focus();
       });
       palList.append(item);all.push(item);
@@ -2599,8 +2620,14 @@ function buildPalette(q){
   }
   if(!all.length){const e=el("div","pal-empty");e.textContent="No results for \u201c"+q+"\u201d";palList.append(e);}
   else if(!q&&palCat==="All"){const e=el("div","pal-foot");e.textContent="Type to search all "+PAL_CMDS.length+" commands \u00b7 Tab cycles categories";palList.append(e);}
-  if(all[0]) all[0].classList.add("hi");
+  all.forEach((it,i)=>{it.id="pal-opt-"+i;it.setAttribute("role","option");});
+  palMatches=all; palHi=0; palMark();
   return all;
+}
+// One highlighted row: the class for the eye, aria-selected + aria-activedescendant for screen readers (focus stays in the input).
+function palMark(){
+  palMatches.forEach((m,i)=>{m.classList.toggle("hi",i===palHi);m.setAttribute("aria-selected",String(i===palHi));});
+  if(palMatches[palHi]) palInput.setAttribute("aria-activedescendant",palMatches[palHi].id); else palInput.removeAttribute("aria-activedescendant");
 }
 // Escapes every piece, so a label (snippet, SSH host, preset, window name) can never inject markup.
 function hlMatch(str,q){
@@ -2625,9 +2652,8 @@ function openShortcuts(){closeModals("sc");scOverlay.classList.add("open");}
 function openPalette(){closeModals("palette");palOverlay.classList.add("open");palette.classList.add("open");palCat="All";aiMore=false;renderPalCats();palInput.value="";palClear.hidden=true;palInput.placeholder=snippets.length?"Type a command, snippet, or search sessions…":"Type a command or search sessions…";palMatches=buildPalette("");palInput.focus();}
 function closePalette(){palOverlay.classList.remove("open");palette.classList.remove("open");}
 function palMove(d){
-  palMatches.forEach((m)=>m.classList.remove("hi"));
-  palHi=clamp(palHi+d,0,palMatches.length-1);
-  if(palMatches[palHi]){palMatches[palHi].classList.add("hi");palMatches[palHi].scrollIntoView({block:"nearest"});}
+  palHi=clamp(palHi+d,0,palMatches.length-1); palMark();
+  if(palMatches[palHi]) palMatches[palHi].scrollIntoView({block:"nearest"});
 }
 const palClear=document.getElementById("pal-clear");
 palClear.innerHTML=ICON.x;

@@ -482,6 +482,15 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
 ## Appearance & layout
 - 🖥️ Themes — per-terminal or dashboard-wide, searchable picker (`⌘⇧P`). 24 built-in: 17 dark + 7 light (GitHub Light, Paper, Solarized Light, One Light, Catppuccin Latte, Rose Pine Dawn, Gruvbox Light).
   Text on accent-filled surfaces (the primary dialog button, hovered menu rows) is picked per theme as near-black or white, whichever contrasts more with that theme's accent (≥4.7:1 across all 24), via the `--on-accent` variable.
+  **Readable text on every theme (WCAG AA):** when a theme is applied, its `--text`, `--muted` and `--accent-text`
+  (accent used as a text colour) are lifted in 5% steps toward the text colour / white / black until they reach 4.5:1
+  on every surface they sit on, so a theme keeps its tint. Fills, borders and glows still use the theme's own `--accent`.
+  UI text is never dimmed with opacity (a minimized dock chip is dashed + muted instead of faded).
+- 🖥️ **Accessibility** — the ⌘K palette is a combobox + listbox (`aria-activedescendant` follows the highlighted row, so
+  screen readers announce it while focus stays in the input); theme cards are buttons (Tab + Enter picks a theme,
+  `aria-pressed` marks the current one); every button, link and tab shows a focus ring when reached by keyboard. Guarded
+  by an axe-core check in the e2e suite (no serious/critical findings across the main surfaces in a dark and a light
+  theme) and a contrast check over all 24 themes.
 - 🖥️ Dock — bottom session bar with activity/attention indicators, overflow edge hints, and pointer-event drag-and-drop reordering (desktop: immediate; touch: long-press ~250ms to drag, so swiping over chips scrolls the dock).
 - 🖥️ **Layout split button** — the toolbar *Tile* button tiles in one click (`⌘⌥⇧T`); its **▾** opens a menu with Tile windows, the
   1×1 / 2×1 / 1×2 / 2×2 / 3×2 presets (each drawn as a small grid icon), *Restore minimized (N)* and Fullscreen (`F11` / `⌃⌘F`),
