@@ -230,7 +230,8 @@ test.describe('live backend', () => {
     await expect(page.locator('.win .foot-port').first()).toHaveAttribute('title', /localhost:4321/);
     await Promise.all([page.waitForEvent('popup'), page.locator('.win .foot-port').first().click()]);   // click → new tab
     await expect(page.locator('.win .foot-port').first()).toBeHidden({ timeout: 8000 });   // prompt back → server gone
-    await page.keyboard.type('echo hi\x7fey\n');                                           // backspace edits are honoured
+    await page.keyboard.type('echo hi'); await page.keyboard.press('Backspace');             // backspace edits are honoured
+    await page.keyboard.type('ey\n');                                                     // (a real key: Firefox drops a typed \x7f)
     await expect(page.locator('.win .badge.cmd').first()).toHaveText('$ echo hey');
   });
 
