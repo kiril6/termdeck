@@ -2,6 +2,10 @@
 
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
+## 1.25.1
+- **Sessions button** — back to the robot icon (the grid icon clashed with *Tile*); the palette's *Live overview* entry gets its own monitor icon.
+- **Live overview is sorted by urgency** — needs approval, waiting, working, running, idle, exited — with a teal border for working / running tiles, and a new **All | Active** filter that hides idle sessions. It defaults to Active while anything is running and to All otherwise; your pick is remembered.
+
 ## 1.25.0
 - **Port globe** — a detected dev-server port now shows as a globe icon in the window footer, left of the snippet icon (it replaces the `:PORT` badge). Click opens `http://localhost:PORT` in a new tab; right-click offers *Open*, *Copy URL* and *Stop server*, which sends SIGTERM to the listener, only if it belongs to that terminal (macOS / Linux).
 - **Palette search ranks by relevance** — word-start matches come first, and presets sort after real commands.
