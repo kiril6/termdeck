@@ -19,7 +19,7 @@ module.exports = [
   },
   {
     // Playwright code runs page.evaluate() callbacks in the browser
-    files: ['tests/**/*.js', 'tools/capture/**/*.js'],
+    files: ['tests/**/*.js', 'tools/capture/**/*.js', 'tools/soak/**/*.js'],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   {
