@@ -107,8 +107,11 @@ function applyUITheme(id){
   r.setProperty("--text",text);
   r.setProperty("--muted",readable(u["--muted"],bgs,text));
   r.setProperty("--accent-text",readable(u["--accent"],bgs,pole));   // --accent stays as-is for fills, borders and glows
+  const vars={}; for(const k of [...Object.keys(u),"--on-accent","--accent-text"]) vars[k]=r.getPropertyValue(k);
+  try{localStorage.setItem("td.themevars.v1",JSON.stringify(vars));}catch{}   // read by the <head> script on the next load
 }
 applyUITheme(defaultThemeId);
+requestAnimationFrame(()=>requestAnimationFrame(()=>document.documentElement.classList.remove("td-boot")));   // theme painted: transitions back on
 
 /* ════════════════════════════════════════════════
    DOM REFS

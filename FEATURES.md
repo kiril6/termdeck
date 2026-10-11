@@ -536,6 +536,8 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
 ## Persistence & safety
 - 🖥️ Layout (windows, projects, themes) saved to `localStorage` (`td.state.v5`, `td.theme.v2`),
   debounced 300ms.
+  The applied theme's colours are also cached (`td.themevars.v1`) and painted by a one-line script in `<head>` before
+  `app.js` loads, so a light theme doesn't flash dark on reload; transitions stay off until the theme is applied.
 - 🖥️ **Single-instance guard** — a timestamped `localStorage` lock + heartbeat elects one active
   tab; extra dashboard tabs go passive behind an overlay so they can't clobber shared state.
 - 🖥️ **Confirm before losing shells** — `beforeunload` native prompt on browser close/refresh when

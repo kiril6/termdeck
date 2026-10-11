@@ -221,7 +221,7 @@ test.describe('layout presets + Alt+N (#51)', () => {
 async function axeIssues(page, where) {
   const { violations } = await new AxeBuilder({ page }).analyze();
   return violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')
-    .map((v) => `${where}: ${v.id} — ${v.nodes.slice(0, 5).map((n) => n.target.join(' ')).join(', ')}`);
+    .map((v) => `${where}: ${v.id} — ${v.nodes.slice(0, 5).map((n) => `${n.target.join(' ')} (${(n.failureSummary || '').split('\n')[1]?.trim() || ''})`).join(', ')}`);
 }
 
 test.describe('accessibility', () => {

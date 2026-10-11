@@ -1,3 +1,5 @@
+/* Until app.js has applied the theme (index.html <head>): no transitions, so nothing animates from the default colours. */
+.td-boot *,.td-boot *::before,.td-boot *::after{transition:none!important;}
 /* ── CSS vars (overridden per theme) ── */
 :root{
   --bg:#0b0f14;--grid:#101820;--panel:#121a23;--panel-2:#0e151d;
