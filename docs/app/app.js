@@ -41,6 +41,7 @@ const ICON={
   arrowUp:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
   pin:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5M9 3h6l-1 6 3 3H7l3-3-1-6z"/></svg>',
   collapse:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M16 9l-3 3 3 3"/></svg>',
+  move:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v20M2 12h20"/><path d="m9 5 3-3 3 3M15 19l-3 3-3-3M5 9l-3 3 3 3M19 9l3 3-3 3"/></svg>',
 };
 
 /* ════════════════════════════════════════════════
@@ -2020,7 +2021,7 @@ function snapWinHeight(s){
 // Left/top move only for the w/n edges so the opposite edge stays anchored.
 function startResize(s,dirs,e){
   e.stopPropagation(); e.preventDefault(); focus(s); if(s.maximized)return;
-  const win=s.win, MINW=320, MINH=200;
+  const win=s.win, MINW=WIN_MINW, MINH=WIN_MINH;
   const x0=parseFloat(win.style.left)||0, y0=parseFloat(win.style.top)||0, w0=win.offsetWidth, h0=win.offsetHeight;
   const dr=desktop.getBoundingClientRect();   // clamp so no edge leaves the desktop bounds
   const sx=e.clientX, sy=e.clientY;
@@ -2052,6 +2053,48 @@ function startResize(s,dirs,e){
   };
   const up=(ev)=>{document.removeEventListener("pointermove",mv); document.removeEventListener("pointerup",up); hideGuides(); refitActive(s); snapWinHeight(s); if(gp){refitActive(gp); if(!sharedEdge(s,gp)) unglue(s);} scheduleSave(); offerGlue(s,ev);};
   document.addEventListener("pointermove",mv); document.addEventListener("pointerup",up);
+}
+const WIN_MINW=320, WIN_MINH=200;
+// Keyboard move / resize (palette → "Move or resize window"): arrows move the focused window, Shift+arrows resize it,
+// 10 px a step (1 px with Alt/⌥); Enter keeps it, Esc puts it back, a click elsewhere keeps it. Same bounds as dragging;
+// a glued partner moves along, and a resize that breaks their shared edge unglues them, as a drag does.
+function keyboardMoveWindow(s){
+  if(!s||s.minimized) return;
+  if(s.maximized) toggleMax(s);
+  const win=s.win, gp=gluePartner(s);
+  const rectOf=(w)=>w&&{left:w.win.style.left,top:w.win.style.top,width:w.win.style.width,height:w.win.style.height};
+  const was=[rectOf(s),rectOf(gp)];
+  const num=(w,k)=>parseFloat(w.win.style[k])||0;
+  win.classList.add("kbd-move"); focus(s);
+  toast(ICON.move,"Move or resize “"+s.name+"”","Arrows move · Shift+arrows resize · Enter done · Esc cancel",6000);
+  const finish=(keep)=>{
+    document.removeEventListener("keydown",onKey,true); document.removeEventListener("pointerdown",onPointer,true);
+    win.classList.remove("kbd-move"); hideGuides();
+    if(!keep){Object.assign(win.style,was[0]); if(gp) Object.assign(gp.win.style,was[1]);}
+    refitActive(s); snapWinHeight(s); if(gp){refitActive(gp); if(!sharedEdge(s,gp)) unglue(s);}
+    scheduleSave(); focus(s);
+  };
+  const onPointer=()=>finish(true);
+  const onKey=(e)=>{
+    e.preventDefault(); e.stopPropagation();   // a mode: no key reaches the terminal or the app's shortcuts until it ends
+    if(e.key==="Enter"){finish(true); return;}
+    if(e.key==="Escape"){finish(false); return;}
+    const d={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key]; if(!d) return;
+    const step=e.altKey?1:10, dx=d[0]*step, dy=d[1]*step, dr=desktop.getBoundingClientRect();
+    const x=num(s,"left"), y=num(s,"top"), w=win.offsetWidth, h=win.offsetHeight;
+    if(e.shiftKey){   // right/bottom edge: grow or shrink, never past the desktop
+      win.style.width=clamp(w+dx,WIN_MINW,Math.max(WIN_MINW,dr.width-x))+"px";
+      win.style.height=clamp(h+dy,WIN_MINH,Math.max(WIN_MINH,dr.height-y))+"px";
+      refitActive(s);
+    }else{   // the drag's bounds: 80 px stays on screen, the header never goes above the top
+      const ex=gp?[s,gp]:[s];
+      const mx=ex.reduce((m,o)=>[Math.max(m[0],-o.win.offsetWidth+80-num(o,"left")),Math.min(m[1],dr.width-80-num(o,"left"))],[-Infinity,Infinity]);
+      const my=ex.reduce((m,o)=>[Math.max(m[0],-num(o,"top")),Math.min(m[1],dr.height-34-num(o,"top"))],[-Infinity,Infinity]);
+      const ddx=clamp(dx,mx[0],mx[1]), ddy=clamp(dy,my[0],my[1]);
+      ex.forEach((o)=>{o.win.style.left=(num(o,"left")+ddx)+"px"; o.win.style.top=(num(o,"top")+ddy)+"px";});
+    }
+  };
+  document.addEventListener("keydown",onKey,true); document.addEventListener("pointerdown",onPointer,true);
 }
 // Per-terminal font zoom (⌘+/⌘-/⌘0). dir>0 in, <0 out, 0 reset.
 function zoomTab(s,tab,dir){
@@ -2432,6 +2475,7 @@ const PAL_CMDS=[
   ...LAYOUT_PRESETS.map(([c,r])=>({layout:1,icon:ICON.grid,label:"Layout "+c+"\u00d7"+r,sub:c+" column"+(c>1?"s":"")+" \u00d7 "+r+" row"+(r>1?"s":"")+" \u2014 extra windows are minimized",run:()=>tileGrid(c,r,"Layout "+c+"\u00d7"+r)})),
   {icon:ICON.monitor,label:"Live overview",sub:"Read-only tiles of every session's latest output",run:()=>{closePalette();openOverview();}},
   {icon:ICON.sidebar,label:"Toggle directory tree",sub:"Show/hide sidebar",kbd:"\u2318B",run:toggleSidebar},
+  {icon:ICON.move,label:"Move or resize window",sub:"With the keyboard \u2014 arrows move, Shift+arrows resize, Enter done, Esc cancel",run:()=>{const s=focusedId&&sessions.get(focusedId); closePalette(); if(s) keyboardMoveWindow(s); else toast(ICON.warn,"No window focused","Click a window or press \u2325+1\u20139 first",2800);}},
   {icon:ICON.search,label:"Search sessions",sub:"Filter by name or path",kbd:"\u2318F",run:()=>{closePalette();openSessSearch();}},
   {icon:ICON.theme,label:"Change theme",sub:"Open theme picker",kbd:"\u2318\u21e7P",run:()=>{closePalette();openThemePop(null,themeBtn);}},
   {icon:ICON.grid,label:"Save layout as\u2026",sub:"Name the current projects, windows and folders so you can bring them back later",run:()=>{closePalette();saveLayoutAs();}},
@@ -2462,7 +2506,7 @@ const PAL_CAT_OF={"New terminal":"Terminals","New log panel":"Terminals","Add SS
   "New agent task\u2026":"Agents","Finish agent task\u2026":"Agents","Review agent changes\u2026":"Agents","Add AI CLI preset\u2026":"Agents",
   "Reset usage":"Agents","Reset agent order":"Agents",
   "Live overview":"Sessions","Search sessions":"Sessions",
-  "Toggle directory tree":"Layout","Save layout as\u2026":"Layout","Restore layout\u2026":"Layout",
+  "Toggle directory tree":"Layout","Move or resize window":"Layout","Save layout as\u2026":"Layout","Restore layout\u2026":"Layout",
   "Keyboard shortcuts":"Help","Take the tour":"Help",
   "Play game":"Fun","Toggle pixel pets":"Fun"};
 PAL_CMDS.forEach((c)=>{c.cat=PAL_CAT_OF[c.label]||(c.layout?"Layout":"Settings");});

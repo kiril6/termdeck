@@ -177,7 +177,7 @@ test.describe('layout presets + Alt+N (#51)', () => {
     await expect(page.locator('.win')).toHaveCount(3);
     await openPalette(page);
     await page.locator('.pal-cat', { hasText: 'Layout' }).click();
-    await expect(page.locator('.pal-item')).toHaveCount(9);           // Tile windows + 5 presets + Toggle directory tree + Save/Restore layout
+    await expect(page.locator('.pal-item')).toHaveCount(10);          // Tile windows + 5 presets + Toggle directory tree + Move or resize window + Save/Restore layout
     await page.keyboard.type('Layout 2×2');
     await page.keyboard.press('Enter');
     await expect(page.locator('.win:visible')).toHaveCount(3);        // 3 windows fit a 2×2
@@ -217,16 +217,15 @@ test.describe('layout presets + Alt+N (#51)', () => {
   });
 });
 
-// axe-core's WCAG checks; serious/critical findings fail, moderate ones (landmark structure) are not gated.
+// axe-core's WCAG + best-practice checks; any finding fails, whatever its impact.
 async function axeIssues(page, where) {
   const { violations } = await new AxeBuilder({ page }).analyze();
-  return violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')
-    .map((v) => `${where}: ${v.id} — ${v.nodes.slice(0, 5).map((n) => `${n.target.join(' ')} (${(n.failureSummary || '').split('\n')[1]?.trim() || ''})`).join(', ')}`);
+  return violations.map((v) => `${where}: ${v.id} — ${v.nodes.slice(0, 5).map((n) => `${n.target.join(' ')} (${(n.failureSummary || '').split('\n')[1]?.trim() || ''})`).join(', ')}`);
 }
 
 test.describe('accessibility', () => {
   for (const theme of ['console', 'solarizedLight']) {
-    test(`no serious/critical axe findings on the main surfaces (${theme})`, async ({ page }) => {
+    test(`no axe findings on the main surfaces (${theme})`, async ({ page }) => {
       test.setTimeout(60000);
       await page.addInitScript((t) => localStorage.setItem('td.theme.v2', t), theme);
       await boot(page, '/?demo');
@@ -294,6 +293,36 @@ test.describe('accessibility', () => {
     await expect(page.locator('.win')).toHaveCount(2);
     await page.waitForTimeout(150);                                     // past the dialog's deferred focus return
     expect(await page.evaluate(() => { const w = [...document.querySelectorAll('.win')].find((x) => x.contains(document.activeElement)); return !!w && document.activeElement.classList.contains('xterm-helper-textarea'); })).toBe(true);
+  });
+
+  test('keyboard move / resize: arrows move, Shift+arrows resize, Esc puts it back, Enter keeps it', async ({ page }) => {
+    await trackTerms(page);
+    await boot(page, '/?demo');
+    const win = page.locator('.win').first();
+    await win.locator('.xterm').click({ force: true });                 // focus the window
+    const box = () => win.evaluate((w) => ({ x: parseFloat(w.style.left), y: parseFloat(w.style.top), w: w.offsetWidth }));
+    const typed = [];                                                   // nothing may reach the shell while the mode is on
+    await page.exposeFunction('__typed', (d) => typed.push(d));
+    await page.evaluate(() => window.__terms[0].onData((d) => window.__typed(d)));
+    const enter = async () => {
+      await openPalette(page);
+      await page.locator('#pal-input').fill('move or resize');
+      await page.keyboard.press('Enter');
+      await expect(win).toHaveClass(/kbd-move/);
+    };
+    const b0 = await box();
+    await enter();
+    for (const k of ['ArrowRight', 'ArrowRight', 'ArrowDown', 'Alt+ArrowRight']) await page.keyboard.press(k);
+    expect(await box()).toEqual({ x: b0.x + 21, y: b0.y + 10, w: b0.w });
+    await page.keyboard.press('Escape');
+    await expect(win).not.toHaveClass(/kbd-move/);
+    expect(await box()).toEqual(b0);
+    await enter();
+    await page.keyboard.press('Shift+ArrowLeft');                      // right edge in: 10 px narrower
+    await page.keyboard.press('Enter');
+    await expect(win).not.toHaveClass(/kbd-move/);
+    expect(await box()).toEqual({ x: b0.x, y: b0.y, w: b0.w - 10 });
+    expect(typed).toEqual([]);
   });
 
   test('every theme keeps UI text at WCAG AA (4.5:1) on its surfaces; theme cards are buttons', async ({ page }) => {

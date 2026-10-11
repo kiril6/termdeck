@@ -18,8 +18,8 @@
 <body>
 
 <!-- ═══ TOP BAR ═══ -->
-<div class="bar">
-  <div class="brand"><span class="dot">▚</span> TermDeck <small id="mode">·</small></div>
+<div class="bar" role="banner">
+  <div class="brand" role="heading" aria-level="1"><span class="dot">▚</span> TermDeck <small id="mode">·</small></div>
   <div class="spacer"></div>
   <div class="status" id="conn"><span class="led"></span><span id="conn-text">connecting…</span></div>
   <button class="kbdhint" id="pal-btn">⌘ K</button>
@@ -90,13 +90,13 @@
 </div>
 
 <!-- ═══ PROJECTS BAR ═══ -->
-<div class="projects" id="projects">
+<div class="projects" id="projects" role="navigation" aria-label="Projects">
   <div class="proj-scroll" id="proj-scroll"><div class="proj-track" id="proj-track"></div><span class="proj-edge left" id="proj-edge-l">‹</span><span class="proj-edge right" id="proj-edge-r">›</span></div>
   <span class="paddbtn" id="padd" aria-label="New project" role="button" tabindex="0"></span>
 </div>
 
 <!-- ═══ SESSION SEARCH BAR ═══ -->
-<div class="sess-search" id="sess-search">
+<div class="sess-search" id="sess-search" role="search">
   <span class="ss-icon"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg></span>
   <input id="ss-input" placeholder="Filter sessions & tabs by name or directory…" spellcheck="false"/>
   <span class="ss-count" id="ss-count"></span>
@@ -105,7 +105,7 @@
 </div>
 
 <!-- ═══ DESKTOP ═══ -->
-<div class="desktop" id="desktop">
+<div class="desktop" id="desktop" role="main" aria-label="Terminal windows">
   <div class="hint" id="hint">
     <div class="k"><span>▚</span> <span>▚</span> <span>▚</span></div>
     <p>No sessions yet</p>
@@ -121,7 +121,7 @@
 </div>
 
 <!-- ═══ DIR TREE SIDEBAR ═══ -->
-<div class="sidebar" id="sidebar">
+<div class="sidebar" id="sidebar" role="complementary" aria-label="Directory tree">
   <div class="sb-resize" id="sb-resize" title="Drag to resize · double-click to reset"></div>
   <div class="sb-head">
     <span class="sb-title" id="sb-title">Directory Tree</span>
@@ -134,10 +134,10 @@
 </div>
 
 <!-- ═══ DOCK ═══ -->
-<div class="dock" id="dock"><span class="dock-label">Sessions</span><div class="dock-scroll" id="dock-scroll"><div class="dock-track" id="dock-track"></div><span class="dock-edge left" id="dock-edge-l">‹</span><span class="dock-edge right" id="dock-edge-r">›</span></div></div>
+<div class="dock" id="dock" role="navigation" aria-label="Sessions dock"><span class="dock-label">Sessions</span><div class="dock-scroll" id="dock-scroll"><div class="dock-track" id="dock-track"></div><span class="dock-edge left" id="dock-edge-l">‹</span><span class="dock-edge right" id="dock-edge-r">›</span></div></div>
 
 <!-- ═══ TOASTS ═══ -->
-<div class="toasts" id="toasts"></div>
+<div class="toasts" id="toasts" aria-live="polite" aria-relevant="additions"></div>
 
 <!-- ═══ MINI-GAME (dino / snake) ═══ -->
 <div class="game-overlay" id="game-overlay" role="dialog" aria-modal="true" aria-label="Mini-game">
@@ -214,6 +214,7 @@
       <div class="sc-row"><span>Search sessions</span><div class="sc-keys"><kbd>⌘</kbd><kbd>F</kbd></div></div>
       <div class="sc-row"><span>Toggle directory tree</span><div class="sc-keys"><kbd>⌘</kbd><kbd>B</kbd></div></div>
       <div class="sc-row"><span>Tile all windows</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>⇧</kbd><kbd>T</kbd></div></div>
+      <div class="sc-row"><span>Move / resize window with the keyboard</span><div class="sc-keys"><kbd>⌘</kbd><kbd>K</kbd><span>→ Move or resize window</span></div></div>
       <div class="sc-row"><span>Focus Nth window of project</span><div class="sc-keys"><kbd>⌥</kbd><kbd>1–9</kbd></div></div>
       <div class="sc-row"><span>…same, from inside a terminal</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>1–9</kbd></div></div>
       <div class="sc-row"><span>Broadcast input to all shells</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>B</kbd></div></div>

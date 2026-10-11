@@ -629,6 +629,7 @@ button[title]>svg,[role=button][title]>svg{pointer-events:none;}   /* general ru
 .win{position:absolute;min-width:320px;min-height:200px;display:flex;flex-direction:column;
   background:var(--panel-2);border-radius:9px;box-shadow:var(--shadow);overflow:hidden;}
 .win.focused{box-shadow:0 22px 50px -14px rgba(0,0,0,.85),0 0 0 1px var(--accent-dim);}
+.win.kbd-move{outline:2px dashed var(--accent);outline-offset:3px;}   /* keyboard move / resize mode */
 .win.max{border-radius:0;}
 .win.dead{filter:saturate(.55);}
 
