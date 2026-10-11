@@ -4,7 +4,8 @@ Single source of truth for what the TermDeck does. **Keep this current:**
 any change that adds, removes, or alters user-facing behavior must update this file in
 the same change (see the rule in `CLAUDE.md`).
 
-Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 backend (`server.js`)
+Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 backend (`server.js`, `scripts/`) · 🖥️🔌 both ·
+📄 docs and tooling
 
 ---
 
@@ -26,7 +27,7 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   as xterm.js did itself before 6.0 dropped that mapping (it now sends `ESC[1;3D/C`, which most shells leave unbound).
 - 🖥️ **Thin terminal scrollbar** — 10px, in the theme's line colour (hover/drag: muted), fades out when idle (xterm 6's own
   scrollbar, restyled). It stays under the window's resize edges, and the last text column ends where the bar starts.
-- 💾 **Named layouts** (#17) — palette → *Save layout as…* names the whole workspace (projects, windows with position/size,
+- 🖥️🔌 **Named layouts** (#17) — palette → *Save layout as…* names the whole workspace (projects, windows with position/size,
   tabs, roots, folders); *Restore layout…* lists them (project/window counts, date) with a **×** to delete. Saving under
   an existing name asks before replacing. **Live:** stored server-side in `~/.termdeck/layouts.json` (0600, atomic
   write, max 50, `/api/layouts` behind `apiGuard` + cross-site rejection), shared by every browser on that server
@@ -80,6 +81,12 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   handled gracefully; **`.md` files render as formatted Markdown** with a *Raw / Rendered* toggle), and its **⤢** reveals it in the OS file manager (`/api/reveal`). Falls back to a
   static demo tree in `file://` demo mode.
 - 🖥️ **Markdown viewer** — `.md` / `.markdown` files open **rendered** (headings, bold/italic, inline + fenced
+  code, lists, blockquotes, tables, rules, `http(s)`/`mailto` links) in the file-viewer overlay; the header
+  button flips to the raw source and back. Reach it by clicking a file in the tree **or** palette → *Open
+  file…* (path relative to the project root, absolute, or `~/…`; works for any text file). Zero dependencies:
+  a ~40-line renderer in `public/app.js`. Input is HTML-escaped first (including quotes, so a
+  link URL can't break out of its `href`) and images are shown as their alt text, so a file can't inject markup or trigger requests. Not full CommonMark (no nested lists /
+  reference links). In the hosted demo the tree's `README.md` and the palette command open a sample document.
 - 🖥️ **Media & CSV preview** (#24) — the file viewer also shows **images** (png, jpg, gif, webp, avif, bmp, ico, svg), **PDF**
   (the browser's own viewer), **audio** (mp3, wav, ogg, m4a, flac) and **video** (mp4, webm, mov, seekable) natively — no
   plugins or libraries — via `GET /api/raw`: same `apiGuard`, an extension **allowlist** with fixed `Content-Type`,
@@ -88,19 +95,13 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   5000 rows, sticky header) with a **Raw** toggle. Anything else binary shows *Reveal in Finder / Explorer* and *Open in
   default app* buttons (`/api/open`, which refuses executable-looking types such as `.sh`, `.app`, `.exe`, `.bat`).
   Live mode only — the hosted demo has no files to read. Clicking a path in terminal output opens it the same way.
-  code, lists, blockquotes, tables, rules, `http(s)`/`mailto` links) in the file-viewer overlay; the header
-  button flips to the raw source and back. Reach it by clicking a file in the tree **or** palette → *Open
-  file…* (path relative to the project root, absolute, or `~/…`; works for any text file). Zero dependencies:
-  a ~40-line renderer in `public/app.js`. Input is HTML-escaped first (including quotes, so a
-  link URL can't break out of its `href`) and images are shown as their alt text, so a file can't inject markup or trigger requests. Not full CommonMark (no nested lists /
-  reference links). In the hosted demo the tree's `README.md` and the palette command open a sample document.
-- 📦 **Move to project (dock chip)** — the folder-arrow button on a dock chip moves that window to another project; it is **disabled (dimmed) while there is only one project** and enables as soon as a second exists.
-- 📦 **Last project can't be deleted** — the **×** on a project tab is dimmed and disabled (tooltip *Can't delete the only project*) while only one project exists, and enables once a second is added.
-- 🧭 **First-run tour** — a 6-step spotlight walkthrough (⌘K palette → New agent task → agent queue → projects & dock → directory tree ⋯ menu → Help; the tree step opens the sidebar and closes it again on leaving) that auto-shows once on a first visit (not on narrow/touch screens) and never again once closed (`td.tourDone.v1` in `localStorage`). Replay: palette → *Take the tour*, the Help sheet, or the empty-desktop link. Esc closes, ←/→ step, focus stays in the card; no layout shift, no network, animation off under `prefers-reduced-motion`. Works in the hosted demo.
-- 🗂️ **Short empty palette** — with nothing typed (category *All*) ⌘K lists only **Recent** (the last 5 palette commands you ran, `td.palRecent.v1` in `localStorage`), **Start** (New terminal · New agent task… · Open directory… · Open file… · New project), your snippets / SSH hosts, the top AI CLIs and open sessions, plus a *Type to search all N commands* footer. Typing searches **every** command (an `x` matches `×`, so `2x2` finds *Layout 2×2*); a category chip lists all of its commands.
-- 🗂️ **Palette search ranking** — typed searches order commands by relevance: a label **word starting** with the text first, then labels merely containing it, then description-only matches; ties go to recently run commands, with the fixed-grid layout presets after real commands (so `layout` lists *Save layout as…* / *Restore layout…* before *Layout 1×1…*), then list order.
-- 🗂️ **Palette categories** — a chip row under the ⌘K input (*All · Terminals · Agents · Sessions · Layout · Settings · Help · Fun*; *Terminals* also holds snippets and SSH hosts, *Agents* the agent tasks, CLI presets and the usage / agent-order resets, *Sessions* the Live overview, Search sessions and open sessions, *Layout* Tile windows, the fixed-grid presets, the directory-tree toggle and *Move or resize window*, *Settings* only real preferences — theme, terminal font, scrollback — *Help* keyboard shortcuts and the tour, *Fun* the game and pixel pets) narrows the list; click a chip or press **Tab / Shift+Tab** to cycle, and the search text still applies inside the chosen category. Resets to *All* each time the palette opens. A **×** in the input (or **Ctrl+U**) clears the typed text.
-- ⌨️ **Palette shortcut hints** — every palette command that has a shortcut shows it, matching the real binding.
+- 🖥️ **Move to project (dock chip)** — the folder-arrow button on a dock chip moves that window to another project; it is **disabled (dimmed) while there is only one project** and enables as soon as a second exists.
+- 🖥️ **Last project can't be deleted** — the **×** on a project tab is dimmed and disabled (tooltip *Can't delete the only project*) while only one project exists, and enables once a second is added.
+- 🖥️ **First-run tour** — a 6-step spotlight walkthrough (⌘K palette → New agent task → agent queue → projects & dock → directory tree ⋯ menu → Help; the tree step opens the sidebar and closes it again on leaving) that auto-shows once on a first visit (not on narrow/touch screens) and never again once closed (`td.tourDone.v1` in `localStorage`). Replay: palette → *Take the tour*, the Help sheet, or the empty-desktop link. Esc closes, ←/→ step, focus stays in the card; no layout shift, no network, animation off under `prefers-reduced-motion`. Works in the hosted demo.
+- 🖥️ **Short empty palette** — with nothing typed (category *All*) ⌘K lists only **Recent** (the last 5 palette commands you ran, `td.palRecent.v1` in `localStorage`), **Start** (New terminal · New agent task… · Open directory… · Open file… · New project), your snippets / SSH hosts, the top AI CLIs and open sessions, plus a *Type to search all N commands* footer. Typing searches **every** command (an `x` matches `×`, so `2x2` finds *Layout 2×2*); a category chip lists all of its commands.
+- 🖥️ **Palette search ranking** — typed searches order commands by relevance: a label **word starting** with the text first, then labels merely containing it, then description-only matches; ties go to recently run commands, with the fixed-grid layout presets after real commands (so `layout` lists *Save layout as…* / *Restore layout…* before *Layout 1×1…*), then list order.
+- 🖥️ **Palette categories** — a chip row under the ⌘K input (*All · Terminals · Agents · Sessions · Layout · Settings · Help · Fun*; *Terminals* also holds snippets and SSH hosts, *Agents* the agent tasks, CLI presets and the usage / agent-order resets, *Sessions* the Live overview, Search sessions and open sessions, *Layout* Tile windows, the fixed-grid presets, the directory-tree toggle and *Move or resize window*, *Settings* only real preferences — theme, terminal font, scrollback — *Help* keyboard shortcuts and the tour, *Fun* the game and pixel pets) narrows the list; click a chip or press **Tab / Shift+Tab** to cycle, and the search text still applies inside the chosen category. Resets to *All* each time the palette opens. A **×** in the input (or **Ctrl+U**) clears the typed text.
+- 🖥️ **Palette shortcut hints** — every palette command that has a shortcut shows it, matching the real binding.
   Frequent actions get one (*Open file* `⌘⌥O`, *New agent task* `⌘⌥R`, *Review agent changes* `⌘⌥D`); one-off setup
   dialogs (*Add SSH host*, *Add AI CLI preset*, *Set scrollback*) deliberately stay palette-only. *Maximize / restore*
   moved to `⌘⌥⇧M` — `⌘⇧M` (New project) was shadowing it.
@@ -311,7 +312,7 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   Empty = no check, as before. The command is only ever what you typed — never read from the repo.
   **Cycle time:** a task launched with *New agent task…* records `launchedAt`; landing shows *"landed in 2h14m"*.
   Projects from before this change show none (no guessing from git dates).
-- ⚠️ **Conflict radar** — warns when two agents' worktrees of the same repo change the **same file**, before
+- 🖥️🔌 **Conflict radar** — warns when two agents' worktrees of the same repo change the **same file**, before
   you hit it at merge time. While ≥2 worktree projects have a live agent, the browser asks
   `POST /api/git/overlaps` every 10 s (paused while the tab is hidden); the server diffs each worktree against its
   base (committed + uncommitted + untracked), intersects per repo and, for shared files with the same base,
@@ -329,8 +330,8 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   startup `cmd` is deliberately *not* persisted, so it can never re-fire on reload. The waiting/approval
   states themselves are never persisted either: they're re-derived from the live output stream (a tmux
   reattach repaints the current screen, so a still-pending approval prompt re-flags itself).
-- 💚 **Working pulse** (#28) — a green pulsing dot (with a static ring, so it still reads under reduced-motion) on a window tab and its dock chip while a tab is *working*: a live agent tab that is neither waiting nor blocked, or a shell whose tracked command (Enter → prompt) has been streaming output for >1s (keystroke echo ignored; 3s of silence → idle). Amber *waiting* / red *approval* always take over. *Idle* = the plain dot; *done* = the existing finish toast + attention flash. Heuristic, no backend or per-CLI parsing.
-- ⛔ **Approval-prompt routing** — when an agent tab hits a tool-approval prompt (*"Allow this tool?"*,
+- 🖥️ **Working pulse** (#28) — a green pulsing dot (with a static ring, so it still reads under reduced-motion) on a window tab and its dock chip while a tab is *working*: a live agent tab that is neither waiting nor blocked, or a shell whose tracked command (Enter → prompt) has been streaming output for >1s (keystroke echo ignored; 3s of silence → idle). Amber *waiting* / red *approval* always take over. *Idle* = the plain dot; *done* = the existing finish toast + attention flash. Heuristic, no backend or per-CLI parsing.
+- 🖥️ **Approval-prompt routing** — when an agent tab hits a tool-approval prompt (*"Allow this tool?"*,
   *"Do you want to proceed?"*, `(y/n)`…), it jumps **straight** to a louder **red** pulse (tab + dock chip)
   and a **sticky** toast/OS notification ("Needs approval — blocked on a permission prompt") — no 8s idle
   wait, since an approval halts *all* progress. Stays flagged through prompt repaints until you look at it.
@@ -343,7 +344,7 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   when any of its tabs is waiting, **red** when any is blocked on an approval (red wins). Recomputed as tab
   state changes, on session close, and when a session moves between projects; cleared when the last flagged
   tab/session goes away.
-- 🆕 **Version, What's new and update check** — the app version shows in the empty-desktop footer and the Help
+- 🖥️🔌 **Version, What's new and update check** — the app version shows in the empty-desktop footer and the Help
   sheet (hidden in the hosted demo). Help → *What's new* renders the bundled `CHANGELOG.md` (served by
   `/api/changelog`, works offline; rendered with the escaping Markdown renderer). When the version differs from the
   last one seen (`td.seenVersion.v1` in `localStorage`) a one-time *Updated to vX* toast opens it; first visit
@@ -351,12 +352,12 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   via `GET /api/update-check` (5 s timeout, successes cached 6 h, `TD_UPDATE_URL` overrides the source) and the
   result line says *up to date* / *vX is available — run `npx @kiril6/termdeck@latest`* / *couldn't reach npm*.
   No background network calls.
-- 🔲 **Live overview** (the Sessions button uses the robot icon, the same as the old Agents button; the grid icon is reserved for Tile/layouts, and the palette entry has its own monitor icon) — the **Grid** view of the toolbar **Sessions** button (its *Queue | Grid* toggle; ⋯ menu below 1260px) or palette → *Live overview* opens a full-screen, read-only grid with one tile per Tiles are **sorted by urgency** within each project (needs approval → waiting → working → running → idle → exited; window order kept inside a state) and the border/dot is colour-coded (red / amber / teal). An **All | Active** filter beside the view toggle hides idle and exited sessions (*Active · N* shows the count); with no saved choice it defaults to Active while anything is running and to All otherwise, and an explicit pick is remembered in browser storage. With *Active* and nothing running it says so instead of showing an empty grid.
+- 🖥️ **Live overview** (the Sessions button uses the robot icon, the same as the old Agents button; the grid icon is reserved for Tile/layouts, and the palette entry has its own monitor icon) — the **Grid** view of the toolbar **Sessions** button (its *Queue | Grid* toggle; ⋯ menu below 1260px) or palette → *Live overview* opens a full-screen, read-only grid with one tile per
   tab across all projects (grouped by project): the tab's last ~9 output lines plus its state (needs approval /
-  waiting / running / idle / exited; dot and border tinted). Refreshes every 1.5 s **only while open** (timer
+  waiting / running / idle / exited; dot and border tinted). Tiles are **sorted by urgency** within each project (needs approval → waiting → working → running → idle → exited; window order kept inside a state) and the border/dot is colour-coded (red / amber / teal). An **All | Active** filter beside the view toggle hides idle and exited sessions (*Active · N* shows the count); with no saved choice it defaults to Active while anything is running and to All otherwise, and an explicit pick is remembered in browser storage. With *Active* and nothing running it says so instead of showing an empty grid. Refreshes every 1.5 s **only while open** (timer
   stops on close); output is rendered as text, no input. Click a tile (or Enter) to jump to that window and
   tab; Esc or ✕ closes; **Queue** in its header switches back to the agent queue. Reads the already-streamed xterm buffer — no extra endpoint or WebSocket.
-- 🧭 **Cross-project agent queue** — the toolbar **Sessions** button (⋯ overflow menu below 1260px) opens a popover
+- 🖥️ **Cross-project agent queue** — the toolbar **Sessions** button (⋯ overflow menu below 1260px) opens a popover
   (its *Queue* view; **Grid** switches to the Live overview — one home for both)
   listing **every agent tab across all projects** in one who-needs-me queue, ranked
   **needs approval → waiting → working**, ties broken alphabetically by project, session, then tab.
@@ -364,7 +365,7 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   popover. The button's badge mirrors the highest-priority state in the queue (**red** approval beats
   **amber** waiting beats working), and its tooltip carries the count, so the whole fleet collapses to one
   glanceable control. Empty state reads *"No active agents / All quiet"*.
-- ✅ **Approve / Deny from the queue (#44, phase 1)** — with agent hooks installed, an approval row in the
+- 🖥️🔌 **Approve / Deny from the queue (#44, phase 1)** — with agent hooks installed, an approval row in the
   agent queue shows the **exact request** (tool + command or file) and **Approve / Deny** buttons. Not
   keystroke injection: the CLI's `PermissionRequest` hook is held open by `scripts/td-hook.js` until you click,
   then prints the CLI's own allow/deny JSON, so it is exact for any prompt style and nothing is typed into a PTY.
@@ -379,7 +380,7 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   *replaced*) — listed under the queue (*Recent approvals*), served at `GET /api/approvals`, and appended to
   `TD_LOG_DIR/approvals.jsonl` (0600) when set; past 10 MB it becomes `approvals.1.jsonl` (replacing the previous one), so the audit log stays under ~20 MB. Without hooks, or on Gemini (no decision channel), rows stay
   jump-only.
-- 🔢 **Token totals (#85)** — what the agent itself reported, never estimated, labelled *as reported by the agent*.
+- 🖥️🔌 **Token totals (#85)** — what the agent itself reported, never estimated, labelled *as reported by the agent*.
   On `stop` the hook helper reads the CLI's transcript (**Claude Code, Codex**; Gemini shows nothing) and sends the
   conversation total; the browser keeps it **per tab** and shows it on the **queue row** (`361k tok`), the **queue
   header** (`1 active · 361k tok`, all projects) and the **project tab tooltip** (`2 agents · …`). A tab's report
@@ -391,7 +392,7 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   covered:** Claude sub-agent runs (separate files), any dollar figure (no transcript has one; no price table),
   CLIs without a transcript. Verified against a real Claude Code transcript (matches an independent recount) and a
   real Codex rollout. No data → nothing shown, never `0`.
-- 🔐 **Opt-in allow-rules + hard deny-list (#44, phase 2)** — **off by default, none shipped.** A hook-backed
+- 🖥️🔌 **Opt-in allow-rules + hard deny-list (#44, phase 2)** — **off by default, none shipped.** A hook-backed
   approval row for a shell command also offers **Always allow…**: a confirm dialog names the scope (the **git
   repo / worktree** containing the agent's working directory, so a `cd` into a subfolder still matches) and
   asks *only this exact command* or *its first two words followed by plain words*. The rule is derived on the
@@ -414,7 +415,7 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   and deny-list behaviour. Same trust as terminal input: a local process that can already drive termdeck could
   also create a rule, so keep the loopback bind / access token. Rules only act through hooks (Claude Code,
   Codex, Copilot) and need no browser open.
-- 🤖 **GitHub Copilot CLI hooks (#139)** — `termdeck hooks install --agent copilot` writes `~/.copilot/hooks/termdeck.json`
+- 🔌 **GitHub Copilot CLI hooks (#139)** — `termdeck hooks install --agent copilot` writes `~/.copilot/hooks/termdeck.json`
   (PascalCase events → Claude-style payloads), giving Copilot tabs exact working / waiting / needs-approval state, the
   current tool, **Approve / Deny** from the queue and phone alerts. Verified on Copilot CLI 1.0.93: its
   `PermissionRequest` payload is camelCase with no `hook_event_name`, and only a **top-level** `{"behavior":…}`
@@ -473,7 +474,7 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   A 🎮 icon in each window footer opens the game directly.
 
 ## Notifications
-- 🔔 **Actionable toasts linger** — a toast with a click action (jump to a session, reveal a window…) stays at least 10s, is keyboard-focusable (Tab, Enter/Space to act), and its countdown pauses while the pointer is over it **or** it has focus, re-arming only once both are gone. Sticky (0 ms) toasts stay sticky.
+- 🖥️ **Actionable toasts linger** — a toast with a click action (jump to a session, reveal a window…) stays at least 10s, is keyboard-focusable (Tab, Enter/Space to act), and its countdown pauses while the pointer is over it **or** it has focus, re-arming only once both are gone. Sticky (0 ms) toasts stay sticky.
 - 🖥️ In-app toasts, mirrored to native desktop notifications **only when the window is unfocused**
   (opt-in via browser permission). Hovering a toast **pauses its auto-hide** (so you can read or
   click it, e.g. the game offer); moving the pointer away re-arms the countdown. ✕ dismisses now.
@@ -574,33 +575,6 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   prompt, nothing running) skips the confirm.
 
 ## Backend / security
-- 🔌 Express static server + `ws` WebSocket PTY multiplexer; node-pty (standard or Linux prebuilt fork).
-- 🔌 **Fully offline** — xterm.js + addons (the scoped `@xterm/*` packages, 6.0) are served locally from `node_modules` at `/vendor/@xterm/…` (no CDN); after `npm install` the app needs no internet.
-- 🖥️ **Unicode 11 character widths** — the unicode11 addon is on, so emoji and CJK take two cells as modern shells and TUIs (vim, htop, Claude Code…) count them; with xterm's default Unicode 6 table, lines with emoji drifted out of line.
-- 📄 **Remote access docs** — `docs/remote-access.md`: Tailscale Serve (recommended), SSH tunnel, LAN bind.
-- 🔌 **`TD_ALLOWED_HOSTS`** — opt-in, comma-separated, exact-match hostnames added to the Origin + Host check so a
-  reverse proxy like `tailscale serve` works while the server stays on loopback. No wildcards; unset = localhost only.
-  Setting it switches to a per-start access token (see *Local access*).
-- 🔌 **Session log on exit** — with `TD_LOG_DIR` set, a shell's buffered output (ANSI stripped, last `TD_BUFFER` bytes)
-  is written to `<dir>/<timestamp>_<id>.log` (dir `0700`, file `0600`) when the shell actually ends (kill / process exit).
-  Browser disconnects don't write a log — reattach/replay is unchanged. Off by default (output can contain secrets).
-- 🖥️ **Clickable file paths** — `path/file.ext`, `./x`, `~/x`, `/abs/x`, optional `:line[:col]` in terminal output become links
-  when `/api/stat` confirms a regular file (relative paths resolve against the tab's live cwd). Click opens the file viewer
-  scrolled to and highlighting that line (markdown opens as raw source for a `:line` link). Live mode only; no-op in demo.
-- 📄 **Known limits** — a README section stating plainly what termdeck doesn't do (reboots end shells, heuristic agent state without hooks, no answering without your click or an opt-in rule, remote-access caveats, caps, Windows differences, demo has no backend).
-- 🔌 **`termdeck autostart install|uninstall`** — sets up start-at-login without hand-editing (`scripts/autostart.js`):
-  a launchd agent `~/Library/LaunchAgents/com.termdeck.plist` (macOS; `launchctl bootstrap`/`bootout`) or a systemd
-  **user** unit `~/.config/systemd/user/termdeck.service` (Linux; `daemon-reload` + `enable --now`). No root.
-  Fills the real `node`/`server.js` paths, `NO_OPEN=1`, a pinned `PORT` (`--port`, default 3000) and a `PATH`
-  with node's, tmux's and git's dirs (service managers start with a minimal one); `HOST` only if `--host` is given,
-  with a warning for non-loopback. Previews the whole file and the exact commands first; `--dry-run` writes/runs
-  nothing; confirm unless `--yes` (non-terminal without it refuses). Idempotent (an identical file is left alone),
-  reloads cleanly when it changed, `uninstall` stops the service and removes only a file it recognises (a foreign file
-  is never overwritten). Paths are XML/systemd-escaped; the macOS log is pre-created `0600` because a non-loopback
-  start logs the token URL; the access token is never written to the unit. Refuses to install from the temporary
-  `npx` cache (it can be deleted). Verified on macOS (install → serving → idempotent → uninstall → clean); the
-  systemd path is covered by a rendered-file check only.
-- 📄 **Autostart templates** — `docs/autostart/` ships a launchd plist (macOS) and a systemd user unit (Linux), plus SSH-tunnel/Tailscale remote-access notes.
 - 🔌 **Loopback bind** by default (`127.0.0.1`); `HOST=0.0.0.0` (or an IP) to expose, with a warning.
 - 🔌 **Local access (sign-in once per browser)** — any program on the machine can reach a loopback port (another OS user,
   or an agent running inside termdeck), so every HTTP request and WS upgrade needs the `td_token` cookie (401 otherwise).
@@ -617,6 +591,9 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   read your files can read the secret too.
 - 🔌 **WS Origin + Host validation** — rejects the upgrade unless both resolve to a known localhost
   name (blocks cross-site / DNS-rebind attacks on the shell socket), and requires the sign-in cookie (see *Local access*).
+- 🔌 **`TD_ALLOWED_HOSTS`** — opt-in, comma-separated, exact-match hostnames added to the Origin + Host check so a
+  reverse proxy like `tailscale serve` works while the server stays on loopback. No wildcards; unset = localhost only.
+  Setting it switches to a per-start access token (see *Local access*).
 - 🔌 **`/api/agent-events` hardening** — same `apiGuard` Origin/Host check as every `/api/*` route; authenticated by
   the terminal's own `TD_HOOK_AUTH` header (or the browser cookie). Without it an event is **display only**: never held
   for Approve / Deny, never answered by a rule, and it can't clear or hide a request already waiting for your click; JSON only, 64KB body cap, `type` whitelist, unknown/log-only terminal ids → 404,
@@ -637,6 +614,30 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
 - 🔌 **Baseline response headers** — every response carries `Content-Security-Policy: frame-ancestors 'self'` and
   `X-Frame-Options: SAMEORIGIN` (no other site can frame termdeck and trick a click on Approve or Merge; the viewer's
   own PDF preview still frames), `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`.
+- 🔌 Express static server + `ws` WebSocket PTY multiplexer; node-pty (standard or Linux prebuilt fork).
+- 🔌 **Fully offline** — xterm.js + addons (the scoped `@xterm/*` packages, 6.0) are served locally from `node_modules` at `/vendor/@xterm/…` (no CDN); after `npm install` the app needs no internet.
+- 🖥️ **Unicode 11 character widths** — the unicode11 addon is on, so emoji and CJK take two cells as modern shells and TUIs (vim, htop, Claude Code…) count them; with xterm's default Unicode 6 table, lines with emoji drifted out of line.
+- 📄 **Remote access docs** — `docs/remote-access.md`: Tailscale Serve (recommended), SSH tunnel, LAN bind.
+- 🔌 **Session log on exit** — with `TD_LOG_DIR` set, a shell's buffered output (ANSI stripped, last `TD_BUFFER` bytes)
+  is written to `<dir>/<timestamp>_<id>.log` (dir `0700`, file `0600`) when the shell actually ends (kill / process exit).
+  Browser disconnects don't write a log — reattach/replay is unchanged. Off by default (output can contain secrets).
+- 🖥️ **Clickable file paths** — `path/file.ext`, `./x`, `~/x`, `/abs/x`, optional `:line[:col]` in terminal output become links
+  when `/api/stat` confirms a regular file (relative paths resolve against the tab's live cwd). Click opens the file viewer
+  scrolled to and highlighting that line (markdown opens as raw source for a `:line` link). Live mode only; no-op in demo.
+- 📄 **Known limits** — a README section stating plainly what termdeck doesn't do (reboots end shells, heuristic agent state without hooks, no answering without your click or an opt-in rule, remote-access caveats, caps, Windows differences, demo has no backend).
+- 🔌 **`termdeck autostart install|uninstall`** — sets up start-at-login without hand-editing (`scripts/autostart.js`):
+  a launchd agent `~/Library/LaunchAgents/com.termdeck.plist` (macOS; `launchctl bootstrap`/`bootout`) or a systemd
+  **user** unit `~/.config/systemd/user/termdeck.service` (Linux; `daemon-reload` + `enable --now`). No root.
+  Fills the real `node`/`server.js` paths, `NO_OPEN=1`, a pinned `PORT` (`--port`, default 3000) and a `PATH`
+  with node's, tmux's and git's dirs (service managers start with a minimal one); `HOST` only if `--host` is given,
+  with a warning for non-loopback. Previews the whole file and the exact commands first; `--dry-run` writes/runs
+  nothing; confirm unless `--yes` (non-terminal without it refuses). Idempotent (an identical file is left alone),
+  reloads cleanly when it changed, `uninstall` stops the service and removes only a file it recognises (a foreign file
+  is never overwritten). Paths are XML/systemd-escaped; the macOS log is pre-created `0600` because a non-loopback
+  start logs the token URL; the access token is never written to the unit. Refuses to install from the temporary
+  `npx` cache (it can be deleted). Verified on macOS (install → serving → idempotent → uninstall → clean); the
+  systemd path is covered by a rendered-file check only.
+- 📄 **Autostart templates** — `docs/autostart/` ships a launchd plist (macOS) and a systemd user unit (Linux), plus SSH-tunnel/Tailscale remote-access notes.
 - 🔌 **Auto-open browser** on `npm start` — launches the dashboard in the default browser
   (OS opener: `open`/`start`/`xdg-open`). `NO_OPEN=1` skips it; `BROWSER=<name|path>` picks a
   specific browser (e.g. `BROWSER="Google Chrome"` on macOS, `BROWSER=firefox` on Linux).
@@ -695,4 +696,4 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
 
 ## Modes
 - 🖥️ **Live** over `http(s)://` (real shells). **Demo** over `file://`, with `?demo` in the URL, or on a `github.io` host (no backend, UI preview with a fake shell).
-- 🌐 **Hosted demo** — `npm run build:demo` produces a static, backend-free copy under `docs/app/` (vendored xterm with each package's MIT `LICENSE`, relative paths) for GitHub Pages. Served at [kiril6.github.io/termdeck/app](https://kiril6.github.io/termdeck/app/?demo).
+- 📄 **Hosted demo** — `npm run build:demo` produces a static, backend-free copy under `docs/app/` (vendored xterm with each package's MIT `LICENSE`, relative paths) for GitHub Pages. Served at [kiril6.github.io/termdeck/app](https://kiril6.github.io/termdeck/app/?demo).
