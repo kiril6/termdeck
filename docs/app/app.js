@@ -258,12 +258,12 @@ function confirmModal(msg, okLabel="Confirm", danger=false){
     if(!danger) ok.style.background="var(--accent)";   // danger fill comes from .cm-ok.danger CSS; accent set inline
     ok.style.color=danger?"#fff":"";   // white on the red danger button; accent button keeps its dark CSS text
     const done=(v)=>{o.remove();document.removeEventListener("keydown",onKey);resolve(v);};
-    const onKey=(e)=>{if(e.key==="Escape")done(false);if(e.key==="Enter")done(true);};
+    const onKey=(e)=>{if(e.key==="Escape")done(false);if(e.key==="Enter"&&!(e.target.tagName==="BUTTON"&&card.contains(e.target)))done(true);};   // Enter on a focused button = that button
     cancel.addEventListener("click",()=>done(false));
     ok.addEventListener("click",()=>done(true));
     o.addEventListener("mousedown",(e)=>{if(e.target===o)done(false);});
     document.addEventListener("keydown",onKey);
-    row.append(cancel,ok); card.append(body,row); o.append(card); document.body.append(o);
+    row.append(cancel,ok); card.append(body,row); o.append(card); asDialog(o,msg); document.body.append(o);
     ok.focus();
   });
 }
@@ -289,12 +289,12 @@ function inputModal(title, fields, okLabel="Save"){
     const ok=el("button","cm-btn cm-ok"); ok.textContent=okLabel; ok.style.background="var(--accent)";
     const close=(v)=>{o.remove();document.removeEventListener("keydown",onKey);resolve(v);};
     const submit=()=>{const out={};for(const k in inputs)out[k]=inputs[k].value.trim(); close(out);};
-    const onKey=(e)=>{if(e.key==="Escape")close(null);if(e.key==="Enter")submit();};
+    const onKey=(e)=>{if(e.key==="Escape")close(null);if(e.key==="Enter"&&!(e.target.tagName==="BUTTON"&&card.contains(e.target)))submit();};   // Enter on a focused button = that button
     cancel.addEventListener("click",()=>close(null));
     ok.addEventListener("click",submit);
     o.addEventListener("mousedown",(e)=>{if(e.target===o)close(null);});
     document.addEventListener("keydown",onKey);
-    row.append(cancel,ok); card.append(row); o.append(card); document.body.append(o);
+    row.append(cancel,ok); card.append(row); o.append(card); asDialog(o,title); document.body.append(o);
     (fields[0]&&inputs[fields[0].key]||ok).focus();
   });
 }
@@ -3413,10 +3413,12 @@ async function openLayouts(){
     del.addEventListener("click",async(e)=>{e.stopPropagation(); if(!(await confirmModal("Delete the saved layout “"+m.name+"”?","Delete",true)))return;
       try{await layoutsApi.del(m.id); row.remove(); if(!card.querySelector(".lay-row")) close();}catch(err){toast(ICON.warn,"Couldn't delete",err.message,3000);}});
     row.addEventListener("click",()=>{close(); restoreLayout(m.id);});
+    row.tabIndex=0; row.setAttribute("role","button");   // keyboard: Tab to a layout, Enter/Space restores it
+    row.addEventListener("keydown",(e)=>{if((e.key==="Enter"||e.key===" ")&&e.target===row){e.preventDefault(); row.click();}});
     row.append(t,meta,del); card.append(row);
   });
   o.addEventListener("mousedown",(e)=>{if(e.target===o)close();});
-  o.append(card); document.body.append(o); document.addEventListener("keydown",onKey);
+  o.append(card); asDialog(o,"Restore layout"); document.body.append(o); document.addEventListener("keydown",onKey);
 }
 
 /* ════════════════════════════════════════════════
@@ -3445,6 +3447,58 @@ function demoShell(tab, term, isLog){
     resize:()=>{},close:()=>{},kill:()=>{},
   };
 }
+
+/* ════════════════════════════════════════════════
+   DIALOGS — keyboard focus for every [aria-modal="true"] element
+   Opening one moves focus into it, Tab / Shift+Tab cycle inside the topmost one, and closing it gives focus back to
+   where it was. The static overlays toggle .open; the built-on-demand ones (confirm, prompt, layouts, tour) are
+   appended to / removed from <body>. One observer covers both, so no open/close function has to remember.
+   ════════════════════════════════════════════════ */
+const FOCUSABLE='button:not([disabled]),a[href],summary,input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+const shown=(n)=>!!n&&n.isConnected&&n.getClientRects().length>0;
+const focusables=(m)=>[...m.querySelectorAll(FOCUSABLE)].filter(shown);
+const modalReturn=new Map();   // open dialog → where focus goes back to when it closes
+// The last element focused outside every dialog. Tracked as it happens, because a dialog often focuses its own input
+// before the observer below runs (the palette does); it also makes dialog → dialog return to where the first came from.
+let focusOutside=null;
+document.addEventListener("focusin",(e)=>{if(!e.target.closest('[aria-modal="true"]')) focusOutside=e.target;},true);
+function asDialog(node,label){node.setAttribute("role","dialog");node.setAttribute("aria-modal","true");node.setAttribute("aria-label",label);return node;}
+function dialogOpened(m){
+  modalReturn.set(m,focusOutside);
+  setTimeout(()=>{
+    if(!shown(m)||m.contains(document.activeElement)) return;   // it focused something of its own
+    const f=focusables(m)[0]; if(f) f.focus(); else{m.tabIndex=-1; m.focus();}
+  },0);
+}
+function dialogClosed(m){
+  const back=modalReturn.get(m);
+  // Deferred twice, so whatever the closing action focuses first wins (a command's new terminal, via focusTermSoon);
+  // focus only goes back when it was lost — on <body>, or still inside the closed dialog.
+  setTimeout(()=>setTimeout(()=>{
+    if(modalReturn.get(m)!==back||shown(m)) return;   // reopened meanwhile
+    modalReturn.delete(m);
+    const ae=document.activeElement;
+    if(shown(back)&&(!ae||ae===document.body||m.contains(ae))) back.focus();
+  },0),0);
+}
+const modalOf=(n)=>n.nodeType!==1?null:n.matches('[aria-modal="true"]')?n:n.querySelector('[aria-modal="true"]');
+const modalObs=new MutationObserver((recs)=>{
+  for(const r of recs){
+    if(r.type==="attributes"){const m=r.target, open=shown(m); if(open&&!modalReturn.has(m)) dialogOpened(m); else if(!open&&modalReturn.has(m)) dialogClosed(m); continue;}
+    r.addedNodes.forEach((n)=>{const m=modalOf(n); if(m&&shown(m)) dialogOpened(m);});
+    r.removedNodes.forEach((n)=>{const m=modalOf(n); if(m&&modalReturn.has(m)) dialogClosed(m);});
+  }
+});
+document.querySelectorAll('[aria-modal="true"]').forEach((m)=>modalObs.observe(m,{attributes:true,attributeFilter:["class"]}));
+modalObs.observe(document.body,{childList:true});
+document.addEventListener("keydown",(e)=>{
+  if(e.key!=="Tab"||e.defaultPrevented) return;   // the palette (categories) and the tour handle Tab themselves
+  const m=[...modalReturn.keys()].filter(shown).pop(); if(!m) return;
+  // Always moved by hand: browsers differ on what Tab reaches (WebKit skips links), and focus must never leave the dialog.
+  e.preventDefault();
+  const f=focusables(m), i=f.indexOf(document.activeElement), n=f.length;
+  if(n) f[i<0?(e.shiftKey?n-1:0):(i+(e.shiftKey?-1:1)+n)%n].focus();
+});
 
 /* ════════════════════════════════════════════════
    BOOT
@@ -3694,7 +3748,7 @@ function showDupOverlay(){
   const btn=el("button"); btn.textContent="Use this tab instead";
   btn.style.cssText="background:#4fd6be;color:#08120f;border:0;border-radius:9px;padding:10px 18px;font-weight:600;cursor:pointer";
   btn.addEventListener("click",()=>{claimLock();selfReload=true;location.reload();});   // steal lock, restart clean as the active tab
-  card.append(btn); o.append(card); document.body.append(o);
+  card.append(btn); o.append(card); asDialog(o,"Already open in another tab"); document.body.append(o);
 }
 const held=readLock();
 if(held && held.id!==myTab){

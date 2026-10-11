@@ -287,7 +287,7 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
 .ov-head{display:flex;align-items:center;justify-content:space-between;color:var(--text);font-size:13px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;margin-bottom:12px;}
 .ov-title{display:flex;align-items:center;}
 .ov-head small{color:var(--muted);letter-spacing:0;text-transform:none;font-weight:400;margin-left:10px;}
-.ov-x{cursor:pointer;color:var(--muted);display:flex;}.ov-x:hover{color:var(--text);}
+.ov-x{cursor:pointer;color:var(--muted);display:flex;background:none;border:0;padding:0;}.ov-x:hover{color:var(--text);}
 .ov-x svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;}
 .ov-body{overflow-y:auto;flex:1;}
 .ov-proj{color:var(--muted);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin:14px 2px 8px;}
@@ -315,7 +315,7 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
 .sc-box h2{margin:0;padding:16px 20px;font-size:13px;letter-spacing:.1em;text-transform:uppercase;
   border-bottom:1px solid var(--line);color:var(--text);font-weight:600;display:flex;
   align-items:center;justify-content:space-between;}
-.sc-box h2 .sc-x{font-size:16px;cursor:pointer;color:var(--muted);}
+.sc-box h2 .sc-x{font-size:16px;cursor:pointer;color:var(--muted);background:none;border:0;padding:0;font-family:inherit;line-height:1;}
 .sc-box h2 .sc-x:hover{color:var(--text);}
 .sc-about{padding:14px 20px;font-size:12px;line-height:1.55;color:var(--muted);border-bottom:1px solid var(--line);}
 .sc-about b{color:var(--text);}

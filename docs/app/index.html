@@ -138,7 +138,7 @@
 <div class="toasts" id="toasts"></div>
 
 <!-- ═══ MINI-GAME (dino / snake) ═══ -->
-<div class="game-overlay" id="game-overlay">
+<div class="game-overlay" id="game-overlay" role="dialog" aria-modal="true" aria-label="Mini-game">
   <div class="game-card">
     <div class="game-head">
       <select class="game-scope game-pick" id="game-pick">
@@ -154,7 +154,7 @@
         </select>
       </span>
       <span class="game-elapsed" id="game-elapsed"></span>
-      <button class="game-close" id="game-close" title="Close (Esc)">✕</button>
+      <button class="game-close" id="game-close" type="button" title="Close (Esc)" aria-label="Close game">✕</button>
     </div>
     <div class="game-stage">
       <canvas id="game-canvas" width="600" height="180" tabindex="0"></canvas>
@@ -166,7 +166,7 @@
 
 <!-- ═══ COMMAND PALETTE ═══ -->
 <div class="pal-overlay" id="pal-overlay"></div>
-<div class="palette" id="palette">
+<div class="palette" id="palette" role="dialog" aria-modal="true" aria-label="Command palette">
   <div class="pal-header">
     <span class="ph-icon">⌘</span>
     <input id="pal-input" placeholder="Type a command or search sessions…" spellcheck="false" role="combobox" aria-expanded="true" aria-controls="pal-list" aria-autocomplete="list" aria-label="Command palette"/>
@@ -178,23 +178,23 @@
 </div>
 
 <!-- ═══ FILE VIEWER ═══ -->
-<div class="sc-overlay" id="file-overlay" tabindex="-1">
+<div class="sc-overlay" id="file-overlay" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="fv-name">
   <div class="sc-box file-box">
-    <h2><span class="fv-name" id="fv-name"></span><button class="fv-tog" id="fv-tog" type="button" hidden>Raw</button><span class="sc-x" id="fv-close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></span></h2>
+    <h2><span class="fv-name" id="fv-name"></span><button class="fv-tog" id="fv-tog" type="button" hidden>Raw</button><button type="button" class="sc-x" id="fv-close" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></h2>
     <div class="fv-path" id="fv-path"></div>
     <pre class="fv-body msg" id="fv-body"></pre>
   </div>
 </div>
 
 <!-- ═══ LIVE GRID OVERVIEW (#25) ═══ -->
-<div class="ov-overlay" id="ov-overlay">
-  <div class="ov-head"><span class="ov-title"><span class="seg" role="group" aria-label="Sessions view"><button type="button" id="ov-to-queue" aria-pressed="false" title="Agent queue (who needs you)">Queue</button><button type="button" class="on" aria-pressed="true">Grid</button></span><span class="seg" id="ov-filter" role="group" aria-label="Show"><button type="button" data-f="all" title="Every session">All</button><button type="button" data-f="active" title="Agents and running commands only">Active</button></span><small>read-only · click a tile to jump · Esc closes</small></span><span class="ov-x" id="ov-close" title="Close (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></span></div>
+<div class="ov-overlay" id="ov-overlay" role="dialog" aria-modal="true" aria-label="Live overview">
+  <div class="ov-head"><span class="ov-title"><span class="seg" role="group" aria-label="Sessions view"><button type="button" id="ov-to-queue" aria-pressed="false" title="Agent queue (who needs you)">Queue</button><button type="button" class="on" aria-pressed="true">Grid</button></span><span class="seg" id="ov-filter" role="group" aria-label="Show"><button type="button" data-f="all" title="Every session">All</button><button type="button" data-f="active" title="Agents and running commands only">Active</button></span><small>read-only · click a tile to jump · Esc closes</small></span><button type="button" class="ov-x" id="ov-close" title="Close (Esc)" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
   <div class="ov-body" id="ov-body"></div>
 </div>
 <!-- ═══ KEYBOARD SHORTCUTS ═══ -->
-<div class="sc-overlay" id="sc-overlay">
+<div class="sc-overlay" id="sc-overlay" role="dialog" aria-modal="true" aria-label="Help">
   <div class="sc-box">
-    <h2>⌨ Help <span class="sc-x" id="sc-close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></span></h2>
+    <h2>⌨ Help <button type="button" class="sc-x" id="sc-close" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></h2>
     <div class="sc-about">
       <b>TermDeck</b> — floating terminal windows in your browser, each backed by a real
       shell on this machine. Refresh or drop the connection without losing a session, group shells

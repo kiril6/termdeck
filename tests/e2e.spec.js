@@ -245,6 +245,57 @@ test.describe('accessibility', () => {
     });
   }
 
+  test('dialogs: focus moves in, Tab stays inside, Escape gives focus back', async ({ page }) => {
+    await boot(page, '/?demo');
+    const help = page.locator('#sc-overlay[role="dialog"][aria-modal="true"]');
+    const inside = () => help.evaluate((d) => d.contains(document.activeElement));
+    await page.locator('#sc-btn').focus();
+    await page.keyboard.press('Enter');
+    await expect(help).toHaveClass(/open/);
+    await expect.poll(inside).toBe(true);
+    for (const key of ['Tab', 'Tab', 'Tab', 'Tab', 'Tab', 'Tab', 'Tab', 'Tab', 'Shift+Tab', 'Shift+Tab', 'Shift+Tab', 'Shift+Tab']) {
+      await page.keyboard.press(key);
+      expect(await inside(), `focus left the dialog after ${key}`).toBe(true);
+    }
+    await page.keyboard.press('Escape');
+    await expect(help).not.toHaveClass(/open/);
+    await expect(page.locator('#sc-btn')).toBeFocused();
+  });
+
+  test('confirm dialog: Tab cycles its buttons; Enter on Cancel cancels', async ({ page }) => {
+    await boot(page, '/?demo');
+    await page.locator('#padd').click();                                // a second project, so the first can be deleted
+    await expect(page.locator('.ptab')).toHaveCount(2);
+    await page.locator('.ptab').first().locator('.pdel').click({ force: true });   // its window makes it ask first
+    const dlg = page.getByRole('dialog', { name: /Delete this project/ });
+    await expect(dlg).toBeVisible();
+    await expect(dlg.getByRole('button', { name: 'Delete' })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(dlg.getByRole('button', { name: 'Cancel' })).toBeFocused();   // wrapped, still inside
+    await page.keyboard.press('Shift+Tab');
+    await expect(dlg.getByRole('button', { name: 'Delete' })).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Enter');                                 // on Cancel: must not delete
+    await expect(dlg).toHaveCount(0);
+    await expect(page.locator('.ptab')).toHaveCount(2);
+  });
+
+  test('palette: Escape gives focus back; a command that opens a terminal still focuses it (focus return does not take over)', async ({ page }) => {
+    await boot(page, '/?demo');
+    await page.locator('#pal-btn').focus();
+    await page.keyboard.press('Enter');
+    await expect(palette(page)).toHaveClass(/open/);
+    await page.keyboard.press('Escape');                                // closed with nothing run: focus goes back to the button
+    await expect(page.locator('#pal-btn')).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(palette(page)).toHaveClass(/open/);
+    await page.keyboard.type('New terminal');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.win')).toHaveCount(2);
+    await page.waitForTimeout(150);                                     // past the dialog's deferred focus return
+    expect(await page.evaluate(() => { const w = [...document.querySelectorAll('.win')].find((x) => x.contains(document.activeElement)); return !!w && document.activeElement.classList.contains('xterm-helper-textarea'); })).toBe(true);
+  });
+
   test('every theme keeps UI text at WCAG AA (4.5:1) on its surfaces; theme cards are buttons', async ({ page }) => {
     await boot(page, '/?demo');
     await page.locator('#theme-btn').click();

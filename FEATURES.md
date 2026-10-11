@@ -488,7 +488,12 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   UI text is never dimmed with opacity (a minimized dock chip is dashed + muted instead of faded).
 - 🖥️ **Accessibility** — the ⌘K palette is a combobox + listbox (`aria-activedescendant` follows the highlighted row, so
   screen readers announce it while focus stays in the input); theme cards are buttons (Tab + Enter picks a theme,
-  `aria-pressed` marks the current one); every button, link and tab shows a focus ring when reached by keyboard. Guarded
+  `aria-pressed` marks the current one); every button, link and tab shows a focus ring when reached by keyboard.
+  **Dialogs** (palette, help, file viewer, live overview, game, confirm / prompt, restore layout, the tour) are
+  `role="dialog"` + `aria-modal`: opening one moves focus into it, Tab / Shift+Tab stay inside, and closing it gives focus
+  back to where it was — unless the action that closed it focused something itself (a new terminal keeps focus). Their
+  close buttons are real buttons; saved-layout rows take Enter / Space. In confirm and prompt dialogs, Enter on a focused
+  button does that button (Enter on *Cancel* cancels); elsewhere in the dialog Enter still confirms. Guarded
   by an axe-core check in the e2e suite (no serious/critical findings across the main surfaces in a dark and a light
   theme) and a contrast check over all 24 themes.
 - 🖥️ Dock — bottom session bar with activity/attention indicators, overflow edge hints, and pointer-event drag-and-drop reordering (desktop: immediate; touch: long-press ~250ms to drag, so swiping over chips scrolls the dock).
