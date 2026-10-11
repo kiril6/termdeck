@@ -4,7 +4,7 @@
 [![Latest release](https://img.shields.io/github/v/release/kiril6/termdeck?label=release)](https://github.com/kiril6/termdeck/releases/latest)
 [![npm downloads](https://img.shields.io/npm/dm/@kiril6/termdeck?label=downloads)](https://npm-stat.com/charts.html?package=@kiril6/termdeck)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
-![Node ≥18](https://img.shields.io/badge/node-%E2%89%A518-brightgreen)
+![Node ≥20](https://img.shields.io/badge/node-%E2%89%A520-brightgreen)
 ![Platforms: macOS · Windows · Linux](https://img.shields.io/badge/platform-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-blue)
 [![smoke](https://github.com/kiril6/termdeck/actions/workflows/smoke.yml/badge.svg)](https://github.com/kiril6/termdeck/actions/workflows/smoke.yml)
 
@@ -28,7 +28,7 @@ termdeck runs Claude Code, Codex, Gemini and your own shells as windows in your 
 npx @kiril6/termdeck
 ```
 
-Needs **Node.js 18+**. It opens **http://localhost:3000** in your browser. Optional: install **tmux** (a terminal session manager that keeps shells alive across restarts; `brew install tmux` / `sudo apt install tmux`) so shells survive a server restart. Other ways to install are [below](#install-and-run).
+Needs **Node.js 20+**. It opens **http://localhost:3000** in your browser. Optional: install **tmux** (a terminal session manager that keeps shells alive across restarts; `brew install tmux` / `sudo apt install tmux`) so shells survive a server restart. Other ways to install are [below](#install-and-run).
 
 ---
 
@@ -215,7 +215,7 @@ What termdeck does *not* do, so none of it is a surprise:
 - **Approve / Deny needs the hooks.** It works with Claude Code, Codex and GitHub Copilot CLI; without hooks termdeck can only jump you to the prompt. See the [security model](#security-model).
 - **Remote access exposes a real shell.** The access token is a per-start secret, not multi-user auth. Keep the default local-only bind, or use a tunnel.
 - **Limits:** 12 terminals per project, 10 projects, 64 live terminals server-wide (`TD_MAX_PANELS`).
-- **Windows:** works through ConPTY, but without tmux shells don't outlive the server, and the working-directory badge shows the spawn directory.
+- **Windows is best-effort.** It works through ConPTY, but without tmux shells don't outlive the server, and the working-directory badge shows the spawn directory. CI checks install, the CLI, a real shell spawn and the platform-neutral tests there; the full suite runs on Linux and macOS.
 - **The hosted demo has no backend** — a fake shell, no real terminals or files.
 - **Viewer:** the Markdown viewer is not full CommonMark (no nested lists or reference links); clickable paths only link files that exist, and only in live mode.
 - **Worktrees are kept until you remove them.** *Finish agent task* removes a worktree only if you opt in.

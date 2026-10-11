@@ -16,12 +16,12 @@ defaults:
 
 jobs:
   check:
-    # Node: the engines floor (18) and the current LTS lines; macOS for the mac-only paths (launchd, spawn-helper, lsof).
+    # Node: the engines floor (20 — the Linux node-pty build needs it) and the current LTS lines; macOS for the mac-only paths (launchd, spawn-helper, lsof).
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        node: ['18', '22', '24']
+        node: ['20', '22', '24']
         include:
           - { os: macos-latest, node: '22' }
     runs-on: ${{ matrix.os }}

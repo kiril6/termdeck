@@ -26,7 +26,7 @@ async function portFree(port, host) {
 
 (async () => {
   // Node
-  const need = require('../package.json').engines.node;           // ">=18"
+  const need = require('../package.json').engines.node;           // ">=20"
   const min = +/(\d+)/.exec(need)[1];
   if (+process.versions.node.split('.')[0] >= min) add('pass', 'Node', `${process.version} (${need})`);
   else add('fail', 'Node', `${process.version}, need ${need}`, 'install a newer Node (https://nodejs.org)');

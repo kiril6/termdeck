@@ -3,6 +3,7 @@
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
 ## 1.26.0
+- **Needs Node.js 20 or newer** — on Linux it already did (the terminal library termdeck installs there requires Node 20); the stated minimum now says so, and CI tests Node 20, 22 and 24 on Linux, plus macOS and (best-effort) Windows. Firefox and Safari's engine (WebKit) are now tested alongside Chrome.
 - **`termdeck uninstall`** — removes agent hooks, start-at-login, termdeck's tmux sessions and `~/.termdeck` in one step, after showing exactly what it will do (`--dry-run` to preview). Your settings backups and logs are kept and listed.
 - **Fewer settings backups** — `termdeck hooks install/uninstall` keeps the newest 3 backups per settings file instead of all of them (they are full copies and may hold API keys).
 - **Bounded audit log** — `TD_LOG_DIR/approvals.jsonl` rotates at 10 MB, keeping one previous file. The tmux "don't ask again" flag now lives in `~/.termdeck` (moved automatically).
