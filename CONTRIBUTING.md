@@ -60,6 +60,14 @@ It bumps `package.json`, commits, tags `v<version>`, pushes, and creates the Git
 
 **Pushing the tag also publishes to npm**, via `.github/workflows/publish.yml`. The workflow runs the full `smoke` and `e2e` workflows first (a failure stops the publish), re-checks that the tag matches `package.json`, and publishes `@kiril6/termdeck` with build provenance — there is no `NPM_TOKEN` in the repo; npm trusts the workflow itself (trusted publishing). Publishing cannot be undone and a version number can never be reused, so treat `npm run release` as the irreversible step it is. Doing it by hand is how v1.3.1 got tagged and released while npm still had nothing.
 
+**If a release is bad:** a published version can't be replaced or reused. Mark it so npm warns everyone who installs it, then ship the fix as the next version:
+
+```bash
+npm deprecate @kiril6/termdeck@<bad-version> "<what is wrong> — use <fixed-version>"
+```
+
+Fix forward with `npm run release` (patch). `npm unpublish` is for accidents within 72 hours only, and it breaks everyone who already installed that version.
+
 ## Reporting bugs
 
-[Open an issue](https://github.com/kiril6/termdeck/issues/new) with your **OS**, **Node version**, and the output of the `/debug` page if shells fail to start.
+[Open an issue](https://github.com/kiril6/termdeck/issues/new) with your **OS**, **Node version**, the output of `termdeck doctor`, and the `/debug` page if shells fail to start. **Security issues:** report privately, see [SECURITY.md](SECURITY.md).

@@ -67,6 +67,14 @@ body:
     validations:
       required: true
   - type: textarea
+    id: doctor
+    attributes:
+      label: termdeck doctor
+      description: Output of `termdeck doctor` (or `node server.js doctor` from a clone). It contains no secret; remove any path you'd rather not share.
+      render: text
+    validations:
+      required: false
+  - type: textarea
     id: debug
     attributes:
       label: /debug output (if shells fail to start)

@@ -32,7 +32,7 @@ Three files. Backend + frontend, no framework beyond Express.
 - `log=1` query param = read-only terminal (input from client is ignored — `isLog` gate in `bindWsEvents`).
 - `cwd` validated by `safeDir()` before spawn, falls back to `$HOME`.
 
-**`public/index.html`** — entire frontend in one ~190KB file (HTML + CSS + JS, no bundler).
+**`public/index.html`** — entire frontend in one ~360KB file (HTML + CSS + JS, no bundler).
 - xterm.js + addons served locally from `node_modules` at `/vendor` (see `server.js`) — no CDN, runs fully offline after `npm install`.
 - Floating draggable/resizable window panes, tiling, projects sidebar, theme picker, command palette (⌘K), search.
 - Each pane opens its own WebSocket to the backend, passing `id`, `cols`, `rows`, `cwd`, optional `log`.

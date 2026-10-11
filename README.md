@@ -99,7 +99,7 @@ termdeck spawns real shells, so it is locked down by default:
 - **Token when exposed.** Bind to another address (`HOST=0.0.0.0` or a specific IP) and termdeck prints a warning and a tokenized URL (`/?t=…`). Opening it once sets a cookie for that browser; everything else gets 401. In this mode each restart creates a new token. For several users or the internet, put real authentication in front of it.
 - **Nothing phones home.** No telemetry, no CDN (xterm.js is served locally), no cloud service.
 
-See also [Known limits](#known-limits).
+See also [Known limits](#known-limits). Found a vulnerability? Report it privately, see [SECURITY.md](SECURITY.md) (it also lists everything termdeck stores and how to remove it).
 
 ---
 
@@ -303,3 +303,5 @@ If termdeck is useful to you, a ⭐ helps others find it. Support development: <
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+termdeck is an independent project. It is not affiliated with or endorsed by Anthropic, OpenAI, Google, GitHub or the makers of the other tools it launches; their names are used only to say what it works with.
