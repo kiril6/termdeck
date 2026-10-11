@@ -22,7 +22,9 @@ function createStore(file, { parse, serialize }) {
     if (cache && stamp === key(st)) return cache;
     try { cache = parse(JSON.parse(fs.readFileSync(file, 'utf8'))); stamp = key(st); }
     catch (e) {
-      const kept = `${file}.corrupt-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+      const base = `${file}.corrupt-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+      let kept = base;
+      for (let n = 1; fs.existsSync(kept); n++) kept = `${base}-${n}`;   // never replace an earlier kept copy
       try { fs.renameSync(file, kept); console.error(`  [${path.basename(file)}] unreadable (${e.message}) — kept as ${kept}, starting empty`); }
       catch (e2) { console.error(`  [${path.basename(file)}] unreadable and could not be set aside: ${e2.message}`); }
       cache = parse({}); stamp = null;

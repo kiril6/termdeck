@@ -37,6 +37,11 @@ try {
   fs.writeFileSync(file, '{"items": "not a list"}');                 // valid JSON, wrong shape: also kept aside
   assert.deepStrictEqual(b.load(), { items: [] });
   assert.strictEqual(fs.readdirSync(dir).filter((f) => f.startsWith('items.json.corrupt-')).length, 2);
+
+  const iso = Date.prototype.toISOString; Date.prototype.toISOString = () => '2026-01-01T00:00:00.000Z';   // all in one ms
+  try { for (let i = 0; i < 3; i++) { fs.writeFileSync(file, 'x'.repeat(i + 1)); a.load(); } }   // must keep distinct names
+  finally { Date.prototype.toISOString = iso; }
+  assert.strictEqual(fs.readdirSync(dir).filter((f) => f.startsWith('items.json.corrupt-')).length, 5);
   console.log('json-store.test: ok');
 } finally {
   console.error = quiet;
