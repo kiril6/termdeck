@@ -15,6 +15,17 @@ defaults:
     shell: bash   # same scripts on every OS (Git Bash on Windows)
 
 jobs:
+  lint:
+    # Bug-catching rules only (eslint.config.js). Pure JS, so no node-pty build or tmux needed.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - run: npm run lint
+
   check:
     # Node: the engines floor (20 — the Linux node-pty build needs it) and the current LTS lines; macOS for the mac-only paths (launchd, spawn-helper, lsof).
     strategy:

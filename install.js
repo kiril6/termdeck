@@ -45,12 +45,12 @@ try {
   execSync(`npm install ${ptyPkg} --save`, { stdio: 'inherit' });
   fixSpawnHelper();
   console.log('\n  ✓ Done. Start with: npm start\n');
-} catch (e) {
+} catch {
   console.error('\n  Install failed. Trying plain npm install as fallback...\n');
   try {
     execSync('npm install', { stdio: 'inherit' });
     console.log('\n  ✓ Done (fallback). Start with: npm start\n');
-  } catch (e2) {
+  } catch {
     console.error('\n  Both install attempts failed.');
     console.error('  macOS fix:  xcode-select --install  then re-run this script');
     console.error('  Linux fix:  sudo apt-get install build-essential python3');

@@ -1150,7 +1150,7 @@ function saveTabOutput(s,tab){
 // Clickable file paths in output: `src/a.ts:42`, `./x.md`, `~/n.txt`, `/abs/f.js`. A token is linked
 // only if /api/stat says it's a real file (relative paths resolve against the tab's live cwd), so
 // prose and URLs stay plain. Opens in the file viewer, scrolled to :line. Single rows only (no wrapped paths).
-const PATH_RE=/(?<![\w\/.:@~-])((?:~|\.{1,2})?\/?(?:[\w.@+-]+\/)*[\w.@+-]+\.[A-Za-z][A-Za-z0-9]{0,7})(?::(\d+)(?::\d+)?)?/g;
+const PATH_RE=/(?<![\w/.:@~-])((?:~|\.{1,2})?\/?(?:[\w.@+-]+\/)*[\w.@+-]+\.[A-Za-z][A-Za-z0-9]{0,7})(?::(\d+)(?::\d+)?)?/g;
 const statCache=new Map();   // full path → {t, p:Promise<bool>}; 5s TTL so a just-created file becomes linkable
 function isFilePath(full){
   const c=statCache.get(full);
@@ -1165,7 +1165,7 @@ function registerPathLinks(term,tab){
     const line=term.buffer.active.getLine(y-1); if(!line) return cb(undefined);
     const text=line.translateToString(true), hits=[];
     for(const m of text.matchAll(PATH_RE)){
-      const raw=m[1], full=/^([\/~]|[A-Za-z]:)/.test(raw)?raw:joinPath(tab.cwd||"~",raw);
+      const raw=m[1], full=/^([/~]|[A-Za-z]:)/.test(raw)?raw:joinPath(tab.cwd||"~",raw);
       hits.push(isFilePath(full).then((ok)=>ok?{
         text:m[0],
         range:{start:{x:m.index+1,y},end:{x:m.index+m[0].length,y}},
@@ -1363,7 +1363,7 @@ function activeTab(s){return s.tabs.find((t)=>t.id===s.activeTabId)||s.tabs[0];}
    ════════════════════════════════════════════════ */
 const doneCooldown=new Map();
 const PROMPT_END_RE=/[$#%>]\s*$/;
-const TRAIL_ESC_RE=/(?:\x1b\[[0-?]*[ -\/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\))+$/;   // trailing CSI / OSC sequences
+const TRAIL_ESC_RE=/(?:\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\))+$/;   // trailing CSI / OSC sequences
 // ── long-run tracking: Enter starts a per-tab timer, done-heuristic clears it ──
 // Ceiling: heuristic. Interactive programs (vim, less, REPL, ssh) look "running" forever;
 // mitigated by nudging once per command and only for a tab you're not watching.
@@ -1404,7 +1404,7 @@ function fmtDur(ms){const s=Math.round(ms/1000);return s<60?s+"s":s<3600?Math.fl
 // Last command + detected port (#22). Deliberately conservative: a typed line is only recorded when it was typed
 // plainly (no history recall / tab-complete / cursor keys), not in a full-screen app or agent, and not answering a
 // password-style prompt. Better to show nothing than a wrong or secret command.
-const ANSI_RE=/\x1b\[[0-9;?]*[ -\/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g;
+const ANSI_RE=/\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g;
 const PORT_RE=/(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1?\]):(\d{2,5})\b/;
 const SECRET_PROMPT_RE=/(?:password|passphrase|token|secret|pin)[^\n]{0,40}:\s*$/i;
 function trackInput(tab,d){
@@ -2813,7 +2813,7 @@ async function openFilePrompt(){
   if(!LIVE){openFileViewer("~/termdeck/README.md","README.md",DEMO_MD);return;}
   const v=await inputModal("Open file",[{key:"p",label:"Path (relative to the project root, absolute, or ~/…) — text, .md, .csv, images, PDF, audio, video",placeholder:"README.md"}],"Open");
   if(!v||!v.p||!v.p.trim())return;
-  const raw=v.p.trim(), full=/^([\/~]|[A-Za-z]:)/.test(raw)?raw:joinPath(treeRootPath(),raw);
+  const raw=v.p.trim(), full=/^([/~]|[A-Za-z]:)/.test(raw)?raw:joinPath(treeRootPath(),raw);
   openFileViewer(full,full.split(/[\\/]/).pop());
 }
 document.getElementById("fv-close").addEventListener("click",closeFileViewer);
@@ -2906,7 +2906,7 @@ function renderCrumbs(root){
 // parent of the shown root, or null at the filesystem top / when "~" can't be resolved yet (demo mode)
 function treeParent(){
   let r=treeRootPath(); if(r==="~") r=treeHome||""; r=r.replace(/[\\/]+$/,"");
-  if(!LIVE||!/^([\/\\]|[A-Za-z]:)/.test(r)||/^[A-Za-z]:$/.test(r)) return null;
+  if(!LIVE||!/^([/\\]|[A-Za-z]:)/.test(r)||/^[A-Za-z]:$/.test(r)) return null;
   const i=Math.max(r.lastIndexOf("/"),r.lastIndexOf("\\"));
   return i<0?null:(r.slice(0,i)||"/");
 }
@@ -2972,7 +2972,7 @@ function revealPrep(){
   root=root.replace(/[\\/]+$/,"");
   const t=s&&activeTab(s), live=t&&t.cwd||s&&s.cwd;   // tab.cwd is the shell's live dir; s.cwd is only the spawn dir
   const cwd=s&&s.project===activeProject&&live?live.replace(/[\\/]+$/,""):null;
-  const rel=cwd&&/^([\/\\]|[A-Za-z]:)/.test(root)&&cwd.startsWith(root)&&(cwd.length===root.length||/[\\/]/.test(cwd[root.length]))?cwd.slice(root.length):null;
+  const rel=cwd&&/^([/\\]|[A-Za-z]:)/.test(root)&&cwd.startsWith(root)&&(cwd.length===root.length||/[\\/]/.test(cwd[root.length]))?cwd.slice(root.length):null;
   outsideRoot=rel===null&&cwd?cwd:null;
   if(rel===null){hereDir=null; return false;}      // unknown cwd / outside the shown root: leave the tree alone
   let acc=root, fresh=false;

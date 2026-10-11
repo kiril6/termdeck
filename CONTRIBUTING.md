@@ -25,7 +25,7 @@ npm start          # start the server
 npm run build:demo # ONLY if you changed public/ — resync the GitHub Pages demo
 ```
 
-There's no linter. `npm test` runs a small Playwright suite in Chromium (demo mode + one live-server run, ~30 s; first time `npx playwright install chromium`). CI also runs it in Firefox and WebKit on Linux; to do the same locally, `npx playwright install firefox webkit` once, then `PW_ALL_BROWSERS=1 npm test`. It also fails if `docs/app/` is stale — run `npm run build:demo`. Verify UI changes by hand too, and keep any new tests lightweight.
+`npm run lint` runs ESLint with bug-catching rules only (undefined names, unused variables, unreachable code — no style rules); CI runs it too. `npm test` runs a small Playwright suite in Chromium (demo mode + one live-server run, ~30 s; first time `npx playwright install chromium`). CI also runs it in Firefox and WebKit on Linux; to do the same locally, `npx playwright install firefox webkit` once, then `PW_ALL_BROWSERS=1 npm test`. It also fails if `docs/app/` is stale — run `npm run build:demo`. Verify UI changes by hand too, and keep any new tests lightweight.
 
 > **After editing anything in `public/`, run `npm run build:demo` and commit the result.** The hosted demo at `docs/app/` is a generated copy of the frontend; without a rebuild it drifts from the real app.
 

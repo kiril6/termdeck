@@ -13,7 +13,7 @@ const SAFE_PREFIX = /^[\w@%+=:,./-]+( [\w@%+=:,./-]+)*$/;          // plain word
 // What a "starts with" rule lets follow its prefix: plain words only. No options (`-x`, `--x`) and no `name=value` —
 // many tools take options that run or write arbitrary things — and no path that leaves the project
 // (absolute, `~`, `..`). Anything else after the prefix needs a click (or an exact rule).
-const PLAIN_ARG = /^[\w@%+:,.\/][\w@%+:,.\/-]*$/;
+const PLAIN_ARG = /^[\w@%+:,./][\w@%+:,./-]*$/;
 const plainArg = (a) => PLAIN_ARG.test(a) && !a.startsWith('/') && !a.split('/').includes('..');
 
 const DENY = [

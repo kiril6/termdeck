@@ -3,6 +3,7 @@
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
 ## 1.26.0
+- **Fixed: the "could not start a shell" help** — when no shell could start, termdeck failed while writing the setup help, so the window showed a generic error instead. It now shows the errors and the `/debug` link.
 - **Terminal library updated to xterm.js 6** — scrolling, the thin scrollbar and window snapping work as before; the scrollbar now fades out when idle and never covers the last text column. **Option/Alt+←/→ still jumps a word** (xterm.js 6 stopped doing this itself, so termdeck now does). In find, the current match shows in the selection colour.
 - **Fixed: keystrokes jumping back into a terminal** — opening the command palette (or a dialog) right as a window took focus could close it again and send what you typed, including Enter, to the shell. A late focus no longer takes over when focus has moved elsewhere.
 - **`localhost` and `127.0.0.1` are one address** — opening termdeck as `localhost` now takes you to `127.0.0.1`, so you sign in once for both and the "already open in another tab" check works across them.

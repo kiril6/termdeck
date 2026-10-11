@@ -11,7 +11,7 @@ const ROOT = path.join(__dirname, 'fixtures', 'hooks');
 const HOOK = path.join(__dirname, 'td-hook.js');
 const KEYS = ['type', 'tool', 'detail', 'files'];
 
-function runHook(cli, payload, env, url) {
+function runHook(cli, payload, env) {
   return new Promise((resolve) => {
     const p = spawn(process.execPath, [HOOK, cli], { env: { PATH: process.env.PATH, ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
     let out = '';

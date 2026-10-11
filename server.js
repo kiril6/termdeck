@@ -864,7 +864,7 @@ const tail      = (sess) => sess.buffer.slice(-BUFFER);            // what repla
 // Opt-in audit trail: with TD_LOG_DIR set, each shell's buffered output (ANSI stripped, last
 // TD_BUFFER bytes) is written there when the shell really ends. Browser disconnects don't count.
 const LOG_DIR = process.env.TD_LOG_DIR ? path.resolve(process.env.TD_LOG_DIR) : null;
-const ANSI_RE = /\x1b\[[0-?]*[ -\/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-Z\\-_]/g;
+const ANSI_RE = /\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-Z\\-_]/g;
 function saveLog(sess, id, code) {
   if (!LOG_DIR || !sess.buffer) return;
   try {
@@ -1070,7 +1070,7 @@ function onConnection(ws, req) {
   }
 
   if (!term) {
-    console.error('  [fatal] No shell spawned. Visit http://localhost:' + PORT + '/debug');
+    console.error('  [fatal] No shell spawned. Visit ' + AGENT_URL + '/debug');
     send(ws, { type:'output', data:[
       '\r\n\x1b[31mCould not start a shell.\x1b[0m',
       '\x1b[33mErrors:\x1b[0m',
@@ -1079,7 +1079,7 @@ function onConnection(ws, req) {
       '\x1b[36mRun the setup script to fix this:\x1b[0m',
       '  \x1b[1mnode install.js\x1b[0m',
       '',
-      '\x1b[2mDebug page: http://localhost:' + PORT + '/debug\x1b[0m',
+      '\x1b[2mDebug page: ' + AGENT_URL + '/debug\x1b[0m',
     ].join('\r\n')});
     send(ws, { type:'exit', code:1 });
     return;

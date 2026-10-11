@@ -95,7 +95,7 @@ const stamp = () => new Date().toISOString().replace(/\D/g, '').slice(0, 14);
 const KEEP_BACKUPS = 3;
 function pruneBackups(file) {
   const dir = path.dirname(file), re = new RegExp('^' + path.basename(file).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\.termdeck-bak-\\d{14}$');
-  let old = [];
+  let old;
   try { old = fs.readdirSync(dir).filter((f) => re.test(f)).sort().reverse().slice(KEEP_BACKUPS); } catch { return; }
   for (const f of old) { try { fs.unlinkSync(path.join(dir, f)); } catch {} }
   if (old.length) console.log(`    removed ${old.length} older backup${old.length === 1 ? '' : 's'} (keeping the newest ${KEEP_BACKUPS})`);
