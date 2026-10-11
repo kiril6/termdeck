@@ -59,9 +59,11 @@ if (!pty) {
 const app = express();
 const HOST = process.env.HOST || '127.0.0.1';   // set HOST=0.0.0.0 (or a LAN IP) to expose deliberately
 const LOOPBACK = ['127.0.0.1', 'localhost', '::1'].includes(HOST);
-// Non-loopback bind (or extra allowed hosts = proxied remote access) = remote shell for anyone who can reach the port, so require a random
-// per-start token: open /?t=<token> once → HttpOnly cookie → required on every HTTP request
-// and WS upgrade. Loopback stays token-free. Restart = new token (old cookies stop working).
+// Every HTTP request and WS upgrade needs the td_token cookie: open /?t=<token> once (auto-opened on start, or
+// `termdeck open`) → HttpOnly cookie. Loopback has no login otherwise, and any local program (an agent inside
+// termdeck, another OS user) can reach the port, so the browser proves itself with a secret only it holds.
+// Loopback: the persistent secret in ~/.termdeck/token (cookie survives restarts). Non-loopback bind or extra
+// allowed hosts (remote access): a random per-start token — restart = new token, old cookies stop working.
 // Opt-in extra hostnames (exact match, comma-separated) for a reverse proxy such as
 // `tailscale serve` (e.g. TD_ALLOWED_HOSTS=mybox.tail1234.ts.net). No wildcards, empty by default.
 const EXTRA_HOSTS = new Set(String(process.env.TD_ALLOWED_HOSTS || '').split(',')
@@ -69,7 +71,15 @@ const EXTRA_HOSTS = new Set(String(process.env.TD_ALLOWED_HOSTS || '').split(','
     if (h.includes('*')) { console.error(`  TD_ALLOWED_HOSTS: ignoring "${h}" — wildcards are not allowed`); return false; }
     return !!h;
   }));
-const TOKEN = LOOPBACK && !EXTRA_HOSTS.size ? null : require('crypto').randomBytes(24).toString('hex');
+const access = require('./scripts/access');
+const LOCAL_ONLY = LOOPBACK && !EXTRA_HOSTS.size;
+let SECRET;
+try { SECRET = access.loadOrCreateSecret(); }
+catch (e) {   // unwritable home: still safe, but the sign-in link and hook keys change on every restart
+  console.error(`  [access] can't keep ${access.file()} (${e.code || e.message}) — using a per-start secret`);
+  SECRET = require('crypto').randomBytes(24).toString('hex');
+}
+const TOKEN = LOCAL_ONLY ? SECRET : require('crypto').randomBytes(24).toString('hex');
 function tokenEq(a, b) {
   const x = Buffer.from(String(a)), y = Buffer.from(String(b));
   return x.length === y.length && require('crypto').timingSafeEqual(x, y);
@@ -78,13 +88,25 @@ function hasAuthCookie(req) {
   const m = /(?:^|;\s*)td_token=([^;]+)/.exec(req.headers.cookie || '');
   return !!m && tokenEq(m[1], TOKEN);
 }
-if (TOKEN) app.use((req, res, next) => {
+const SIGNIN_PAGE = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TermDeck — open the sign-in link</title><style>
+body{font-family:ui-monospace,Menlo,monospace;background:#0b0f14;color:#c9d4de;margin:0;display:grid;place-items:center;min-height:100vh;padding:24px;box-sizing:border-box}
+main{max-width:560px;line-height:1.7;font-size:14px} h1{color:#4fd6be;font-size:18px;margin:0 0 12px}
+code{background:#0e151d;padding:2px 7px;border-radius:4px;color:#4fd6be}</style></head><body><main>
+<h1>This browser isn't linked to termdeck yet</h1>
+<p>termdeck runs real shells, so it only answers browsers that hold its access link.</p>
+<p>In a terminal on this computer, run <code>termdeck open</code> (from a clone: <code>npm start -- open</code>),
+or open the link termdeck printed when it started. You only need to do this once per browser.</p>
+</main></body></html>`;
+app.use((req, res, next) => {
   if (req.query.t !== undefined && tokenEq(req.query.t, TOKEN)) {
-    res.setHeader('Set-Cookie', `td_token=${TOKEN}; Path=/; HttpOnly; SameSite=Strict`);
+    res.setHeader('Set-Cookie', `td_token=${TOKEN}; Path=/; HttpOnly; SameSite=Strict${LOCAL_ONLY ? '; Max-Age=34560000' : ''}`);
     return res.redirect(req.path);
   }
   if (hasAuthCookie(req)) return next();
-  res.status(401).type('text').send('Unauthorized — open the tokenized URL printed at server startup.');
+  if (req.path === '/api/agent-events') return next();   // hooks authenticate per terminal (TD_HOOK_AUTH) — see the route
+  if (req.method === 'GET' && !path.extname(req.path) && req.accepts(['html', 'json']) === 'html') return res.status(401).type('html').send(SIGNIN_PAGE);
+  res.status(401).type('text').send('Unauthorized — run `termdeck open`, or open the link printed at server startup.');
 });
 // Serve ONLY the app dir — never express.static(__dirname), which would expose
 // server.js, package.json, and repo docs at /server.js etc. (info disclosure,
@@ -382,15 +404,20 @@ app.post('/api/agent-events', apiGuard, (req, res) => {
   const now = Date.now();
   if (now - (s.evtWin || 0) > 1000) { s.evtWin = now; s.evtCount = 0; }
   if (++s.evtCount > 30) return res.status(429).end();           // 30 events/s per terminal
+  // Trusted = this terminal's own hook (TD_HOOK_AUTH) or the browser. Untrusted = shells started before TD_HOOK_AUTH
+  // existed (still show working / waiting / needs approval), or any other local program: display only — never held
+  // for a click, never answered by a rule, never settles or supersedes a real held request.
+  const trusted = hasAuthCookie(req) || tokenEq(req.get('x-td-hook-auth') || '', access.hookAuth(SECRET, b.id));
+  if (!trusted && pendingApprovals.has(b.id)) return res.status(204).end();   // can't clear or hide a request awaiting your click
   const ev = { type: b.type, agent: cap(b.agent, 32), tool: cap(b.tool, 64), detail: cap(b.detail, 200), session: cap(b.session, 64), ts: now };
   if (Array.isArray(b.files)) ev.files = b.files.slice(0, 10).map((f) => cap(f, 300)).filter(Boolean);
   if (Number.isFinite(b.tokens)) ev.tokens = b.tokens;
   if (Number.isFinite(b.cost))   ev.cost = b.cost;
   if (Number.isFinite(b.cacheTokens)) ev.cache = b.cacheTokens;   // cache reads, shown beside tokens (#85)
   // Any event other than the request itself means the agent moved on (you answered in the terminal).
-  if (b.type !== 'permission_request') settleApproval(b.id, null, 'terminal');
+  if (trusted && b.type !== 'permission_request') settleApproval(b.id, null, 'terminal');
   // #44 phase 2: an opt-in allow-rule answers on its own — visibly (audit entry + toast), never for a deny-list command.
-  const cmd = b.type === 'permission_request' && b.wait === true && typeof b.command === 'string' ? b.command.slice(0, 4000) : null;
+  const cmd = trusted && b.type === 'permission_request' && b.wait === true && typeof b.command === 'string' ? b.command.slice(0, 4000) : null;
   if (cmd !== null) {
     const full = { agent: ev.agent, tool: ev.tool, command: cmd, cwd: cap(b.cwd, 500) };
     const risk = rules.riskReason(cmd);
@@ -406,7 +433,7 @@ app.post('/api/agent-events', apiGuard, (req, res) => {
   }
   // #44: a permission request from a hook that can take a decision back (b.wait) is held open until the
   // browser answers. Only with a browser attached — otherwise nobody could click, so fall through at once.
-  const held = b.wait === true && b.type === 'permission_request' && !!s.ws;
+  const held = trusted && b.wait === true && b.type === 'permission_request' && !!s.ws;
   if (held) {
     settleApproval(b.id, null, 'superseded');
     ev.reqId = require('crypto').randomUUID();
@@ -774,7 +801,7 @@ const wss    = new WebSocketServer({ server, verifyClient: ({ req }, done) => {
   const origin = hostnameOf(req.headers.origin);     // browsers always send it on WS; non-browser clients omit it
   if (host && !ALLOWED_HOSTS.has(host)) return done(false, 403);     // DNS-rebind guard
   if (origin && !ALLOWED_HOSTS.has(origin)) return done(false, 403); // cross-site CSRF guard
-  if (TOKEN && !hasAuthCookie(req)) return done(false, 401);
+  if (!hasAuthCookie(req)) return done(false, 401);   // only the browser holds the cookie — not agents or other local users
   done(true);   // the terminal cap is enforced in the connection handler, so the client can be told WHY
 }});
 
@@ -900,11 +927,11 @@ function onPath(name) {
 const live = new Map();
 
 // ── Agent event bridge (#40) ─────────────────────────────────────────────────
-// Each PTY gets TD_ID/TD_URL(/TD_TOKEN)/TD_HOOK so an agent CLI's hook, running inside that
+// Each PTY gets TD_ID/TD_URL/TD_HOOK/TD_HOOK_AUTH so an agent CLI's hook, running inside that
 // shell, can POST its lifecycle events back (scripts/td-hook.js). TD_URL is fixed at listen().
 let AGENT_URL = '';
 const AGENT_HOOK = path.join(__dirname, 'scripts', 'td-hook.js');
-const agentEnv = (id, base) => ({ ...base, TD_ID: id, TD_URL: AGENT_URL, TD_HOOK: AGENT_HOOK, ...(TOKEN ? { TD_TOKEN: TOKEN } : {}) });
+const agentEnv = (id, base) => ({ ...base, TD_ID: id, TD_URL: AGENT_URL, TD_HOOK: AGENT_HOOK, TD_HOOK_AUTH: access.hookAuth(SECRET, id) });
 // tmux builds the session env from its server, not from our client, so pass it with -e (tmux >= 3.2).
 const tmuxEnvFlags = (() => {
   try { const [, a, b] = /(\d+)\.(\d+)/.exec(execFileSync('tmux', ['-V']).toString()) || []; return +a > 3 || (+a === 3 && +b >= 2); }
@@ -960,7 +987,7 @@ wss.on('connection', (ws, req) => {
     try { execFileSync('tmux', ['has-session', '-t', name], { stdio:'ignore' }); existed = true; } catch {}
     try {
       term = pty.spawn('tmux', ['new-session', '-A', '-D', '-s', name, '-c', cwd,
-                                   ...(tmuxEnvFlags ? ['-e', 'TD_ID=' + id, '-e', 'TD_URL=' + AGENT_URL, '-e', 'TD_HOOK=' + AGENT_HOOK, ...(TOKEN ? ['-e', 'TD_TOKEN=' + TOKEN] : [])] : []),
+                                   ...(tmuxEnvFlags ? ['-e', 'TD_ID=' + id, '-e', 'TD_URL=' + AGENT_URL, '-e', 'TD_HOOK=' + AGENT_HOOK, '-e', 'TD_HOOK_AUTH=' + access.hookAuth(SECRET, id)] : []),
                                    ...(wantShell ? [wantShell] : []),    // trailing shell-command: only used when the session is created
                                    // Hide tmux's status bar: the window chrome already shows name/shell/time, and its default
                                    // black-on-green is unreadable on light themes. This session only — the user's own tmux keeps its bar.
@@ -1153,16 +1180,18 @@ function listenOn(port, triesLeft) {
     const host = LOOPBACK ? '127.0.0.1' : HOST;
     const base = `http://${host}:${actual}`;
     AGENT_URL = base;
-    // Shells kept alive by tmux across a restart still hold the OLD TD_URL/TD_TOKEN; td-hook.js falls back to this file (#47).
+    // Shells kept alive by tmux across a restart still hold the OLD TD_URL; td-hook.js falls back to this file (#47).
+    // No token in it: hooks authenticate with TD_HOOK_AUTH, which stays valid across restarts.
     try {
       const dir = path.join(os.homedir(), '.termdeck'), f = path.join(dir, 'server.json');
       fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-      fs.writeFileSync(f, JSON.stringify({ url: base, pid: process.pid, ...(TOKEN ? { token: TOKEN } : {}) }), { mode: 0o600 });
+      fs.writeFileSync(f, JSON.stringify({ url: base, pid: process.pid, local: LOCAL_ONLY }), { mode: 0o600 });
       fs.chmodSync(f, 0o600);
       process.on('exit', () => { try { if (JSON.parse(fs.readFileSync(f, 'utf8')).pid === process.pid) fs.unlinkSync(f); } catch {} });
     } catch {}   // best effort: without it only the restart-on-another-port case degrades
-    const open = TOKEN ? `${base}/?t=${TOKEN}` : base;   // tokenized URL: first visit sets the auth cookie
-    console.log(`\n  TermDeck → ${open}`);
+    const open = `${base}/?t=${TOKEN}`;   // tokenized URL: first visit sets the auth cookie
+    // Not a terminal (launchd / systemd log): keep the local secret out of the log; `termdeck open` prints the link.
+    console.log(`\n  TermDeck → ${LOCAL_ONLY && !process.stdout.isTTY ? base + '   (sign-in link: termdeck open)' : open}`);
     console.log(`  Debug             → ${base}/debug`);
     console.log(`  ${os.platform()} ${os.arch()}  |  Node ${process.version}  |  ${ptyPkg}`);
     console.log(`  Durable sessions  → ${TMUX_OK ? 'tmux (shells survive server restart)' : 'off — raw shells (install tmux, or NO_TMUX unset, to enable)'}`);
@@ -1170,7 +1199,7 @@ function listenOn(port, triesLeft) {
     if (EXTRA_HOSTS.size) console.log(`  Extra allowed hosts → ${[...EXTRA_HOSTS].join(', ')}  (token required)`);
     if (!LOOPBACK) console.log(`\n  \x1b[33m⚠ Bound to ${HOST} — shells reachable from the network, gated by the token in the URL above. Keep it secret.\n    Safer: keep the loopback bind and use a tunnel / tailscale serve — see docs/remote-access.md\x1b[0m`);
     console.log('');
-    openBrowser(open);
+    if (!process.env.NO_OPEN) openBrowser(open);
   };
   server.once('error', onError);
   wss.once('error', onError);
@@ -1179,17 +1208,5 @@ function listenOn(port, triesLeft) {
 }
 maybePromptTmux().finally(() => listenOn(START_PORT, portPinned ? 0 : MAX_PORT_TRIES));
 
-// Open the dashboard on start. NO_OPEN=1 skips it. BROWSER=<name|path> picks the browser
-// (e.g. BROWSER="Google Chrome" on macOS, BROWSER=firefox on Linux); default = OS default.
-function openBrowser(target) {
-  if (process.env.NO_OPEN) return;
-  const browser = process.env.BROWSER;
-  let cmd, args;
-  if (browser) {
-    if (process.platform === 'darwin') { cmd = 'open'; args = ['-a', browser, target]; }
-    else                               { cmd = browser; args = [target]; }   // Linux/Windows: run the browser binary directly
-  } else if (isWindows) { cmd = 'cmd'; args = ['/c', 'start', '', target]; }
-  else if (process.platform === 'darwin') { cmd = 'open'; args = [target]; }
-  else { cmd = 'xdg-open'; args = [target]; }
-  try { spawn(cmd, args, { stdio: 'ignore', detached: true }).on('error', () => {}).unref(); } catch {}
-}
+// Open the dashboard on start (NO_OPEN=1 skips it). BROWSER=<name|path> picks the browser.
+const { openBrowser } = require('./scripts/open-browser');

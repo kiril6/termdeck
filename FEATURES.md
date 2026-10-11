@@ -391,8 +391,8 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   decision is honoured (the Claude-style wrapper is ignored) — both handled in `scripts/td-hook.js` and pinned by
   `scripts/check-hooks.js`. Token totals are not read for Copilot.
 - 🔌 **Agent event bridge** — an agent CLI's lifecycle hooks report real state instead of the idle/regex
-  guesses. Every PTY gets `TD_ID`, `TD_URL`, `TD_HOOK` (and `TD_TOKEN` when the access token is on) in its
-  environment (tmux ≥ 3.2 via `-e`); the server also writes its current URL (and token, if on) to `~/.termdeck/server.json` (0600, removed on exit) and the helper falls back to it when `TD_URL` is unreachable, so tmux-kept shells keep reporting after a restart on another port; `scripts/td-hook.js` — a dependency-free, silent, never-blocking
+  guesses. Every PTY gets `TD_ID`, `TD_URL`, `TD_HOOK` and `TD_HOOK_AUTH` (this terminal's own event credential, see *Local
+  access*) in its environment (tmux ≥ 3.2 via `-e`); the server also writes its current URL (never a secret) to `~/.termdeck/server.json` (0600, removed on exit) and the helper falls back to it when `TD_URL` is unreachable, so tmux-kept shells keep reporting after a restart on another port; `scripts/td-hook.js` — a dependency-free, silent, never-blocking
   no-op outside termdeck — POSTs `{id,agent,type,tool,detail,files}` to `POST /api/agent-events`, where
   `type` ∈ `prompt_submit | tool_start | tool_end | permission_request | stop | error`. The server pushes
   the event only to that terminal's own browser socket (and replays the last one on reattach). In the
@@ -510,7 +510,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 📄 **Remote access docs** — `docs/remote-access.md`: Tailscale Serve (recommended), SSH tunnel, LAN bind.
 - 🔌 **`TD_ALLOWED_HOSTS`** — opt-in, comma-separated, exact-match hostnames added to the Origin + Host check so a
   reverse proxy like `tailscale serve` works while the server stays on loopback. No wildcards; unset = localhost only.
-  Setting it also enables the access token (see above).
+  Setting it switches to a per-start access token (see *Local access*).
 - 🔌 **Session log on exit** — with `TD_LOG_DIR` set, a shell's buffered output (ANSI stripped, last `TD_BUFFER` bytes)
   is written to `<dir>/<timestamp>_<id>.log` (dir `0700`, file `0600`) when the shell actually ends (kill / process exit).
   Browser disconnects don't write a log — reattach/replay is unchanged. Off by default (output can contain secrets).
@@ -532,13 +532,22 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   systemd path is covered by a rendered-file check only.
 - 📄 **Autostart templates** — `docs/autostart/` ships a launchd plist (macOS) and a systemd user unit (Linux), plus SSH-tunnel/Tailscale remote-access notes.
 - 🔌 **Loopback bind** by default (`127.0.0.1`); `HOST=0.0.0.0` (or an IP) to expose, with a warning.
-- 🔌 **Auth token on non-loopback binds** — when `HOST` isn't loopback, a random token is generated at startup and printed in
-  the URL (`/?t=<token>`). Visiting it sets an `HttpOnly; SameSite=Strict` cookie and redirects; every HTTP request and WS
-  upgrade then requires that cookie (401 otherwise). Restart = new token. Loopback stays token-free.
+- 🔌 **Local access (sign-in once per browser)** — any program on the machine can reach a loopback port (another OS user,
+  or an agent running inside termdeck), so every HTTP request and WS upgrade needs the `td_token` cookie (401 otherwise).
+  The browser gets it from a `/?t=<token>` link: the tab termdeck auto-opens on start carries it, `termdeck open` opens
+  (and prints) it, and visiting it sets an `HttpOnly; SameSite=Strict` cookie and redirects. **Loopback:** the secret is
+  kept in `~/.termdeck/token` (0600, created on first start) and the cookie lasts 400 days, so a restart needs nothing;
+  started without a terminal (launchd / systemd) the banner prints the URL without the secret. A browser without the
+  cookie gets a *This browser isn't linked yet — run `termdeck open`* page; an open tab that loses it shows a sticky
+  *Signed out* toast. **Remote** (non-loopback `HOST` or `TD_ALLOWED_HOSTS`): a random per-start token instead, printed
+  in the URL; restart = new token. Terminals never get the secret: each gets `TD_HOOK_AUTH` (an HMAC of it for that
+  terminal id), which only authenticates `POST /api/agent-events` for that terminal. Not a sandbox: a process that can
+  read your files can read the secret too.
 - 🔌 **WS Origin + Host validation** — rejects the upgrade unless both resolve to a known localhost
-  name (blocks cross-site / DNS-rebind attacks on the shell socket). No token on loopback by design.
-- 🔌 **`/api/agent-events` hardening** — same `apiGuard` Origin/Host check (and access token when on) as
-  every `/api/*` route; JSON only, 64KB body cap, `type` whitelist, unknown/log-only terminal ids → 404,
+  name (blocks cross-site / DNS-rebind attacks on the shell socket), and requires the sign-in cookie (see *Local access*).
+- 🔌 **`/api/agent-events` hardening** — same `apiGuard` Origin/Host check as every `/api/*` route; authenticated by
+  the terminal's own `TD_HOOK_AUTH` header (or the browser cookie). Without it an event is **display only**: never held
+  for Approve / Deny, never answered by a rule, and it can't clear or hide a request already waiting for your click; JSON only, 64KB body cap, `type` whitelist, unknown/log-only terminal ids → 404,
   fields whitelisted and length-capped, 30 events/s per terminal (429), shown via `textContent`. An event
   can never write to a PTY — it only changes what the UI displays; termdeck still never answers without your click or a rule you opted in to (see *Approve / Deny*, *allow-rules*).
 - 🔌 **`/api/git/root` + `/api/git/worktree` + `/api/git/diff` + `/api/git/finish`** — git repo detection, worktree creation
@@ -554,7 +563,8 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   (OS opener: `open`/`start`/`xdg-open`). `NO_OPEN=1` skips it; `BROWSER=<name|path>` picks a
   specific browser (e.g. `BROWSER="Google Chrome"` on macOS, `BROWSER=firefox` on Linux).
 - 🔌 `/debug` page — dumps env and tries each shell candidate when shells won't start.
-- 🔌 **Command line** — `termdeck --help`, `--version`, `--port <n>`, `--host <addr>`, `--no-open` (flags are applied
+- 🔌 **Command line** — `termdeck open` opens the running dashboard signed in (prints the link; `--no-open` prints only;
+  refuses in remote mode, whose token is only printed at startup). `termdeck --help`, `--version`, `--port <n>`, `--host <addr>`, `--no-open` (flags are applied
   as the equivalent env vars *before* the server boots and win over existing ones; a bad value or unknown flag prints
   help and exits 2; works through `npm start -- --port 4000` too). No argument-parsing dependency (`scripts/cli.js`).
 - 🔌 **`termdeck hooks install|uninstall`** — sets up the agent hooks without hand-editing JSON (`scripts/hooks.js`).

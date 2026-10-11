@@ -9,13 +9,14 @@ const HELP = `termdeck ${VERSION} — browser cockpit for terminals and AI codin
 
 Usage:
   termdeck [options]       start the server
+  termdeck open            open the running dashboard in your browser and print its sign-in link (--no-open: print only)
   termdeck doctor          check this machine (offline) and exit; 0 = all good, 1 = warnings/failures
   termdeck hooks install   set up agent hooks for Claude Code / Gemini CLI / Codex / Copilot (also: uninstall, --dry-run, --yes)
   termdeck autostart install   start termdeck at login (launchd / systemd user unit; also: uninstall, --port, --dry-run)
 
 Options:
   --port <n>     port to listen on (same as PORT; if set, never moves to a free one)
-  --host <h>     address to bind (same as HOST; non-loopback turns the access token on)
+  --host <h>     address to bind (same as HOST; non-loopback uses a per-start access token)
   --no-open      don't open the browser (same as NO_OPEN=1)
   -v, --version  print the version
   -h, --help     print this help
@@ -34,7 +35,7 @@ function applyArgs(argv) {
     const r = spawnSync(process.execPath, [path.join(__dirname, sub), ...argv.slice(1)], { stdio: 'inherit' });
     process.exit(r.status ?? 1);
   }
-  let doctor = false;
+  let doctor = false, open = false;
   for (let i = 0; i < argv.length; i++) {
     const [flag, inline] = argv[i].startsWith('--') ? argv[i].split(/=(.*)/s) : [argv[i]];
     const value = () => inline !== undefined ? inline : argv[++i];
@@ -53,13 +54,32 @@ function applyArgs(argv) {
         process.env.HOST = v; break;
       }
       case 'doctor': doctor = true; break;
+      case 'open':   open = true; break;
       default: fail(`unknown argument "${argv[i]}"`);
     }
   }
+  if (open) openLink();
   if (doctor) {   // synchronous child so server.js never gets to start listening
     const r = spawnSync(process.execPath, [path.join(__dirname, 'doctor.js')], { stdio: 'inherit' });
     process.exit(r.status ?? 1);
   }
+}
+
+// `termdeck open`: the browser needs the /?t=… link once (it then keeps a cookie). Read the running server's URL from
+// ~/.termdeck/server.json and the local secret from ~/.termdeck/token — both 0600, readable only by you.
+function openLink() {
+  const fs = require('fs'), os = require('os');
+  let cur; try { cur = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.termdeck', 'server.json'), 'utf8')); } catch {}
+  const alive = !!cur && (() => { try { process.kill(cur.pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } })();
+  const say = (msg, code) => { process.stderr.write(`termdeck: ${msg}\n`); process.exit(code); };
+  if (!alive || typeof cur.url !== 'string') say('no running server found — start it with `termdeck` (or `npm start`)', 1);
+  if (cur.local === false) say('the server is in remote-access mode — use the link it printed when it started (that token changes on every start)', 1);
+  const secret = require('./access').readSecret();
+  if (!secret) say(`no access secret at ${require('./access').file()} — restart the server to create it`, 1);
+  const link = `${cur.url}/?t=${secret}`;
+  process.stdout.write(link + '\n');
+  if (!process.env.NO_OPEN) require('./open-browser').openBrowser(link);
+  process.exit(0);
 }
 
 module.exports = { applyArgs };

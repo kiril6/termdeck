@@ -94,9 +94,9 @@ async function portFree(port, host) {
   const wild = extra.filter((h) => h.includes('*'));
   if (wild.length) add('warn', 'TD_ALLOWED_HOSTS', `wildcards are ignored: ${wild.join(', ')}`, 'list exact hostnames');
   const real = extra.filter((h) => !h.includes('*'));
-  if (!loop) add('warn', 'Exposure', `bound to ${host} — reachable from the network; the access token is ON`, 'prefer the loopback bind plus a tunnel (docs/remote-access.md)');
-  else if (real.length) add('info', 'Exposure', `loopback bind, extra hosts: ${real.join(', ')} — the access token is ON`);
-  else add('pass', 'Exposure', 'loopback only, no token needed');
+  if (!loop) add('warn', 'Exposure', `bound to ${host} — reachable from the network; gated by a per-start access token`, 'prefer the loopback bind plus a tunnel (docs/remote-access.md)');
+  else if (real.length) add('info', 'Exposure', `loopback bind, extra hosts: ${real.join(', ')} — gated by a per-start access token`);
+  else add('pass', 'Exposure', 'loopback only; a browser signs in once with the local access link (`termdeck open`)');
 
   // TD_* values that silently fall back to defaults
   for (const [k, d] of [['TD_GRACE_MS', 60000], ['TD_BUFFER', '(default)'], ['TD_MAX_PANELS', 64]]) {

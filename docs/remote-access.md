@@ -15,8 +15,9 @@ tailscale serve --bg 3000                            # https://mybox.tail1234.ts
 - `TD_ALLOWED_HOSTS` is a comma-separated list of **exact** hostnames added to the Origin + Host
   check (DNS-rebind / cross-site protection). No wildcards (they're ignored with a warning);
   unset = localhost only.
-- Setting it also turns on the access token (same as a non-loopback `HOST`): open the
+- Setting it switches to a per-start access token (same as a non-loopback `HOST`): open the
   `/?t=<token>` URL printed at startup once per device; a cookie authorizes that browser.
+  (Local-only mode also needs a sign-in, but with a persistent secret — see `termdeck open`.)
   Anyone else on the tailnet gets 401 without it.
 - Use `tailscale serve`, **never** `tailscale funnel` — funnel publishes it to the public internet.
 

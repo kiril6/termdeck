@@ -1,6 +1,7 @@
 // Shared helpers for README captures: boots a real termdeck on a throwaway HOME and drives it.
 const { chromium } = require('@playwright/test');
 const { spawn, execFileSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
 const OUT = path.join(ROOT, 'docs', 'screenshots');
@@ -24,6 +25,8 @@ async function boot({ width = 1440, height = 900, dsf = 2, theme = 'tokyoNight' 
     args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
   });
   const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: dsf });
+  const token = fs.readFileSync(path.join(HOME, '.termdeck', 'token'), 'utf8').trim();   // sign in like `termdeck open` does
+  await ctx.addCookies([{ name: 'td_token', value: token, url: URL }]);
   const page = await ctx.newPage();
   const ids = [];   // {id, cwd} per terminal websocket, in creation order
   page.on('websocket', (ws) => { const u = new globalThis.URL(ws.url()); if (u.searchParams.get('id')) ids.push({ id: u.searchParams.get('id'), cwd: u.searchParams.get('cwd') }); });

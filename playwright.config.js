@@ -14,6 +14,14 @@ if (!process.env.TD_E2E_HOME) {
   git('init', '-q', '-b', 'main'); fs.writeFileSync(path.join(home, 'README.md'), 'x\n'); git('add', '.'); git('commit', '-qm', 'init');
   process.env.TD_E2E_HOME = home;
 }
+// The server needs its sign-in cookie on every request; pre-seed the secret it will load (~/.termdeck/token).
+const tokenFile = path.join(process.env.TD_E2E_HOME, '.termdeck', 'token');
+if (!fs.existsSync(tokenFile)) {
+  fs.mkdirSync(path.dirname(tokenFile), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(tokenFile, require('crypto').randomBytes(24).toString('hex') + '\n', { mode: 0o600 });
+}
+const TOKEN = fs.readFileSync(tokenFile, 'utf8').trim();
+process.env.TD_E2E_TOKEN = TOKEN;
 const PORT = 4783;
 
 module.exports = defineConfig({
@@ -23,6 +31,7 @@ module.exports = defineConfig({
   reporter: process.env.CI ? 'list' : 'line',
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
+    storageState: { cookies: [{ name: 'td_token', value: TOKEN, domain: '127.0.0.1', path: '/', expires: -1, httpOnly: true, secure: false, sameSite: 'Strict' }], origins: [] },
     launchOptions: process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
   },
   webServer: {

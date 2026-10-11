@@ -93,9 +93,10 @@ Needs the [agent hooks](docs/agent-hooks.md) for Approve and the exact state. Al
 termdeck spawns real shells, so it is locked down by default:
 
 - **It never answers for you.** An agent's permission prompt is only answered when you click Approve, or by an allow-rule you created for that repo. Rules are off by default, and a hard deny-list (`rm -rf`, `sudo`, force-push, curl-to-shell, reading secrets…) can never be allowed automatically. The deny-list is a safety net, not a sandbox. Every decision, manual or by rule, is recorded in an audit log ([details](docs/agent-hooks.md)).
-- **Local only.** The server listens on `127.0.0.1` ("loopback"), so nothing else on your network can reach it. There is no login in this mode, by design: a process already running as your user can start its own shell anyway.
+- **Local only.** The server listens on `127.0.0.1` ("loopback"), so nothing else on your network can reach it.
+- **Only your browser drives it.** Other programs on the same computer can reach a loopback port too (another user account, or an agent running inside termdeck), so the browser signs in once: the tab termdeck opens on start, or `termdeck open`, carries a link that sets a cookie. The secret lives in `~/.termdeck/token` (readable only by you) and survives restarts, so this happens once per browser. Terminals never get it: each gets its own `TD_HOOK_AUTH`, which can only report that terminal's agent events. Approvals are a guard against mistakes, not a sandbox: an agent that can already run arbitrary code as you can read your files, so use your agent CLI's own sandbox for untrusted work.
 - **Blocks malicious web pages.** Every API call and WebSocket is rejected unless its `Origin` and `Host` headers resolve to a known localhost name (or a `TD_ALLOWED_HOSTS` entry). This blocks cross-site and DNS-rebinding attacks, so a website can't connect to your shells or read your files.
-- **Token when exposed.** Bind to another address (`HOST=0.0.0.0` or a specific IP) and termdeck prints a warning and a tokenized URL (`/?t=…`). Opening it once sets a cookie for that browser; everything else gets 401. Each restart creates a new token. For several users or the internet, put real authentication in front of it.
+- **Token when exposed.** Bind to another address (`HOST=0.0.0.0` or a specific IP) and termdeck prints a warning and a tokenized URL (`/?t=…`). Opening it once sets a cookie for that browser; everything else gets 401. In this mode each restart creates a new token. For several users or the internet, put real authentication in front of it.
 - **Nothing phones home.** No telemetry, no CDN (xterm.js is served locally), no cloud service.
 
 See also [Known limits](#known-limits).
@@ -147,7 +148,7 @@ See also [Known limits](#known-limits).
 | Clone | `node install.js && npm start` | Contributing |
 
 - **tmux (recommended):** with tmux installed, shells run inside it and survive a server restart or crash. Without it everything else works. Not available on Windows; `NO_TMUX=1` turns it off.
-- **Browser:** it opens automatically. Disable with `--no-open` / `NO_OPEN=1`, pick one with `BROWSER` (e.g. `BROWSER=firefox`).
+- **Browser:** it opens automatically, already signed in. Disable with `--no-open` / `NO_OPEN=1`, pick one with `BROWSER` (e.g. `BROWSER=firefox`). Another browser, or a bookmark to a fresh one, shows a *link this browser* page: run `termdeck open` once.
 - **Port:** defaults to 3000 and moves to the next free port if that's taken. `--port 4000` / `PORT=4000` pins it.
 - **No compiler needed:** `node-pty` ships prebuilt binaries for macOS, Windows and Linux (x64/arm64).
 
@@ -155,6 +156,7 @@ See also [Known limits](#known-limits).
 
 ```bash
 termdeck [options]             # start the server (--port <n>, --host <h>, --no-open, -v, -h)
+termdeck open                  # open the running dashboard in your browser, signed in (--no-open: print the link)
 termdeck doctor                # check Node, node-pty, shell, tmux, git, ports (offline)
 termdeck hooks install         # wire Claude Code, Gemini CLI, Codex and Copilot hooks (also: uninstall, --dry-run, --yes)
 termdeck autostart install     # start termdeck at login via launchd/systemd (also: uninstall, --dry-run)
@@ -171,7 +173,7 @@ Set via environment variable; `--port`, `--host` and `--no-open` also exist as f
 | Variable / Flag | Default | Description |
 |---|---|---|
 | `PORT` / `--port <n>` | `3000` | Port to listen on. If unset, moves to the next free port. |
-| `HOST` / `--host <addr>` | `127.0.0.1` | Bind address. Non-loopback generates a random access token (`/?t=…`). |
+| `HOST` / `--host <addr>` | `127.0.0.1` | Bind address. Non-loopback uses a random per-start access token (`/?t=…`) instead of the local one. |
 | `NO_OPEN` / `--no-open` | `0` | `1` = don't open the browser on start. |
 | `BROWSER` | *(default)* | Browser to launch (e.g. `Google Chrome`, `firefox`). |
 | `NO_TMUX` | `0` | `1` = plain shells even if tmux is installed. |
@@ -181,7 +183,7 @@ Set via environment variable; `--port`, `--host` and `--no-open` also exist as f
 | `TD_EDITOR` | `code` | Executable for the file tree's *Open in editor*. |
 | `TD_CHECK_TIMEOUT` | `600` | Seconds the *Finish agent task* check may run before landing is blocked. |
 | `TD_LOG_DIR` | *(none)* | Write session logs (and the approval audit log) here. Off by default. |
-| `TD_ALLOWED_HOSTS` | *(none)* | Extra exact hostnames for a reverse proxy (e.g. `tailscale serve`). Enables the access token. |
+| `TD_ALLOWED_HOSTS` | *(none)* | Extra exact hostnames for a reverse proxy (e.g. `tailscale serve`). Switches to a per-start access token. |
 | `TD_NOTIFY_URL` | *(none)* | Webhook POSTed when an agent needs you (ntfy-ready). Also `TD_NOTIFY_EVENTS` (default `permission_request`), `TD_NOTIFY_DETAIL=0`. See [remote access](docs/remote-access.md#phone-notifications). |
 
 ### Updating

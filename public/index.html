@@ -2859,7 +2859,7 @@ function openTabWS(s,tab){
       announceExit(s,tab);   // coalesced: a burst (e.g. mass reattach after long away) becomes ONE toast
     }
   };
-  ws.onclose=()=>{if(tab.closedByUser||tab.exited)return; scheduleTabRecon(s,tab);};
+  ws.onclose=()=>{if(tab.closedByUser||tab.exited)return; checkSignedIn(); scheduleTabRecon(s,tab);};
   ws.onerror=()=>{};
   tab.conn={
     send:(d)=>ws.readyState===1&&ws.send(JSON.stringify({type:"input",data:d})),
@@ -2882,6 +2882,17 @@ function flushExit(){
   const {s,tab}=b[0], jump=()=>{switchTab(s,tab.id);revealWindow(s);};
   if(b.length===1) toast(DEAD_DOT,"Shell exited","\""+s.name+"\" tab "+(s.tabs.indexOf(tab)+1),4000,jump);
   else             toast(DEAD_DOT,"Shells exited",b.length+" shells exited while you were away",5000,jump);
+}
+// The server answers 401 when this browser's sign-in cookie is missing or stale (cleared cookies, or a remote-mode
+// restart): say so once instead of reconnecting silently forever. Reconnects keep going and succeed once signed in.
+let signedOutAt=0;
+function checkSignedIn(){
+  if(Date.now()-signedOutAt<30000) return;
+  fetch("/api/version",{cache:"no-store"}).then((r)=>{
+    if(r.status!==401||Date.now()-signedOutAt<30000) return;
+    signedOutAt=Date.now();
+    toast(ICON.warn,"Signed out of termdeck","Run `termdeck open` in a terminal (or open the link termdeck printed at startup), then reload.",0);
+  }).catch(()=>{});
 }
 function scheduleTabRecon(s,tab){
   tab.reconnecting=true; tab.retries++;

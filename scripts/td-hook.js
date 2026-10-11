@@ -10,7 +10,7 @@ const http = require('http');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { TD_ID, TD_URL, TD_TOKEN } = process.env;
+const { TD_ID, TD_URL, TD_HOOK_AUTH } = process.env;   // TD_HOOK_AUTH: this terminal's own event credential
 if (!TD_ID || !TD_URL) process.exit(0);
 const WAIT_MS = 125000;                              // just over the server's approval hold (120s)
 const ceiling = setTimeout(() => process.exit(0), 2000);   // hard ceiling
@@ -98,11 +98,11 @@ process.stdin.on('end', () => {
   if (!ev) process.exit(0);
   const body = JSON.stringify(ev);
   if (ev.wait) { clearTimeout(ceiling); setTimeout(() => process.exit(0), WAIT_MS).unref(); }
-  const post = (url, token, onFail) => {
+  const post = (url, onFail) => {
     const req = http.request(new URL('/api/agent-events', url), {
       method: 'POST', timeout: ev.wait ? WAIT_MS : 1500,
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body),
-                 ...(token ? { Cookie: 'td_token=' + token } : {}) },
+                 ...(TD_HOOK_AUTH ? { 'X-TD-Hook-Auth': TD_HOOK_AUTH } : {}) },
     }, (res) => {
       let out = '';
       res.setEncoding('utf8').on('data', (c) => { if (out.length < 1024) out += c; });
@@ -121,10 +121,11 @@ process.stdin.on('end', () => {
     req.on('error', onFail).on('timeout', () => { req.destroy(); onFail(); });
     req.end(body);
   };
-  // Unreachable TD_URL = the server restarted elsewhere (tmux shells keep the old env, #47): use the url/token it wrote to ~/.termdeck/server.json.
-  post(TD_URL, TD_TOKEN, () => {
+  // Unreachable TD_URL = the server restarted elsewhere (tmux shells keep the old env, #47): use the url it wrote to
+  // ~/.termdeck/server.json. TD_HOOK_AUTH stays valid across restarts (derived from the persistent ~/.termdeck/token).
+  post(TD_URL, () => {
     let cur; try { cur = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.termdeck', 'server.json'), 'utf8')); } catch {}
     if (!cur || typeof cur.url !== 'string' || cur.url === TD_URL) process.exit(0);
-    try { post(cur.url, cur.token, () => process.exit(0)); } catch { process.exit(0); }
+    try { post(cur.url, () => process.exit(0)); } catch { process.exit(0); }
   });
 });

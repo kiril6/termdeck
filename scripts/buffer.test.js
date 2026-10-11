@@ -23,7 +23,8 @@ const free = () => new Promise((ok) => { const s = net.createServer().listen(0, 
   setTimeout(() => { console.error('buffer.test: timed out'); done(1); }, 20000).unref();
 
   const connect = () => new Promise((ok, fail) => {
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/?id=buftest&cols=80&rows=24`, { headers: { Origin: `http://127.0.0.1:${port}` } });
+    let cookie = ''; try { cookie = 'td_token=' + fs.readFileSync(path.join(home, '.termdeck', 'token'), 'utf8').trim(); } catch {}   // written on start
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/?id=buftest&cols=80&rows=24`, { headers: { Origin: `http://127.0.0.1:${port}`, Cookie: cookie } });
     const msgs = []; ws.on('message', (raw) => msgs.push(JSON.parse(raw))); ws.on('open', () => ok({ ws, msgs })); ws.on('error', fail);
   });
   let c; for (let i = 0; i < 50 && !c; i++) c = await connect().catch(() => new Promise((r) => setTimeout(r, 100)));

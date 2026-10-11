@@ -12,7 +12,10 @@ Every terminal termdeck spawns has these environment variables:
 | `TD_ID` | this terminal's id (tells termdeck which window an event belongs to) |
 | `TD_URL` | where to POST events (the running server) |
 | `TD_HOOK` | absolute path of the helper, `scripts/td-hook.js` |
-| `TD_TOKEN` | access token, only when remote access is on |
+| `TD_HOOK_AUTH` | this terminal's event credential: sent as the `X-TD-Hook-Auth` header, it lets a hook report events **for this terminal only** (it can't open a terminal, answer an approval or create a rule). Survives server restarts. |
+
+An event without a valid `TD_HOOK_AUTH` (e.g. from a shell started before it existed) is **display only**: the queue still
+shows working / waiting / needs approval, but it is never held for Approve / Deny — the CLI shows its own prompt.
 
 The helper is **safe to leave installed**: outside termdeck (no `TD_ID`) it does nothing, it prints
 nothing, never blocks the agent for more than ~2s, and always exits 0 — with one deliberate exception: a
@@ -40,7 +43,7 @@ Payloads were captured from real sessions and are replayed through the helper in
 - **Copilot CLI's permission hook is different** from the other events: camelCase fields (`toolName`, `toolInput`, `sessionId`), no `hook_event_name`, and its answer must be top-level `{"behavior":"allow|deny"}` — the Claude-style `hookSpecificOutput` wrapper is silently ignored (the command then falls through to Copilot's normal prompt). The helper handles both; `check-hooks.js` pins them.
 - **Codex hooks run with a reduced environment**: `TD_ID`/`TD_URL`/`TD_HOOK` arrive empty unless
   `~/.codex/config.toml` has `[shell_environment_policy] inherit = "all"`. (Codex's default excludes variables whose
-  names contain `KEY`/`SECRET`/`TOKEN`, so with remote access on `TD_TOKEN` is dropped too.)
+  names contain `KEY`/`SECRET`/`TOKEN`; `TD_HOOK_AUTH` is named to pass that filter.)
 
 Notes from the captures: Claude Code fires `PermissionRequest` and `Notification` (`notification_type: "permission_prompt"`) only
 in **interactive** sessions — `claude -p` denies instead of asking, so no approval state there.
@@ -70,7 +73,7 @@ hand? The snippets below are exactly what it writes.
 
 > Shells that were already running when you upgraded don't have `TD_ID`; open a new terminal.
 > After a server restart on a different port, tmux-kept shells still hold the old `TD_URL`; the helper then falls back to
-> `~/.termdeck/server.json` (current URL, plus the token when it is on; mode 0600), so events still arrive.
+> `~/.termdeck/server.json` (current URL; mode 0600), so events still arrive — `TD_HOOK_AUTH` stays valid across restarts.
 
 ## Claude Code
 
@@ -193,7 +196,7 @@ POST directly:
 
 ```bash
 curl -s -X POST "$TD_URL/api/agent-events" -H 'Content-Type: application/json' \
-  ${TD_TOKEN:+-H "Cookie: td_token=$TD_TOKEN"} \
+  -H "X-TD-Hook-Auth: $TD_HOOK_AUTH" \
   -d "{\"id\":\"$TD_ID\",\"agent\":\"mycli\",\"type\":\"stop\"}"
 ```
 

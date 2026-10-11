@@ -2,6 +2,11 @@
 
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
+## 1.26.0
+- **Sign in once per browser** — termdeck now only answers browsers that hold its access cookie, so other programs on your computer (another user account, or an agent running inside termdeck) can no longer type into your terminals or click Approve for you. Nothing changes in the normal flow: the tab termdeck opens on start is already signed in, and the cookie survives restarts. A different browser shows a short page — run `termdeck open` once.
+- **`termdeck open`** — opens the running dashboard in your browser, signed in (`--no-open` prints the link).
+- **Agent hooks** use a per-terminal credential (`TD_HOOK_AUTH`) instead of the access token, which no longer appears in any terminal's environment or in `~/.termdeck/server.json`. Shells started before this update still show agent state; open a new terminal to get Approve / Deny from the queue there.
+
 ## 1.25.2
 - **Safer rendering** — rendered Markdown in the file viewer and command-palette labels now escape every character that could be read as markup.
 - **Faster with heavy output** — the server keeps each shell's replay buffer far more cheaply, so a command printing a lot (builds, logs, `cat` of a big file) no longer slows the other terminals. Reload still replays the last `TD_BUFFER` of output, as before.
