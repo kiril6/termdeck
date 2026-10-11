@@ -925,6 +925,20 @@ async function deleteProject(pid){
   if(activeProject===pid) switchProject(projectOrder[0]);
   scheduleSave();
 }
+// One clock for every window's uptime footer: one style/layout pass a second instead of one per window, and none for
+// windows nobody can see (minimized, another project) or while the browser tab is hidden. Catches up when they show.
+function tickUptimes(){
+  if(document.hidden) return;
+  const now=Date.now();
+  sessions.forEach((s)=>{
+    if(s.minimized||s.project!==activeProject||s.status==="pending") return;
+    const sec=Math.floor((now-s.startedAt)/1000), h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60);
+    const txt=h?h+"h "+pad(m)+"m":pad(m)+":"+pad(sec%60);
+    if(s.uptimeEl.textContent!==txt) s.uptimeEl.textContent=txt;
+  });
+}
+setInterval(tickUptimes,1000);
+document.addEventListener("visibilitychange",tickUptimes);
 function switchProject(pid){
   if(!projects.has(pid)) pid=projectOrder[0];
   if(broadcastOn) setBroadcast(false); // disarm Cast on context switch — never carry a destructive mode across projects
@@ -1077,23 +1091,15 @@ function createSession(desc, isLog){
   chip.append(cled,cname,cmove);
   dockTrack.append(chip); updateDockEdges(); updateProjEdges();
 
-  // uptime
-  const startedAt=Date.now();
-  const uptimeTick=setInterval(()=>{
-    if(!sessions.has(id)){clearInterval(uptimeTick);return;}
-    const s=sessions.get(id); if(s.status==="pending")return;
-    const sec=Math.floor((Date.now()-startedAt)/1000);
-    const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),ss=sec%60;
-    uptimeEl.textContent=h?h+"h "+pad(m)+"m":pad(m)+":"+pad(ss);
-  },1000);
+  const startedAt=Date.now();   // uptime footer: tickUptimes()
 
   const s={
     id,project,name,isLog:!!isLog,cwd:desc.cwd||curCwd()||"",
-    win,head,led,winTabs,wtabsTrack,wtabAdd,panes,foot,badgeShell,badgeCwd,badgeCmd,badgePort,uptimeEl,chip,cled,cname,cmove,
+    win,head,led,winTabs,wtabsTrack,wtabAdd,panes,foot,badgeShell,badgeCwd,badgeCmd,badgePort,uptimeEl,startedAt,chip,cled,cname,cmove,
     themeId:desc.themeId&&THEMES[desc.themeId]?desc.themeId:null,
     tabs:[],activeTabId:null,
     status:"pending",minimized:false,maximized:false,prevRect:desc.prevRect||null,glue:desc.glue||null,
-    closedByUser:false,uptimeTick,
+    closedByUser:false,
   };
   sessions.set(id,s); order.push(id); syncMoveBtns();
   const proj=projects.get(project); if(proj && !proj.root && s.cwd) proj.root=s.cwd;  // anchor tree to first shell's path
@@ -1898,7 +1904,7 @@ function restartSession(s){
 }
 
 function closeSession(s,skipCount){
-  s.closedByUser=true; clearInterval(s.uptimeTick);
+  s.closedByUser=true;
   s.tabs.forEach((tab)=>{
     if(findTarget===tab) closeFind();
     tab.closedByUser=true; clearTimeout(tab.reconnectTimer); stopAgentIdle(s,tab);

@@ -64,6 +64,10 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   or OSC 7 needed. Linux reads `/proc/<pid>/cwd`; macOS runs one batched `lsof` for all shells;
   other platforms fall back to the spawn dir. The tree stays project-anchored (this answers
   "where is this shell?" on the shell itself, not by moving the sidebar).
+- 🖥️ **Window uptime** — each window's footer ends with how long it has been open (`mm:ss`, then `Hh MMm`). One shared
+  1-second clock updates only the windows you can see (not minimized, current project) and nothing while the browser tab
+  is hidden; a window catches up the moment it shows. (It used to be one timer per window: 10 idle windows cost ~10
+  layouts/s and ~3 % of the main thread; now ~1 layout/s and < 1 %.)
 
 ## Projects
 - 🖥️ Group windows into project tabs; switch context instantly. Cycle projects with `⌘⇧]` / `⌘⇧[`.
