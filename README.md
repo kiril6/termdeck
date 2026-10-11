@@ -285,11 +285,13 @@ On Windows/Linux, `⌘` = `Ctrl` and `⌥` = `Alt`. Press `?` in the app for the
 
 ## Architecture
 
-Three files, no framework beyond Express, no build step.
+No framework beyond Express, no build step.
 
 | File | Role |
 |---|---|
-| **`server.js`** | Express static server + `ws` WebSocket PTY multiplexer. One WebSocket per terminal, keyed by a client-supplied `id`. On disconnect the PTY is **not** killed — a grace timer holds it so reconnecting replays the buffer. |
+| **`server.js`** | Entry point: loads `node-pty`, wires Express and the `ws` WebSocket server, picks the port. |
+| **`scripts/sessions.js`** | The terminals: one WebSocket per terminal, keyed by a client-supplied `id`, backed by a PTY (inside tmux when available). On disconnect the PTY is **not** killed — a grace timer holds it so reconnecting replays the buffer. |
+| **`scripts/http-security.js`**, **`*-api.js`** | Sign-in token, headers and the Origin/Host guard; the HTTP routes by area (files, layouts, git, agent events and approvals). |
 | **`public/index.html`** + **`app.js`** + **`app.css`** | The frontend: markup in `index.html`, JS in `app.js`, styles in `app.css`. No bundler. xterm.js is served locally from `node_modules`. State is saved to `localStorage`. |
 | **`install.js`** | One-shot installer that picks the right prebuilt `node-pty` for your platform. |
 

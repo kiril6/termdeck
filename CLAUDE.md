@@ -22,16 +22,24 @@ npm start         # run server → http://localhost:3000
 
 ## Architecture
 
-Three files. Backend + frontend, no framework beyond Express.
+Backend + frontend, no framework beyond Express. The backend's runtime modules live in `scripts/` next to the CLI
+helpers, each listed one by one in `package.json` `files` (`scripts/check-pack.js` fails CI if one is missing).
 
-**`server.js`** — Express static server + `ws` WebSocket PTY multiplexer.
+**`server.js`** — entry point and wiring only: CLI args, loading node-pty, Express middleware order, `/debug`, the WebSocket server, port selection and the startup banner.
 - Loads node-pty by trying `node-pty` then `@homebridge/node-pty-prebuilt-multiarch` (Linux fork). If neither loads, tells user to run `install.js`.
-- One WS per terminal. Session keyed by client-supplied `id` (query param), tracked in the module-level `live` Map: `{ term, buffer, ws, killTimer, cwd, shellName, isLog }`.
+- Owns the `live` Map (id → `{ term, buffer, ws, killTimer, cwd, shellName, isLog, tmuxName }`) and passes it to `sessions.js` and `agent-api.js`.
+
+**`scripts/sessions.js`** — the `ws` PTY multiplexer.
+- One WS per terminal, keyed by the client-supplied `id` (query param, checked against `VALID_ID`).
 - **Reattach model**: on WS disconnect the PTY is NOT killed — a `GRACE_MS` (60s, `TD_GRACE_MS`) `killTimer` starts. Reconnecting with the same `id` cancels the timer, rebinds the socket, and replays the last `BUFFER` (1 MB, `TD_BUFFER`) of output. This is what lets the browser refresh / drop connection without losing shells.
-- **Durable sessions (tmux)**: when `tmux` is on the host, the PTY is delegated to `tmux new-session -A` (attach-or-create, session name `td_<id>`) so shells survive the **server** dying, not just a browser refresh. Auto-off where tmux is missing (incl. Windows) or `NO_TMUX=1` → falls back to a raw shell. Session close does `tmux kill-session` (killing the pty alone would only detach).
+- **Durable sessions (tmux)**: when `tmux` is on the host, the PTY is delegated to `tmux new-session -A` (attach-or-create, session name `td_<id>`) so shells survive the **server** dying, not just a browser refresh. Auto-off where tmux is missing (incl. Windows) or `NO_TMUX=1` → falls back to a raw shell. Session close does `tmux kill-session` (killing the pty alone would only detach). Target sessions with `tmuxTarget()` (`=name`): plain `-t name` prefix-matches.
 - Shell picked from `shellCandidates()`: `$SHELL`, then powershell (Windows), then zsh/bash/sh.
-- `log=1` query param = read-only terminal (input from client is ignored — `isLog` gate in `bindWsEvents`).
+- `log=1` query param = read-only terminal (input from client is ignored — `isLog` gate in `onMessage`).
 - `cwd` validated by `safeDir()` before spawn, falls back to `$HOME`.
+
+**`scripts/http-security.js`** — CSP and baseline headers, the sign-in token/cookie, `apiGuard` (Origin + Host + Sec-Fetch-Site) and the WS `verifyClient`. Every `/api` route takes `apiGuard`.
+
+**`scripts/*-api.js`** — the HTTP routes by area, each an Express router built from the helpers `server.js` passes in: `fs-api.js` (tree, viewer, open/reveal), `layouts-api.js`, `git-api.js` (worktrees, review, Finish, conflict radar), `agent-api.js` (agent events, approvals, allow-rules, stop-port).
 
 **`public/index.html`** + **`public/app.js`** + **`public/app.css`** — the frontend: markup in `index.html`, all JS in `app.js` (~280KB, one classic script wrapped in an IIFE — not an ES module, so the `file://` demo keeps working), styles in `app.css`. No bundler.
 - xterm.js + addons served locally from `node_modules` at `/vendor` (see `server.js`) — no CDN, runs fully offline after `npm install`.
