@@ -819,6 +819,17 @@ app.post('/api/git/overlaps', apiGuard, async (req, res) => {
   } catch (e) { res.status(400).json({ error: gitFail(e) }); }
 });
 
+// Last stop for a route that throws: log it, answer a plain JSON 500 — never Express's default page, which shows the
+// stack trace and server paths. (Malformed JSON bodies land here too, as 400.)
+app.use((err, _req, res, _next) => {
+  const status = err.status >= 400 && err.status < 500 ? err.status : 500;
+  if (status === 500) console.error('  [http] route failed:', err.stack || err.message);
+  if (!res.headersSent) res.status(status).json({ error: status === 500 ? 'internal error' : 'bad request' });
+});
+// Express 4 doesn't catch a rejected async route: log it instead of letting Node end the process (and every raw
+// shell with it). The request may go unanswered; the PTYs are untouched by a route's failure.
+process.on('unhandledRejection', (e) => console.error('  [error] unhandled rejection:', e && e.stack || e));
+
 // ── WebSocket / pty server ───────────────────────────────────────────────────
 // SECURITY: this WS spawns real shells. Unauthenticated + open would be RCE for any
 // web page (CSRF / DNS-rebind). Defense: bind loopback by default, and validate both
@@ -978,7 +989,7 @@ const tmuxEnvFlags = (() => {
   catch { return false; }
 })();
 
-wss.on('connection', (ws, req) => {
+function onConnection(ws, req) {
   const q     = url.parse(req.url, true).query;
   const id    = String(q.id || genId());
   const cols  = clampInt(q.cols, 80, MAX_COLS);
@@ -1083,13 +1094,15 @@ wss.on('connection', (ws, req) => {
     // The ring may hold up to 2× BUFFER; readers take the last BUFFER via tail().
     sess.buffer += data;
     if (sess.buffer.length > 2 * BUFFER) sess.buffer = tail(sess);
-    pushOutput(sess, id, data);
+    try { pushOutput(sess, id, data); } catch (e) { console.error('  [pty] output failed for ' + id + ':', e.message); }   // the ring already has it
   });
   term.onExit(({ exitCode }) => {
-    clearTimeout(sess.flushT); sess.flushT = null;                 // last batched output must reach the screen before 'exit'
-    if (sess.pend) { sendLive(sess, id, sess.pend); sess.pend = ''; }
-    if (sess.ws) send(sess.ws, { type:'exit', code:exitCode });
-    saveLog(sess, id, exitCode);
+    try {
+      clearTimeout(sess.flushT); sess.flushT = null;               // last batched output must reach the screen before 'exit'
+      if (sess.pend) { sendLive(sess, id, sess.pend); sess.pend = ''; }
+      if (sess.ws) send(sess.ws, { type:'exit', code:exitCode });
+      saveLog(sess, id, exitCode);
+    } catch (e) { console.error('  [pty] exit handling failed for ' + id + ':', e.message); }
     clearTimeout(sess.killTimer);
     live.delete(id);
   });
@@ -1099,13 +1112,31 @@ wss.on('connection', (ws, req) => {
   // the interactive shell stays afterwards (`ssh host` → back at local shell on disconnect).
   if (runCmd) setTimeout(() => { try { sess.term.write(cmd + '\r'); } catch {} }, 300);
   bindWsEvents(ws, id);
+}
+wss.on('connection', (ws, req) => {
+  try { onConnection(ws, req); }
+  catch (e) {                                                   // a failed attach/spawn closes this socket, not the server
+    console.error('  [ws] connection failed:', e.stack || e.message);
+    try { send(ws, { type:'error', code:'server_error' }); ws.close(1011); } catch {}
+  }
 });
 
 function bindWsEvents(ws, id) {
   ws.on('message', (raw) => {
     let m; try { m = JSON.parse(raw.toString()); } catch { return; }
+    if (!m || typeof m !== 'object') return;                  // e.g. `null` — reading .type on it used to crash the server
+    try { onMessage(ws, id, m); }
+    catch (e) { console.error(`  [ws] message "${String(m.type).slice(0, 20)}" failed for ${id}:`, e.message); }   // one bad message never takes every shell down
+  });
+  ws.on('close', () => {
+    const s = live.get(id); if (!s || s.ws !== ws) return;
+    s.ws = null;
+    s.killTimer = setTimeout(() => { try { s.term.kill(); } catch {} live.delete(id); }, GRACE_MS);
+  });
+}
+function onMessage(ws, id, m) {
     const s = live.get(id); if (!s || s.ws !== ws) return;   // a taken-over socket is read-only until it closes
-    if      (m.type === 'input'  && !s.isLog) {
+    if      (m.type === 'input'  && !s.isLog && typeof m.data === 'string') {
       // Typing in the terminal = you're handling the prompt there; stop holding the hook (Codex blocks on it
       // before showing its prompt). Terminal-generated replies (cursor/device reports, focus) don't count.
       if (pendingApprovals.has(id) && !/^\x1b(\[[\x30-\x3f]*[\x20-\x2f]*[cRnIOty$]|\]|P)/.test(String(m.data))) settleApproval(id, null, 'terminal');
@@ -1123,12 +1154,6 @@ function bindWsEvents(ws, id) {
       try { s.term.kill(); } catch {}
       clearTimeout(s.killTimer); live.delete(id);
     }
-  });
-  ws.on('close', () => {
-    const s = live.get(id); if (!s || s.ws !== ws) return;
-    s.ws = null;
-    s.killTimer = setTimeout(() => { try { s.term.kill(); } catch {} live.delete(id); }, GRACE_MS);
-  });
 }
 
 // ── live output: batched, with backpressure ──

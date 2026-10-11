@@ -55,6 +55,7 @@ jobs:
       - run: node scripts/approval.test.js
       - run: node scripts/finish.test.js
       - run: node scripts/tmux.test.js
+      - run: node scripts/robustness.test.js
       - run: node server.js autostart install --dry-run
       - run: test "$(node server.js --bogus >/dev/null 2>&1; echo $?)" = 2
 

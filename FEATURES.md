@@ -180,6 +180,10 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   (e.g. a phone over Tailscale) moves it there: the old socket gets `{type:'taken'}` and is closed (code 4001), and
   input from it is ignored, so a stale screen can't keep typing blind. The old window shows *opened on another device*
   and does not reconnect on its own (two screens would steal it back and forth); its **⟳** takes it back.
+- 🔌 **Crash containment** — a malformed WebSocket message (not an object, non-string input…) is ignored; any error in
+  a message, a new connection or a PTY callback is logged and only that event fails, never the process (which, without
+  tmux, would end every shell). A route that throws gets a plain JSON 500 (a malformed body: 400), never Express's page
+  with a stack trace; a rejected async route is logged instead of ending the process. Pinned by `scripts/robustness.test.js`.
 - 🔌 **Live output: batching + backpressure** — the replay ring gets every byte; what goes to the socket is batched:
   a chunk with nothing pending is sent at once (typing echo stays instant), and chunks arriving within the next 8 ms
   are merged into one message (30 000 lines → ~17 frames; about a third of the server CPU under heavy output). A
