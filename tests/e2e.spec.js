@@ -302,7 +302,7 @@ test.describe('live backend', () => {
     };
     await ask('bad name..x');
     await expect(page.getByText('Couldn’t create worktree')).toBeVisible();
-    await ask('agent/e2e');
+    await ask('agent/e2e-' + Date.now().toString(36));   // unique: the shared test repo keeps branches across --repeat-each runs
     await expect(page.getByText('Worktree ready')).toBeVisible();
   });
   test('tree follows the focused terminal when "Follow" is on (reveal only, no re-root)', async ({ page }) => {

@@ -5,6 +5,10 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  workflow_call:   # publish.yml runs this before publishing
+
+permissions:
+  contents: read
 
 jobs:
   browser:

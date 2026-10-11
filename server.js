@@ -801,7 +801,8 @@ function hostnameOf(v) {                          // pull hostname from an Origi
   catch { return null; }
 }
 const server = http.createServer(app);
-const wss    = new WebSocketServer({ server, verifyClient: ({ req }, done) => {
+// maxPayload: ws defaults to 100 MB per message; 16 MB still fits a very large native paste (one message).
+const wss    = new WebSocketServer({ server, maxPayload: 16 * 1024 * 1024, verifyClient: ({ req }, done) => {
   const host   = hostnameOf(req.headers.host);       // always present (HTTP/1.1); rebind sets this to attacker domain
   const origin = hostnameOf(req.headers.origin);     // browsers always send it on WS; non-browser clients omit it
   if (host && !ALLOWED_HOSTS.has(host)) return done(false, 403);     // DNS-rebind guard
@@ -946,8 +947,8 @@ const tmuxEnvFlags = (() => {
 wss.on('connection', (ws, req) => {
   const q     = url.parse(req.url, true).query;
   const id    = String(q.id || genId());
-  const cols  = clampInt(q.cols, 80);
-  const rows  = clampInt(q.rows, 24);
+  const cols  = clampInt(q.cols, 80, MAX_COLS);
+  const rows  = clampInt(q.rows, 24, MAX_ROWS);
   const isLog = q.log === '1';
 
   // ── reattach ──
@@ -1076,7 +1077,7 @@ function bindWsEvents(ws, id) {
       const p = pendingApprovals.get(id);
       if (p && p.reqId === m.reqId && (m.decision === 'allow' || m.decision === 'deny')) settleApproval(id, m.decision, 'click');
     }
-    else if (m.type === 'resize') { try { s.term.resize(clampInt(m.cols,80), clampInt(m.rows,24)); } catch {} }
+    else if (m.type === 'resize') { try { s.term.resize(clampInt(m.cols,80,MAX_COLS), clampInt(m.rows,24,MAX_ROWS)); } catch {} }
     else if (m.type === 'kill')   {
       // tmux: killing the pty only detaches the client — the session would live on and
       // reattach as a "dead" terminal. Kill the session so the shell actually ends.
@@ -1093,7 +1094,8 @@ function bindWsEvents(ws, id) {
 }
 
 function send(ws, obj)  { if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj)); }
-function clampInt(v, d) { const n = parseInt(v, 10); return Number.isFinite(n) && n > 0 ? n : d; }
+const MAX_COLS = 1000, MAX_ROWS = 500;                   // far beyond any screen; bounds what a client can make the pty allocate
+function clampInt(v, d, max) { const n = parseInt(v, 10); return Number.isFinite(n) && n > 0 ? Math.min(n, max) : d; }
 function baseName(p)    { return String(p).split(/[\\/]/).pop(); }
 function genId()        { return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function safeDir(p)     { try { return fs.statSync(p).isDirectory(); } catch { return false; } }

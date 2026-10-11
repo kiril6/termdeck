@@ -16,7 +16,14 @@ permissions:
   contents: read
 
 jobs:
+  # The same checks a PR must pass. A tag on a commit where they fail never publishes.
+  smoke:
+    uses: ./.github/workflows/smoke.yml
+  e2e:
+    uses: ./.github/workflows/e2e.yml
+
   publish:
+    needs: [smoke, e2e]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,8 +44,7 @@ jobs:
             exit 1
           fi
 
-      # termdeck has no test suite — this is the same check smoke.yml runs:
-      # dependencies resolve on a clean machine and the server parses.
+      # Tests ran in the smoke + e2e jobs above; this only proves the install resolves on this runner.
       - run: node install.js
       - run: node -c server.js
 

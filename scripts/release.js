@@ -22,6 +22,14 @@ catch { console.error('✗ GitHub CLI not ready. Install gh and run `gh auth log
 // Clean tree — npm version refuses a dirty tree anyway; fail early with a clear message.
 if (out('git status --porcelain')) { console.error('✗ Working tree not clean. Commit or stash first.'); process.exit(1); }
 
+// Only release a commit that is pushed and whose CI passed. publish.yml re-runs the tests before publishing, but
+// tagging a red commit would still burn a version number and a GitHub Release.
+const sha = out('git rev-parse HEAD');
+if (!out(`git branch -r --contains ${sha}`)) { console.error('✗ HEAD is not pushed. Push it and let CI finish first.'); process.exit(1); }
+const runs = JSON.parse(out(`gh run list --commit ${sha} --json workflowName,conclusion --limit 50`));
+const notGreen = ['smoke', 'e2e', 'demo-sync'].filter((w) => !runs.some((r) => r.workflowName === w && r.conclusion === 'success'));
+if (notGreen.length) { console.error(`✗ CI is not green for ${sha.slice(0, 7)} (${notGreen.join(', ')}). Wait for it or fix it, then retry.`); process.exit(1); }
+
 const arg = process.argv[2] || 'patch';
 const first = arg === '--first';
 const bump = first ? null : (['patch', 'minor', 'major'].includes(arg) ? arg : (() => {

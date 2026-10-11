@@ -5,6 +5,10 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  workflow_call:   # publish.yml runs this before publishing
+
+permissions:
+  contents: read
 
 jobs:
   check:
@@ -24,6 +28,7 @@ jobs:
       - run: node scripts/notify.test.js
       - run: node scripts/buffer.test.js
       - run: node scripts/access.test.js
+      - run: npm audit --omit=dev --audit-level=high
       - run: node scripts/update-check.test.js
       - run: node scripts/check-rules.js
       - run: node scripts/check-usage.js
