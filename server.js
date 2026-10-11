@@ -68,6 +68,15 @@ app.use((_req, res, next) => {
 });
 const HOST = process.env.HOST || '127.0.0.1';   // set HOST=0.0.0.0 (or a LAN IP) to expose deliberately
 const LOOPBACK = ['127.0.0.1', 'localhost', '::1'].includes(HOST);
+// One address per browser: the sign-in cookie and the duplicate-tab check (localStorage) both belong to the exact
+// host name, so a page opened as localhost would ask to sign in again and wouldn't notice a 127.0.0.1 tab already
+// driving the same shells. On the default bind, send localhost pages to 127.0.0.1 — the address termdeck prints.
+// 302, not 301: browsers must not remember it if HOST changes later.
+if (HOST === '127.0.0.1') app.use((req, res, next) => {
+  if ((req.method !== 'GET' && req.method !== 'HEAD') || req.path.startsWith('/api/')) return next();
+  if (String(req.headers.host || '').replace(/:\d+$/, '').toLowerCase() !== 'localhost') return next();
+  res.redirect(302, `http://127.0.0.1:${req.socket.localPort}${req.originalUrl}`);
+});
 // Every HTTP request and WS upgrade needs the td_token cookie: open /?t=<token> once (auto-opened on start, or
 // `termdeck open`) → HttpOnly cookie. Loopback has no login otherwise, and any local program (an agent inside
 // termdeck, another OS user) can reach the port, so the browser proves itself with a secret only it holds.

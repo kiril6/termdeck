@@ -98,6 +98,16 @@ const until = async (fn, ms = 5000) => { for (let t = 0; t < ms; t += 50) { if (
     assert.strictEqual(audit.source, 'click');
     browser.ws.send(JSON.stringify({ type: 'kill' })); browser.ws.close();
 
+    // localhost pages go to 127.0.0.1 (one cookie, one duplicate-tab check), keeping path + query (the ?t= link too);
+    // API calls and 127.0.0.1 itself are not redirected.
+    const viaLocalhost = (p) => req(port, { path: p, headers: { Host: `localhost:${port}`, Accept: 'text/html' } });
+    let r = await viaLocalhost('/?t=' + secret);
+    assert.deepStrictEqual([r.status, r.headers.location], [302, `http://127.0.0.1:${port}/?t=${secret}`]);
+    r = await viaLocalhost('/debug');
+    assert.strictEqual(r.headers.location, `http://127.0.0.1:${port}/debug`);
+    assert.notStrictEqual((await req(port, { path: '/api/version', headers: { Host: `localhost:${port}`, Cookie: cookie } })).status, 302);
+    assert.strictEqual((await req(port, { path: '/', headers: { Accept: 'text/html', Cookie: cookie } })).status, 200, '127.0.0.1 is served as is');
+
     // `termdeck open --no-open` prints the sign-in link for the running server.
     const cli = spawnSync(process.execPath, [path.join(ROOT, 'server.js'), 'open', '--no-open'], { env, encoding: 'utf8' });
     assert.strictEqual(cli.status, 0, cli.stderr);

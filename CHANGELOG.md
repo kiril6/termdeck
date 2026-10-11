@@ -4,6 +4,7 @@ User-facing changes per release, newest first. Shown in the app under Help → W
 
 ## 1.26.0
 - **Fixed: keystrokes jumping back into a terminal** — opening the command palette (or a dialog) right as a window took focus could close it again and send what you typed, including Enter, to the shell. A late focus no longer takes over when focus has moved elsewhere.
+- **`localhost` and `127.0.0.1` are one address** — opening termdeck as `localhost` now takes you to `127.0.0.1`, so you sign in once for both and the "already open in another tab" check works across them.
 - **Needs Node.js 20 or newer** — on Linux it already did (the terminal library termdeck installs there requires Node 20); the stated minimum now says so, and CI tests Node 20, 22 and 24 on Linux, plus macOS and (best-effort) Windows. Firefox and Safari's engine (WebKit) are now tested alongside Chrome.
 - **`termdeck uninstall`** — removes agent hooks, start-at-login, termdeck's tmux sessions and `~/.termdeck` in one step, after showing exactly what it will do (`--dry-run` to preview). Your settings backups and logs are kept and listed.
 - **Fewer settings backups** — `termdeck hooks install/uninstall` keeps the newest 3 backups per settings file instead of all of them (they are full copies and may hold API keys).
