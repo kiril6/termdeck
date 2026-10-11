@@ -553,7 +553,7 @@ async function openAgentDiff(){
 // paste so a TUI treats it as one paste. Deliberately NOT term.paste(): that routes through onData, where Cast
 // broadcast would copy a file excerpt into every shell. Control characters (an ESC can end a bracketed paste early
 // and turn the rest into typed commands) and bidi overrides are stripped first.
-const tabSeen=new Map();   // tab → last time it was focused (default target = most recent agent)
+const tabSeen=new WeakMap();   // tab → last time it was focused (default target = most recent agent); weak: closed tabs go
 function touchTab(t){if(t)tabSeen.set(t,Date.now());}
 const SEND_MAX=64*1024;
 const cleanSel=(t)=>t.replace(/\r\n?/g,"\n").replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g,"");
@@ -964,7 +964,7 @@ function switchProject(pid){
     if(b&&!s.minimized) any=true;
   });
   hint.style.display=any?"none":"";
-  syncTileBtn(); syncCastBtn(); updateDockEdges(); updateProjEdges();
+  syncWebgl(); syncTileBtn(); syncCastBtn(); updateDockEdges(); updateProjEdges();
   updateProjCounts(); scheduleSave();
   if(sidebarOpen) refreshTree();
 }
@@ -999,6 +999,7 @@ function moveSessionToProject(s,pid){
   const b=pid===activeProject;
   s.win.style.display=b&&!s.minimized?"":"none";
   s.chip.style.display=b?"":"none";
+  syncWebgl();
   if(b){hint.style.display="none"; focus(s);}
   else if(focusedId===s.id) focusedId=null;
   updateProjCounts(); updateProjectAttention(oldPid); updateProjectAttention(pid); updateAgentOverview(); scheduleSave();
@@ -1242,11 +1243,7 @@ function addTab(s, opts){
   term.loadAddon(new window.WebLinksAddon.WebLinksAddon());   // clickable URLs in output
   try { term.loadAddon(new window.Unicode11Addon.Unicode11Addon()); term.unicode.activeVersion="11"; } catch {}   // emoji / CJK widths as modern shells and TUIs count them (default is Unicode 6)
   term.open(pane);
-  try {                                                       // GPU renderer; fall back to DOM on context loss
-    const webgl=new window.WebglAddon.WebglAddon();
-    webgl.onContextLoss(()=>{try{webgl.dispose();}catch{}});
-    term.loadAddon(webgl);
-  } catch {}
+  syncWebgl();                                                // GPU renderer if it's shown (see the WebGL budget)
 
   // tab widget in head
   const wt=el("div","wtab");
@@ -1364,7 +1361,7 @@ function updTabEdges(track){
   wrap.classList.toggle("can-right",track.scrollLeft<max-1);
 }
 function switchTab(s,tid){
-  s.activeTabId=tid; touchTab(s.tabs.find((t)=>t.id===tid));
+  s.activeTabId=tid; touchTab(s.tabs.find((t)=>t.id===tid)); syncWebgl();
   s.tabs.forEach((t)=>{
     const on=t.id===tid;
     t.pane.classList.toggle("active",on);
@@ -1388,7 +1385,7 @@ function closeTab(s,tid){
   if(findTarget===tab) closeFind();
   tab.closedByUser=true; clearTimeout(tab.reconnectTimer); stopAgentIdle(s,tab);
   if(tab.conn){if(tab.conn.kill)tab.conn.kill(); if(tab.conn.close)tab.conn.close();}
-  try{tab.term.dispose();}catch{}
+  glDetach(tab); try{tab.term.dispose();}catch{}
   tab.wt.remove(); tab.pane.remove();
   s.tabs.splice(idx,1); updTabEdges(s.wtabsTrack);
   if(s.activeTabId===tid){const nxt=s.tabs[Math.min(idx,s.tabs.length-1)]; if(nxt) switchTab(s,nxt.id);}
@@ -1401,6 +1398,50 @@ function closeTab(s,tid){
 }
 
 function activeTab(s){return s.tabs.find((t)=>t.id===s.activeTabId)||s.tabs[0];}
+
+// ── WebGL budget ──
+// Chrome keeps ~16 live WebGL contexts per page and drops the oldest past that, which used to leave a terminal on the
+// slower DOM renderer for good. Only shown terminals (the active tab of each visible window) get one, at most GL_MAX,
+// recycling the one shown longest ago. A lost context (GPU reset, sleep/wake) is re-created when the terminal is
+// shown again, or after a back-off while it stays on screen.
+const GL_MAX=12;                 // = MAX_TERMS: every window of a project at once, with headroom for other pages
+let glOff=false;                 // no WebGL2 here: stay on the DOM renderer
+let glLost=0;                    // contexts lost so far: sets the retry back-off
+const glTabs=new Set();          // tabs holding a WebglAddon
+function glDetach(t){
+  if(!t.webgl) return;
+  glTabs.delete(t); const a=t.webgl, gl=t.glCanvas?.getContext("webgl2"); t.webgl=t.glCanvas=null;
+  try{a.dispose();}catch{}
+  // xterm leaves the context to garbage collection, and until then Chrome counts it against the limit
+  try{ if(gl&&!gl.isContextLost()) gl.getExtension("WEBGL_lose_context")?.loseContext(); }catch{}
+}
+function glAttach(t){
+  try{
+    const a=new window.WebglAddon.WebglAddon(), before=new Set(t.term.element.querySelectorAll("canvas"));
+    a.onContextLoss(()=>{ if(t.webgl!==a) return; glDetach(t); setTimeout(syncWebgl,1000*Math.min(64,2**++glLost)); });
+    t.term.loadAddon(a); t.webgl=a; glTabs.add(t);
+    t.glCanvas=[...t.term.element.querySelectorAll("canvas")].find((c)=>!before.has(c)&&!/-layer\b/.test(c.className))||null;   // not its 2D xterm-*-layer canvases
+  }catch{ glOff=true; }
+}
+let glQueued=false;
+function syncWebgl(){              // batched to the next frame: callers change visibility in several steps
+  if(glQueued) return; glQueued=true;
+  requestAnimationFrame(()=>{
+    glQueued=false;
+    if(glOff||!window.WebglAddon) return;
+    const now=performance.now(), shown=[];
+    sessions.forEach((s)=>{ const t=s.project===activeProject&&!s.minimized&&activeTab(s); if(t&&!t.closedByUser){ t.glShown=now; shown.push(t); } });
+    for(const t of shown.slice(0,GL_MAX)){
+      if(t.webgl) continue;
+      if(glTabs.size>=GL_MAX){
+        const old=[...glTabs].filter((x)=>x.glShown!==now).sort((a,b)=>a.glShown-b.glShown)[0];
+        if(!old) break;
+        glDetach(old);
+      }
+      glAttach(t);
+    }
+  });
+}
 
 /* ════════════════════════════════════════════════
    WS PER TAB
@@ -1921,9 +1962,9 @@ function closeSession(s,skipCount){
     if(findTarget===tab) closeFind();
     tab.closedByUser=true; clearTimeout(tab.reconnectTimer); stopAgentIdle(s,tab);
     if(tab.conn){if(tab.conn.kill)tab.conn.kill(); if(tab.conn.close)tab.conn.close();}
-    try{tab.term.dispose();}catch{}
+    glDetach(tab); try{tab.term.dispose();}catch{}
   });
-  s.win.remove(); s.chip.remove();
+  s.win.remove(); s.chip.remove(); syncWebgl();
   const gp=s.glue&&sessions.get(s.glue); if(gp)gp.glue=null;
   const pid=s.project;
   sessions.delete(s.id); order=order.filter((x)=>x!==s.id);
@@ -1986,8 +2027,8 @@ function wireWindow(s){
   s.wtabAdd.addEventListener("click",(e)=>{e.stopPropagation(); addTab(s);});
 }
 
-function minimize(s){s.minimized=true;s.win.style.display="none";s.chip.classList.add("mini");s.chip.title="Click to show";if(focusedId===s.id)focusedId=null;syncTileBtn();scheduleSave();}
-function restore(s){s.minimized=false;s.win.style.display="";s.chip.classList.remove("mini");s.chip.title="Double-click to hide";focus(s);refitActive(s);syncTileBtn();scheduleSave();}
+function minimize(s){s.minimized=true;s.win.style.display="none";syncWebgl();s.chip.classList.add("mini");s.chip.title="Click to show";if(focusedId===s.id)focusedId=null;syncTileBtn();scheduleSave();}
+function restore(s){s.minimized=false;s.win.style.display="";syncWebgl();s.chip.classList.remove("mini");s.chip.title="Double-click to hide";focus(s);refitActive(s);syncTileBtn();scheduleSave();}
 function toggleMax(s){
   if(s.maximized){const p=s.prevRect||{left:"80px",top:"60px",width:"580px",height:"380px"};Object.assign(s.win.style,p);s.win.classList.remove("max");s.maximized=false;}
   else{const st=s.win.style;s.prevRect={left:st.left,top:st.top,width:st.width,height:st.height};Object.assign(s.win.style,{left:"0px",top:"0px",width:"100%",height:"100%"});s.win.classList.add("max");s.maximized=true;focus(s);}

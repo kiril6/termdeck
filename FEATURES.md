@@ -60,7 +60,7 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
 - 🖥️ **Clickable links** — URLs in output open in a new tab (xterm web-links addon).
 - 🖥️ **Save output** — right-click → *Save output…* downloads the scrollback as a `.log`
   (xterm serialize addon).
-- 🖥️ **GPU rendering** — WebGL renderer with automatic fallback on context loss.
+- 🖥️ **GPU rendering** — WebGL renderer for every terminal on screen (up to 12 at once; browsers allow ~16 per page). Hidden terminals (other projects, minimized windows, background tabs) give theirs up when a shown one needs it, the one shown longest ago first. If the GPU drops a context (sleep/wake, driver reset), that terminal draws with the DOM renderer and gets WebGL back when shown again or a few seconds later.
 - 🔌 **Live working directory** — each window's cwd badge follows the shell as it `cd`s. The backend
   polls each shell's real working dir from the OS (~1.5s) and pushes it on change — no shell config
   or OSC 7 needed. Linux reads `/proc/<pid>/cwd`; macOS runs one batched `lsof` for all shells;
