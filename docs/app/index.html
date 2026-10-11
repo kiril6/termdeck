@@ -3527,7 +3527,7 @@ function buildPalette(q){
       const item=el("div","pal-item");
       const ic=el("div","pi-icon");ic.innerHTML=c.icon;
       const body=el("div","pi-body");
-      const lb=el("div","pi-label");lb.innerHTML=q?hlMatch(c.label,q):c.label;
+      const lb=el("div","pi-label");lb.innerHTML=hlMatch(c.label,q);
       const sb=el("div","pi-sub");sb.textContent=c.sub;
       body.append(lb,sb);item.append(ic,body);
       if(c.kbd){const kc=el("div","pi-keys");for(const k of osKeys(c.kbd)){const kk=el("kbd");kk.textContent=k;kc.append(kk);}item.append(kc);}
@@ -3543,7 +3543,7 @@ function buildPalette(q){
       const item=el("div","pal-item");
       const ic=el("div","pi-icon");ic.innerHTML=ICON.snippet;
       const body=el("div","pi-body");
-      const lb=el("div","pi-label");lb.innerHTML=q?hlMatch(sn.label,q):sn.label;
+      const lb=el("div","pi-label");lb.innerHTML=hlMatch(sn.label,q);
       const sb=el("div","pi-sub");sb.textContent=sn.cmd;
       body.append(lb,sb);
       const edit=el("button","pi-del pi-edit");edit.innerHTML=ICON_EDIT;edit.title="Edit snippet";
@@ -3563,7 +3563,7 @@ function buildPalette(q){
       const item=el("div","pal-item");
       const ic=el("div","pi-icon");ic.innerHTML=ICON.terminal;
       const body=el("div","pi-body");
-      const lb=el("div","pi-label");lb.innerHTML=q?hlMatch(h.label,q):h.label;
+      const lb=el("div","pi-label");lb.innerHTML=hlMatch(h.label,q);
       const sb=el("div","pi-sub");sb.textContent="ssh "+h.target;
       body.append(lb,sb);
       const edit=el("button","pi-del pi-edit");edit.innerHTML=ICON_EDIT;edit.title="Edit host";
@@ -3587,7 +3587,7 @@ function buildPalette(q){
       const item=el("div","pal-item");
       const ic=el("div","pi-icon");ic.innerHTML=ICON.bot;
       const body=el("div","pi-body");
-      const lb=el("div","pi-label");lb.innerHTML=q?hlMatch(p.label,q):p.label;
+      const lb=el("div","pi-label");lb.innerHTML=hlMatch(p.label,q);
       const sb=el("div","pi-sub");sb.textContent=p.cmd;
       body.append(lb,sb);item.append(ic,body);
       if(custom){   // only user presets are editable/removable; built-ins are fixed
@@ -3627,7 +3627,7 @@ function buildPalette(q){
       const act=s.project===activeProject;
       const ic=el("div","pi-icon");ic.innerHTML=act?'<span class="led live"></span>':'<span class="led"></span>';
       const body=el("div","pi-body");
-      const lb=el("div","pi-label");lb.innerHTML=q?hlMatch(s.name,q):s.name;
+      const lb=el("div","pi-label");lb.innerHTML=hlMatch(s.name,q);
       const sb=el("div","pi-sub");sb.textContent=(s.cwd||"~").replace(/^\/home\/[^/]+/,"~")+" \u2014 "+(projects.get(s.project)?.name||"?");
       body.append(lb,sb);
       const st=el("span","pi-kbd");st.textContent=s.status;
@@ -3641,7 +3641,12 @@ function buildPalette(q){
   if(all[0]) all[0].classList.add("hi");
   return all;
 }
-function hlMatch(str,q){return str.replace(new RegExp("("+q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","gi"),"<mark>$1</mark>");}
+// Escapes every piece, so a label (snippet, SSH host, preset, window name) can never inject markup.
+function hlMatch(str,q){
+  const e=(t)=>t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  str=String(str??""); if(!q) return e(str);
+  return str.split(new RegExp("("+q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","gi")).map((p,i)=>i%2?"<mark>"+e(p)+"</mark>":e(p)).join("");
+}
 // Only one modal/overlay at a time — opening any closes the rest (proper close fns keep game/search teardown).
 function closeModals(except){
   if(except!=="palette"&&palette.classList.contains("open")) closePalette();
@@ -3712,7 +3717,7 @@ function closeFileViewer(){fileOverlay.classList.remove("open");}
 // Tiny markdown → HTML (headings, emphasis, code, lists, quotes, tables, links, rules). Input is
 // HTML-escaped first, so nothing in the file can inject markup; links are limited to http(s)/mailto.
 function mdToHtml(src){
-  const esc=(t)=>t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const esc=(t)=>t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");   // quotes too: link URLs land inside href="…"
   const inline=(t)=>esc(t).replace(/`([^`]+)`/g,"<code>$1</code>")
     .replace(/!\[([^\]]*)\]\([^)]*\)/g,"$1")   // images can't load here → keep alt text (badges become plain links)
     .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+|mailto:[^\s)]+)\)/g,(m,x,u)=>'<a href="'+u+'" target="_blank" rel="noopener noreferrer">'+x+"</a>")

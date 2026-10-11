@@ -80,8 +80,8 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   code, lists, blockquotes, tables, rules, `http(s)`/`mailto` links) in the file-viewer overlay; the header
   button flips to the raw source and back. Reach it by clicking a file in the tree **or** palette → *Open
   file…* (path relative to the project root, absolute, or `~/…`; works for any text file). Zero dependencies:
-  a ~40-line renderer inline in `public/index.html`. Input is HTML-escaped first and images are shown as
-  their alt text, so a file can't inject markup or trigger requests. Not full CommonMark (no nested lists /
+  a ~40-line renderer inline in `public/index.html`. Input is HTML-escaped first (including quotes, so a
+  link URL can't break out of its `href`) and images are shown as their alt text, so a file can't inject markup or trigger requests. Not full CommonMark (no nested lists /
   reference links). In the hosted demo the tree's `README.md` and the palette command open a sample document.
 - 📦 **Move to project (dock chip)** — the folder-arrow button on a dock chip moves that window to another project; it is **disabled (dimmed) while there is only one project** and enables as soon as a second exists.
 - 📦 **Last project can't be deleted** — the **×** on a project tab is dimmed and disabled (tooltip *Can't delete the only project*) while only one project exists, and enables once a second is added.
@@ -426,7 +426,8 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   The footer icon is hidden on read-only log terminals.
 - 🖥️ **Command palette** (`⌘K`) — fuzzy search over commands, sessions, snippets, SSH hosts, and AI CLI presets. Command
   rows use monochrome stroke icons throughout — session rows show a filled disc for the active
-  project, a hollow ring for other projects.
+  project, a hollow ring for other projects. Labels (snippet, SSH host, preset and window names) are always shown as
+  text, never as markup, with or without a search highlight.
 - 🖥️ **Search & filter** sessions by window name, tab name, or directory, with a visible "filter is on" indicator (`⌘F` when unfocused).
 - 🖥️ **Mini-game while you wait** — palette → *Play game* or `⌘⌥G` opens a game overlay.
   Header dropdowns pick the game — **🦖 Dino** (Space/↑/click to jump) or **🐍 Snake**

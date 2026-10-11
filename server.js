@@ -786,6 +786,7 @@ function positiveEnvNumber(name, fallback) {
 }
 const GRACE_MS  = positiveEnvNumber('TD_GRACE_MS', 60_000);
 const BUFFER    = positiveEnvNumber('TD_BUFFER', 1_000_000); // per-session replay ring
+const tail      = (sess) => sess.buffer.slice(-BUFFER);            // what replay / logs see: the last BUFFER chars
 // Opt-in audit trail: with TD_LOG_DIR set, each shell's buffered output (ANSI stripped, last
 // TD_BUFFER bytes) is written there when the shell really ends. Browser disconnects don't count.
 const LOG_DIR = process.env.TD_LOG_DIR ? path.resolve(process.env.TD_LOG_DIR) : null;
@@ -797,7 +798,7 @@ function saveLog(sess, id, code) {
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     const file  = path.join(LOG_DIR, `${stamp}_${String(id).replace(/[^\w.-]/g, '_').slice(0, 60)}.log`);
     const head  = `# termdeck session ${id} · ${sess.shellName} · cwd ${sess.cwd} · exit ${code} · ended ${new Date().toISOString()}\n\n`;
-    fs.writeFileSync(file, head + sess.buffer.replace(ANSI_RE, '').replace(/\r\n?/g, '\n'), { mode: 0o600 });
+    fs.writeFileSync(file, head + tail(sess).replace(ANSI_RE, '').replace(/\r\n?/g, '\n'), { mode: 0o600 });
   } catch (e) { console.error('  [log] save failed:', e.message); }
 }
 const MAX_PANELS = Math.floor(positiveEnvNumber('TD_MAX_PANELS', 64)); // live PTY cap across all projects
@@ -924,7 +925,7 @@ wss.on('connection', (ws, req) => {
     existing.killTimer = null;
     existing.ws = ws;
     send(ws, { type:'attach', id, shell:existing.shellName, cwd:existing.cwd, resumed:true });
-    if (existing.buffer) send(ws, { type:'output', data:existing.buffer });
+    if (existing.buffer) send(ws, { type:'output', data:tail(existing) });
     if (existing.agentEvt) {   // a replayed request is only answerable while its hook is still held; settled ones lose the reqId
       const e = existing.agentEvt, held = pendingApprovals.get(id)?.reqId === e.reqId;
       send(ws, { type:'agent', event: held || !e.reqId ? e : { ...e, reqId: undefined } });
@@ -1009,7 +1010,10 @@ wss.on('connection', (ws, req) => {
   console.log('  [+]', usedShell, tmuxName ? '(tmux '+tmuxName+')' : '', 'pid='+term.pid, 'id='+id);
 
   term.onData((data) => {
-    sess.buffer = (sess.buffer + data).slice(-BUFFER);
+    // Amortized trim: slicing on every chunk copied the whole ring each time (~100× slower under heavy output).
+    // The ring may hold up to 2× BUFFER; readers take the last BUFFER via tail().
+    sess.buffer += data;
+    if (sess.buffer.length > 2 * BUFFER) sess.buffer = tail(sess);
     if (sess.ws?.readyState === 1) send(sess.ws, { type:'output', data });
   });
   term.onExit(({ exitCode }) => {

@@ -28,6 +28,20 @@ test.describe('demo mode (no backend)', () => {
     expect(errors).toEqual([]);
   });
 
+  test('palette shows labels as text, never as markup (with and without a search)', async ({ page }) => {
+    const label = '<img src=x onerror="window.__pwned=1">snip';
+    await page.addInitScript((l) => localStorage.setItem('td.snippets.v1', JSON.stringify([{ id: 'sn1', label: l, cmd: 'echo hi' }])), label);
+    await boot(page, '/?demo');
+    for (const q of ['', 'snip']) {
+      await openPalette(page);
+      await page.locator('#pal-input').fill(q);
+      await expect(labels(page).filter({ hasText: label })).toHaveCount(1);   // the raw text is shown
+      await expect(page.locator('#pal-list img')).toHaveCount(0);
+      await page.keyboard.press('Escape');
+    }
+    expect(await page.evaluate(() => window.__pwned)).toBeUndefined();
+  });
+
   test('palette: opens, category chips filter, agent task needs a backend in demo', async ({ page }) => {
     await boot(page, '/?demo');
     await openPalette(page);
@@ -383,6 +397,24 @@ test.describe('live backend', () => {
     await page.reload();
     await expect(page.locator('.win .xterm-char-measure-element').first()).toHaveCSS('font-size', '17px');   // persisted
   });
+  test('rendered markdown: a link URL cannot break out of href', async ({ page }) => {
+    const dir = fs.mkdtempSync(path.join(process.env.TD_E2E_HOME, 'md-'));
+    fs.writeFileSync(path.join(dir, 'evil.md'), '[docs](https://a"onmouseover="window.__pwned=1"x=")\n\n[ok](https://example.com/a?b=1&c=2)\n');
+    await boot(page, '/');
+    await openPalette(page);
+    await page.locator('#palette input').first().fill('open file');
+    await labels(page).filter({ hasText: /^Open file/ }).first().click();
+    await page.locator('input[placeholder="README.md"]').fill(path.join(dir, 'evil.md'));
+    await page.getByRole('button', { name: 'Open', exact: true }).click();
+    const links = page.locator('#fv-body a');
+    await expect(links).toHaveCount(2);
+    const attrs = await links.evaluateAll((as) => as.map((a) => a.getAttributeNames().sort().join(',')));
+    expect(attrs).toEqual(['href,rel,target', 'href,rel,target']);
+    expect(await links.nth(1).getAttribute('href')).toBe('https://example.com/a?b=1&c=2');   // normal links unchanged
+    await links.first().hover();
+    expect(await page.evaluate(() => window.__pwned)).toBeUndefined();
+  });
+
   test('file viewer previews images, CSV, PDF and falls back for binaries; /api/raw is locked down', async ({ page, request }) => {
     const dir = fs.mkdtempSync(path.join(process.env.TD_E2E_HOME, 'preview-'));
     const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');

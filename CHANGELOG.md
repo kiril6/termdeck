@@ -2,6 +2,10 @@
 
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
+## 1.25.2
+- **Safer rendering** — rendered Markdown in the file viewer and command-palette labels now escape every character that could be read as markup.
+- **Faster with heavy output** — the server keeps each shell's replay buffer far more cheaply, so a command printing a lot (builds, logs, `cat` of a big file) no longer slows the other terminals. Reload still replays the last `TD_BUFFER` of output, as before.
+
 ## 1.25.1
 - **Sessions button** — back to the robot icon (the grid icon clashed with *Tile*); the palette's *Live overview* entry gets its own monitor icon.
 - **Live overview is sorted by urgency** — needs approval, waiting, working, running, idle, exited — with a teal border for working / running tiles, and a new **All | Active** filter that hides idle sessions. It defaults to Active while anything is running and to All otherwise; your pick is remembered.
