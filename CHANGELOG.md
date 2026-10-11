@@ -3,6 +3,9 @@
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
 ## 1.26.0
+- **`termdeck uninstall`** — removes agent hooks, start-at-login, termdeck's tmux sessions and `~/.termdeck` in one step, after showing exactly what it will do (`--dry-run` to preview). Your settings backups and logs are kept and listed.
+- **Fewer settings backups** — `termdeck hooks install/uninstall` keeps the newest 3 backups per settings file instead of all of them (they are full copies and may hold API keys).
+- **Bounded audit log** — `TD_LOG_DIR/approvals.jsonl` rotates at 10 MB, keeping one previous file. The tmux "don't ask again" flag now lives in `~/.termdeck` (moved automatically).
 - **Two servers starting together sign you in the same way** — servers started at the same moment on a fresh home folder could end up with different access secrets, so one of them rejected your browser. They now always agree on one.
 - **Clear warning when the layout can't be saved** — if the browser refuses to store it (storage full, or blocked in a private window), a toast says so once instead of losing the layout silently on reload. Toggling *Follow*, *Show hidden files* or pixel pets no longer fails there.
 - **Git calls time out** — local git commands behind the agent-worktree features give up after 60 s with a clear error instead of hanging on a held lock.

@@ -162,7 +162,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   repaints the current screen; history stays reachable via tmux copy-mode). Startup banner reports
   whether durable sessions are on. When tmux is **absent** and the server is started from a real
   terminal (npx / `npm start` by hand), it offers once to install tmux via the OS package manager
-  (brew/apt/dnf/pacman/zypper/apk), explaining the trade-off; declining writes `~/.termdeck-tmux-optout`
+  (brew/apt/dnf/pacman/zypper/apk), explaining the trade-off; declining writes `~/.termdeck/tmux-optout` (the pre-1.26 `~/.termdeck-tmux-optout` is moved there on the next start)
   so it never asks again. Skipped entirely on Windows, with `NO_TMUX=1`, or when stdin isn't a TTY
   (CI / piped / detached), so scripted runs never block.
 - 🔌 **Reattach model:** on WS disconnect the PTY is NOT killed — a 60s grace timer holds it;
@@ -364,7 +364,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   (same guards as input); the command is shown via `textContent`. **Audit log:** every held request is
   recorded with time, terminal, tool/command, decision and **who decided** (*you* / *in terminal* / *timed out* /
   *replaced*) — listed under the queue (*Recent approvals*), served at `GET /api/approvals`, and appended to
-  `TD_LOG_DIR/approvals.jsonl` (0600) when set. Without hooks, or on Gemini (no decision channel), rows stay
+  `TD_LOG_DIR/approvals.jsonl` (0600) when set; past 10 MB it becomes `approvals.1.jsonl` (replacing the previous one), so the audit log stays under ~20 MB. Without hooks, or on Gemini (no decision channel), rows stay
   jump-only.
 - 🔢 **Token totals (#85)** — what the agent itself reported, never estimated, labelled *as reported by the agent*.
   On `stop` the hook helper reads the CLI's transcript (**Claude Code, Codex**; Gemini shows nothing) and sends the
@@ -597,7 +597,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   `node "$TD_HOOK" <agent>` entries into each event's list — your existing hooks and every other key are kept, a
   second run is a no-op, `uninstall` removes only our entries. Shows **only our entries** (never other settings,
   which may hold secrets), asks to confirm (`--yes` skips, `--dry-run` writes nothing, a non-terminal without
-  `--yes` refuses), writes a timestamped `.termdeck-bak-…` backup, then writes atomically through symlinks (dotfile
+  `--yes` refuses), writes a timestamped `.termdeck-bak-…` backup (only the newest 3 per file are kept — they are full copies that may hold API keys; only names of that exact form are ever removed), then writes atomically through symlinks (dotfile
   managers) keeping the file's mode, indent and trailing newline. A file that isn't valid JSON, or has a
   wrongly-shaped `hooks`, is reported and left untouched while the other CLIs still proceed (exit 1). The
   event table lives in one place and `scripts/check-hooks-docs.js` (run in CI) fails if
@@ -629,6 +629,13 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   full-screen app or agent tab, and not answering a `password:`/`passphrase:`/`token:`-style prompt. The port is the latest
   `localhost` / `127.0.0.1` / `0.0.0.0` / `[::1]` `:PORT` in the current output (ANSI stripped; on reattach only the screen
   tail is scanned) and clears when the prompt returns. Browser-only, per tab, never sent to the server or saved.
+- 🔌 **`termdeck uninstall`** — removes what termdeck set up, after one confirmation listing every step (`--dry-run`
+  previews, `--yes` skips the prompt, a non-terminal without `--yes` changes nothing): agent hooks (`hooks uninstall
+  --agent all`, which backs each file up first), start-at-login (`autostart uninstall`, macOS / Linux), termdeck's own
+  `td_*` tmux sessions (their shells stop; other tmux sessions are untouched), `~/.termdeck` and the legacy
+  `~/.termdeck-tmux-optout`. Refuses while a termdeck server is running. Keeps, and lists, the agent-settings backups,
+  `TD_LOG_DIR` and the browser's site data; the package itself stays `npm uninstall -g`. Pinned by `scripts/uninstall.test.js`
+  (throwaway HOME and its own tmux socket).
 - 🔌 **`npx` runnable** — `npx @kiril6/termdeck` fetches the released npm package and launches the server with no clone (`bin: termdeck`, shebang on `server.js`). The docs only show the npm package (tagged, CI-gated releases), not `npx github:…`, which runs whatever is on `master`. The package ships only the runtime files (`files` lists each runtime script; `scripts/check-pack.js` in CI fails if a shipped file needs one that isn't listed, or if a test / dev tool is shipped). Runs correctly as an installed dependency (npx / `npm i -g`), not just from a repo clone: `/vendor/*` assets resolve xterm via `require.resolve` (deps get hoisted to a parent `node_modules`, so `__dirname/node_modules` would 404), and node-pty's `spawn-helper` is `chmod +x`'d at startup on macOS (installs that skip `install.js` leave it non-executable → `posix_spawnp failed`). tmux/durable-session support only if `tmux` is on the host (offered for install on first interactive run — see Durable sessions).
 - 🔌 **Auto port fallback** — default port is 3000. If it's busy and `PORT` wasn't set, the server walks up to the next free port automatically (3001, 3002, … up to 20 tries) and prints which one it landed on — so `npx` still works when 3000 is taken. If you **explicitly** set `PORT`, it's respected: a clash fails loudly with a `PORT=<n+1>` hint rather than silently moving. `HOST=0.0.0.0` (or a LAN IP) still binds where you ask.
 

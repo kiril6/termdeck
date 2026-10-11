@@ -45,11 +45,11 @@ to you unless you prefer otherwise. Only the latest release gets fixes.
 | `~/.termdeck/token` | The sign-in secret (0600) | Until deleted; deleting it signs every browser out |
 | `~/.termdeck/server.json` | The running server's URL, no secret (0600) | Removed when the server exits |
 | `~/.termdeck/layouts.json`, `approval-rules.json` | Saved layouts (max 50), allow-rules (max 100), 0600 | Until deleted |
-| `~/.termdeck-tmux-optout` | Remembers that you declined installing tmux | Until deleted |
-| `TD_LOG_DIR` (off by default) | Session output on exit and the approval audit log (`approvals.jsonl`, 0600) | Until deleted |
-| Agent settings backups (`*.termdeck-bak-<time>`) | A copy of e.g. `~/.claude/settings.json` taken before `termdeck hooks install` / `uninstall` changes it; may hold API keys from that file | Until deleted |
+| `~/.termdeck/tmux-optout` | Remembers that you declined installing tmux | Until deleted |
+| `TD_LOG_DIR` (off by default) | Session output on exit and the approval audit log (`approvals.jsonl`, 0600) | Session logs until deleted; the audit log rotates at 10 MB, keeping one previous file |
+| Agent settings backups (`*.termdeck-bak-<time>`) | A copy of e.g. `~/.claude/settings.json` taken before `termdeck hooks install` / `uninstall` changes it; may hold API keys from that file | The newest 3 per file |
 | Server memory / tmux | The last `TD_BUFFER` (1 MB) of each shell's output, tmux scrollback | While the session lives |
 
-To remove everything: `termdeck hooks uninstall`, `termdeck autostart uninstall`, then delete `~/.termdeck`,
-`~/.termdeck-tmux-optout`, any `*.termdeck-bak-*` files next to your agent settings, and termdeck's site data in
-your browser.
+To remove everything: stop the server, run `termdeck uninstall` (hooks, start-at-login, termdeck's tmux sessions,
+`~/.termdeck`; `--dry-run` shows the plan first), then delete the `*.termdeck-bak-*` files it lists, `TD_LOG_DIR` if
+you set it, termdeck's site data in your browser, and the package (`npm uninstall -g @kiril6/termdeck`).

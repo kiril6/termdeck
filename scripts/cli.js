@@ -13,6 +13,7 @@ Usage:
   termdeck doctor          check this machine (offline) and exit; 0 = all good, 1 = warnings/failures
   termdeck hooks install   set up agent hooks for Claude Code / Gemini CLI / Codex / Copilot (also: uninstall, --dry-run, --yes)
   termdeck autostart install   start termdeck at login (launchd / systemd user unit; also: uninstall, --port, --dry-run)
+  termdeck uninstall       remove hooks, start-at-login, termdeck's tmux sessions and ~/.termdeck (--dry-run, --yes)
 
 Options:
   --port <n>     port to listen on (same as PORT; if set, never moves to a free one)
@@ -30,8 +31,8 @@ Feedback, ideas, bugs: https://github.com/kiril6/termdeck/discussions
 function fail(msg) { process.stderr.write(`termdeck: ${msg}\n\n${HELP}`); process.exit(2); }
 
 function applyArgs(argv) {
-  const sub = { hooks: 'hooks.js', autostart: 'autostart.js' }[argv[0]];
-  if (sub) {   // `termdeck hooks|autostart install|uninstall …` — own flags, run synchronously so the server never starts
+  const sub = { hooks: 'hooks.js', autostart: 'autostart.js', uninstall: 'uninstall.js' }[argv[0]];
+  if (sub) {   // `termdeck hooks|autostart install|uninstall …`, `termdeck uninstall` — own flags, run synchronously so the server never starts
     const r = spawnSync(process.execPath, [path.join(__dirname, sub), ...argv.slice(1)], { stdio: 'inherit' });
     process.exit(r.status ?? 1);
   }

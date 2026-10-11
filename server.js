@@ -476,8 +476,14 @@ const pendingApprovals = new Map();   // terminal id -> { reqId, res, ev, timer 
 const approvalAudit = [];             // newest last, capped; also appended to TD_LOG_DIR/approvals.jsonl when set
 function recordApproval(entry) {
   approvalAudit.push(entry); if (approvalAudit.length > 200) approvalAudit.shift();
-  if (LOG_DIR) try { fs.mkdirSync(LOG_DIR, { recursive: true, mode: 0o700 }); fs.appendFileSync(path.join(LOG_DIR, 'approvals.jsonl'), JSON.stringify(entry) + '\n', { mode: 0o600 }); } catch {}
+  if (LOG_DIR) try {
+    fs.mkdirSync(LOG_DIR, { recursive: true, mode: 0o700 });
+    const f = path.join(LOG_DIR, 'approvals.jsonl');
+    try { if (fs.statSync(f).size > AUDIT_MAX_BYTES) fs.renameSync(f, path.join(LOG_DIR, 'approvals.1.jsonl')); } catch {}   // keep this + one previous file
+    fs.appendFileSync(f, JSON.stringify(entry) + '\n', { mode: 0o600 });
+  } catch {}
 }
+const AUDIT_MAX_BYTES = 10 * 1024 * 1024;
 function settleApproval(id, decision, source) {   // decision: 'allow' | 'deny' | null (= no decision, CLI asks as usual)
   const p = pendingApprovals.get(id); if (!p) return false;
   pendingApprovals.delete(id); clearTimeout(p.timer);
@@ -870,7 +876,8 @@ function tmuxSessionName(id) { return 'td_' + String(id).replace(/[^A-Za-z0-9_]/
 // NO_TMUX set — so it can't hang a scripted/detached run. Declining writes a
 // marker so we ask at most once. Installing is the user's explicit y/N in their
 // own terminal (sudo prompts land there via stdio:inherit).
-const TMUX_OPTOUT = path.join(os.homedir(), '.termdeck-tmux-optout');
+const TMUX_OPTOUT = path.join(os.homedir(), '.termdeck', 'tmux-optout');
+const TMUX_OPTOUT_LEGACY = path.join(os.homedir(), '.termdeck-tmux-optout');   // before 1.26; moved on first read
 function ask(q) {
   return new Promise((r) => {
     const rl = require('readline').createInterface({ input: process.stdin, output: process.stdout });
@@ -900,12 +907,15 @@ function tmuxInstaller() {
 async function maybePromptTmux() {
   if (TMUX_OK || isWindows || process.env.NO_TMUX) return;
   if (!process.stdin.isTTY || !process.stdout.isTTY) return;   // detached / piped / CI
-  try { if (fs.existsSync(TMUX_OPTOUT)) return; } catch {}
+  try {
+    if (fs.existsSync(TMUX_OPTOUT_LEGACY)) { fs.mkdirSync(path.dirname(TMUX_OPTOUT), { recursive: true, mode: 0o700 }); fs.renameSync(TMUX_OPTOUT_LEGACY, TMUX_OPTOUT); }
+    if (fs.existsSync(TMUX_OPTOUT)) return;
+  } catch { if (fs.existsSync(TMUX_OPTOUT_LEGACY)) return; }   // can't move it: still honour it
   console.log('\n  \x1b[36mtmux is not installed.\x1b[0m termdeck can use it for durable sessions:');
   console.log('    \x1b[2mwithout tmux →\x1b[0m shells survive a browser refresh (60s grace + replay)');
   console.log('    \x1b[2mwith tmux    →\x1b[0m shells also survive the server restarting or crashing');
   const inst = tmuxInstaller();
-  const optOut = () => { try { fs.writeFileSync(TMUX_OPTOUT, ''); } catch {} };
+  const optOut = () => { try { fs.mkdirSync(path.dirname(TMUX_OPTOUT), { recursive: true, mode: 0o700 }); fs.writeFileSync(TMUX_OPTOUT, ''); } catch {} };
   if (!inst) {
     console.log('  Couldn\'t find a package manager — install tmux yourself, then restart. Won\'t ask again.\n');
     optOut(); return;

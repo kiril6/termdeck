@@ -68,7 +68,7 @@ termdeck hooks uninstall             # removes only termdeck's entries
 
 It detects Claude Code, Gemini CLI, Codex and GitHub Copilot CLI (`--agent claude|gemini|codex|copilot|all`), **merges** into their existing
 config without touching your other hooks or settings, is idempotent, writes a timestamped
-`<file>.termdeck-bak-…` backup first, and refuses (changing nothing) on a file it can't parse. Prefer to edit by
+`<file>.termdeck-bak-…` backup first (keeping the newest 3), and refuses (changing nothing) on a file it can't parse. Prefer to edit by
 hand? The snippets below are exactly what it writes.
 
 > Shells that were already running when you upgraded don't have `TD_ID`; open a new terminal.

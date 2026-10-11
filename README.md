@@ -159,6 +159,7 @@ termdeck open                  # open the running dashboard in your browser, sig
 termdeck doctor                # check Node, node-pty, shell, tmux, git, ports (offline)
 termdeck hooks install         # wire Claude Code, Gemini CLI, Codex and Copilot hooks (also: uninstall, --dry-run, --yes)
 termdeck autostart install     # start termdeck at login via launchd/systemd (also: uninstall, --dry-run)
+termdeck uninstall             # remove hooks, start-at-login, termdeck's tmux sessions and ~/.termdeck (--dry-run, --yes)
 ```
 
 - **`termdeck doctor`** checks this machine without starting anything — Node version, node-pty, shell spawning, tmux (≥ 3.2 for agent hooks), git, free ports, network exposure and invalid `TD_*` settings — and prints a fix next to each problem. Exit code 0 = all good, 1 = warnings or failures.

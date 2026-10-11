@@ -90,6 +90,16 @@ function writeAtomic(target, text) {
 }
 
 const stamp = () => new Date().toISOString().replace(/\D/g, '').slice(0, 14);
+// Backups are full copies of the settings file (which may hold API keys), so keep only the newest few. Only names this
+// script writes — <file>.termdeck-bak-<14 digits> — are ever removed.
+const KEEP_BACKUPS = 3;
+function pruneBackups(file) {
+  const dir = path.dirname(file), re = new RegExp('^' + path.basename(file).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\.termdeck-bak-\\d{14}$');
+  let old = [];
+  try { old = fs.readdirSync(dir).filter((f) => re.test(f)).sort().reverse().slice(KEEP_BACKUPS); } catch { return; }
+  for (const f of old) { try { fs.unlinkSync(path.join(dir, f)); } catch {} }
+  if (old.length) console.log(`    removed ${old.length} older backup${old.length === 1 ? '' : 's'} (keeping the newest ${KEEP_BACKUPS})`);
+}
 
 async function confirm(q) {
   if (!process.stdin.isTTY) return false;
@@ -151,7 +161,7 @@ async function main(argv) {
   }
   for (const w of work) {
     fs.mkdirSync(path.dirname(w.file), { recursive: true });
-    if (w.raw !== undefined) fs.copyFileSync(fs.realpathSync(w.file), `${w.file}.termdeck-bak-${stamp()}`);
+    if (w.raw !== undefined) { fs.copyFileSync(fs.realpathSync(w.file), `${w.file}.termdeck-bak-${stamp()}`); pruneBackups(w.file); }
     if (action === 'uninstall' && CLIS[w.a].flat && Object.keys(w.p.next).every((k) => k === 'version')) {   // our own file, nothing left in it
       fs.unlinkSync(fs.realpathSync(w.file));
       console.log(`  ✓ ${w.label} removed (backup kept)`);
@@ -170,4 +180,4 @@ function usage(msg) {
 }
 
 if (require.main === module) main(process.argv.slice(2)).catch((e) => { console.error('  ✗', e.message); process.exit(1); });
-module.exports = { CLIS, plan, commandFor, psCommandFor, isOurs };
+module.exports = { CLIS, plan, commandFor, psCommandFor, isOurs, pruneBackups };
