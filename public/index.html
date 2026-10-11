@@ -718,14 +718,20 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 /* No vertical padding: FitAddon measures this pane's border-box height, so any
    top/bottom padding makes it compute one row too many → the last row is clipped
    under the footer. Horizontal padding is safe (doesn't affect the row count). */
-.win-pane{position:absolute;inset:0;background:var(--win-body);padding:0 3px 0 7px;display:none;overflow:hidden;}
+.win-pane{position:absolute;inset:0;background:var(--win-body);padding:0 3px 0 7px;display:none;overflow:hidden;
+  box-sizing:content-box;   /* FitAddon reads this width and subtracts only the scrollbar: exclude the side padding or the last column runs under the bar */
+  isolation:isolate;}       /* keep xterm's scrollbar (z-index 11) under the window's resize grips */
 .win-pane.active{display:block;}
 .win-pane .xterm{height:100%;}
-.win-pane .xterm-viewport{scrollbar-width:thin;scrollbar-color:var(--line) transparent;background-color:transparent!important;}
-.win-pane .xterm-viewport::-webkit-scrollbar{width:10px;cursor:default;}/* arrow over the scrollbar, not the terminal's text cursor */
-.win-pane .xterm-viewport::-webkit-scrollbar-track{background:transparent;margin-bottom:14px;}/* clear the resize grip corner */
-.win-pane .xterm-viewport::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px;border:2px solid transparent;background-clip:padding-box;min-height:24px;cursor:default;}
-.win-pane .xterm-viewport::-webkit-scrollbar-thumb:hover{background:var(--muted);}
+/* xterm 6 draws its own scrollbar (VS Code's) inside .xterm-scrollable-element; the old
+   .xterm-viewport only remains as a never-overflowing layer, so hide its native track
+   (classic-scrollbar platforms would otherwise show an empty one under ours). The width
+   comes from overviewRuler.width at new Terminal(); FitAddon reserves the same. */
+.win-pane .xterm-viewport{scrollbar-width:none;background-color:transparent!important;}
+.win-pane .xterm-viewport::-webkit-scrollbar{display:none;}
+.win-pane .xterm-decoration-overview-ruler{display:none;}/* overviewRuler is only set for that width; its canvas would draw a 1px line down the bar's edge */
+.win-pane .xterm .xterm-scrollable-element>.scrollbar>.slider{background:var(--line);border-radius:6px;border:2px solid transparent;background-clip:padding-box;box-sizing:border-box;}
+.win-pane .xterm .xterm-scrollable-element>.scrollbar>.slider:hover,.win-pane .xterm .xterm-scrollable-element>.scrollbar>.slider.active{background:var(--muted);}
 .win-foot{height:22px;flex:0 0 22px;display:flex;align-items:center;gap:6px;
   padding:0 8px;background:var(--head-b);border-top:1px solid var(--line-soft);
   font-size:10px;color:var(--muted);letter-spacing:.04em;overflow:hidden;}
@@ -2258,6 +2264,7 @@ function addTab(s, opts){
     fontFamily:fontStack(getFont().family),
     fontSize:getFont().size,lineHeight:1.15,cursorBlink:!s.isLog,
     theme:THEMES[themeId].xterm,allowProposedApi:true,scrollback:getScrollback(),
+    overviewRuler:{width:10},   // xterm 6 sizes its scrollbar from this (default 14): keeps the thin 10px bar
     disableStdin:!!s.isLog,
   });
   const fit=new window.FitAddon.FitAddon();
@@ -2331,6 +2338,10 @@ function addTab(s, opts){
     }
     if(mod&&!ev.altKey&&ev.key==="0"){                                 // reset zoom
       if(ev.type==="keydown"){ ev.preventDefault(); zoomTab(s,tab,0); } return false;
+    }
+    // Alt/Option+Left/Right jumps a word, as before xterm 6 dropped this mapping (it now sends ESC[1;3D/C, unbound in most shells).
+    if(ev.altKey&&!mod&&!ev.shiftKey&&(ev.key==="ArrowLeft"||ev.key==="ArrowRight")){
+      if(ev.type==="keydown"){ ev.preventDefault(); const l=ev.key==="ArrowLeft"; term.input(MAC?(l?"\x1bb":"\x1bf"):(l?"\x1b[1;5D":"\x1b[1;5C"),true); } return false;
     }
     return true;
   });

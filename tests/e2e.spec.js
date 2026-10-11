@@ -43,6 +43,44 @@ test.describe('demo mode (no backend)', () => {
     expect(r).toEqual({ version: '11', x: 2 });
   });
 
+  test('xterm 6 scrollbar: thin, under the resize grips, wheel scrolls; resize snaps flush to the last row', async ({ page }) => {
+    await trackTerms(page);
+    await boot(page, '/?demo');
+    await page.evaluate(() => new Promise((ok) => window.__terms[0].write(Array.from({ length: 200 }, (_, i) => 'line ' + i).join('\r\n'), ok)));
+    const win = page.locator('.win').first();
+    const bar = win.locator('.xterm-scrollable-element > .scrollbar.vertical');
+    expect(await bar.evaluate((e) => e.offsetWidth)).toBe(10);
+    const textRight = await page.evaluate(() => {   // the last column ends where the scrollbar starts, not under it
+      const t = window.__terms[0];
+      return t.element.querySelector('.xterm-screen').getBoundingClientRect().left + t.cols * t._core._renderService.dimensions.css.cell.width;
+    });
+    expect(textRight).toBeLessThanOrEqual((await bar.boundingBox()).x + 0.5);
+    const box = await win.locator('.xterm-screen').boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.wheel(0, -400);
+    await expect.poll(() => page.evaluate(() => { const b = window.__terms[0].buffer.active; return b.viewportY < b.baseY; })).toBe(true);
+    await expect(bar).toHaveClass(/\bvisible\b/);
+    // The east grip overlaps the scrollbar's outer edge: there, the grip must win.
+    const [g, sb] = [await win.locator('.wgrip-e').boundingBox(), await bar.boundingBox()];
+    const x = Math.max(g.x, sb.x) + 0.5, y = g.y + g.height / 2;
+    expect(x).toBeLessThan(Math.min(g.x + g.width, sb.x + sb.width));
+    expect(await page.evaluate(([px, py]) => document.elementFromPoint(px, py).className, [x, y])).toContain('wgrip-e');
+    const se = await win.locator('.wgrip-se').boundingBox();
+    await page.mouse.move(se.x + 5, se.y + 5); await page.mouse.down();
+    await page.mouse.move(se.x + 45, se.y + 37, { steps: 4 }); await page.mouse.up();   // an arbitrary height: not a whole number of rows
+    expect(await win.evaluate((w) => w.querySelector('.xterm-viewport').clientHeight - w.querySelector('.xterm-screen').clientHeight)).toBe(0);
+  });
+
+  test('Alt/Option+Left/Right send word jumps (xterm 6 no longer maps them)', async ({ page }) => {
+    await trackTerms(page);
+    await boot(page, '/?demo');
+    await page.locator('.win .xterm').first().click({ force: true });
+    const platform = await page.evaluate(() => { window.__out = []; window.__terms[0].onData((d) => window.__out.push(d)); return navigator.userAgentData?.platform || navigator.platform; });
+    await page.keyboard.press('Alt+ArrowLeft'); await page.keyboard.press('Alt+ArrowRight');
+    const mac = /Mac/i.test(platform);   // same test the app uses: macOS shells want ESC b / ESC f
+    expect(await page.evaluate(() => window.__out)).toEqual(mac ? ['\x1bb', '\x1bf'] : ['\x1b[1;5D', '\x1b[1;5C']);
+  });
+
   test('full or blocked browser storage: one "Layout not saved" warning, no errors', async ({ page }) => {
     const errors = await boot(page, '/?demo');
     await page.evaluate(() => { Storage.prototype.setItem = () => { throw new DOMException('full', 'QuotaExceededError'); }; });

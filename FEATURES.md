@@ -22,6 +22,10 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🖥️ Multiple tabs (shells) per window with a scrollable tab strip. **Double-click a tab name to rename it**; the tab count and custom names persist across reloads (`localStorage`).
 - 🖥️ Read-only **log panels** (`⌘⌥L`) — mirror output with input disabled.
 - 🖥️ Per-terminal **font zoom** — `⌘+` / `⌘-` / `⌘0`; PTY re-fits to the new size.
+- 🖥️ **Option/Alt+←/→ jumps a word** in the shell line — sends `ESC b` / `ESC f` on macOS and `Ctrl+←/→` (`ESC[1;5D/C`) elsewhere,
+  as xterm.js did itself before 6.0 dropped that mapping (it now sends `ESC[1;3D/C`, which most shells leave unbound).
+- 🖥️ **Thin terminal scrollbar** — 10px, in the theme's line colour (hover/drag: muted), fades out when idle (xterm 6's own
+  scrollbar, restyled). It stays under the window's resize edges, and the last text column ends where the bar starts.
 - 💾 **Named layouts** (#17) — palette → *Save layout as…* names the whole workspace (projects, windows with position/size,
   tabs, roots, folders); *Restore layout…* lists them (project/window counts, date) with a **×** to delete. Saving under
   an existing name asks before replacing. **Live:** stored server-side in `~/.termdeck/layouts.json` (0600, atomic
@@ -50,7 +54,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   mode) — then *Toggle directory tree · Change theme… · Fullscreen · Command palette…*. Same actions and shortcut
   hints as the palette, nothing destructive, no submenus; snippets, SSH hosts and AI CLI presets stay in the palette.
 - 🖥️ **Find in terminal** (`⌘F` when focused) — scrollback search with match highlighting and a
-  result counter (xterm search addon). `⌘F` with no terminal focused filters sessions instead.
+  result counter (xterm search addon). The current match is selected, so it shows in the theme's selection colour. `⌘F` with no terminal focused filters sessions instead.
 - 🖥️ **Clickable links** — URLs in output open in a new tab (xterm web-links addon).
 - 🖥️ **Save output** — right-click → *Save output…* downloads the scrollback as a `.log`
   (xterm serialize addon).
@@ -523,7 +527,7 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 
 ## Backend / security
 - 🔌 Express static server + `ws` WebSocket PTY multiplexer; node-pty (standard or Linux prebuilt fork).
-- 🔌 **Fully offline** — xterm.js + addons (the scoped `@xterm/*` packages, 5.5) are served locally from `node_modules` at `/vendor/@xterm/…` (no CDN); after `npm install` the app needs no internet.
+- 🔌 **Fully offline** — xterm.js + addons (the scoped `@xterm/*` packages, 6.0) are served locally from `node_modules` at `/vendor/@xterm/…` (no CDN); after `npm install` the app needs no internet.
 - 🖥️ **Unicode 11 character widths** — the unicode11 addon is on, so emoji and CJK take two cells as modern shells and TUIs (vim, htop, Claude Code…) count them; with xterm's default Unicode 6 table, lines with emoji drifted out of line.
 - 📄 **Remote access docs** — `docs/remote-access.md`: Tailscale Serve (recommended), SSH tunnel, LAN bind.
 - 🔌 **`TD_ALLOWED_HOSTS`** — opt-in, comma-separated, exact-match hostnames added to the Origin + Host check so a
