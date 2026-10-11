@@ -217,12 +217,12 @@ test.describe('layout presets + Alt+N (#51)', () => {
 });
 
 test('hosted demo copy matches a fresh npm run build:demo', () => {
-  const f = path.join(ROOT, 'docs', 'app', 'index.html');
-  const before = fs.readFileSync(f, 'utf8');
+  const files = ['index.html', 'app.css'].map((n) => path.join(ROOT, 'docs', 'app', n));
+  const before = files.map((f) => (fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : null));
   execFileSync(process.execPath, [path.join(ROOT, 'scripts', 'build-demo.js')], { stdio: 'ignore' });
-  const after = fs.readFileSync(f, 'utf8');
-  if (after !== before) fs.writeFileSync(f, before);   // leave the tree as we found it
-  expect(after === before, 'docs/app/index.html is stale — run npm run build:demo').toBe(true);
+  const after = files.map((f) => fs.readFileSync(f, 'utf8'));
+  files.forEach((f, i) => { if (after[i] !== before[i]) { if (before[i] === null) fs.unlinkSync(f); else fs.writeFileSync(f, before[i]); } });   // leave the tree as we found it
+  expect(after[0] === before[0] && after[1] === before[1], 'docs/app is stale — run npm run build:demo').toBe(true);
 });
 
 test.describe('live backend', () => {

@@ -24,6 +24,7 @@ const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8')
   .replace(/(["'(])\/vendor\//g, '$1vendor/');
 fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(path.join(outDir, 'index.html'), html);
+fs.copyFileSync(path.join(root, 'public', 'app.css'), path.join(outDir, 'app.css'));
 
 for (const rel of assets) {
   const src = path.join(root, 'node_modules', rel);
@@ -38,4 +39,4 @@ for (const pkg of pkgs) {
   const own = path.join(root, 'node_modules', pkg, 'LICENSE');
   fs.copyFileSync(fs.existsSync(own) ? own : path.join(root, 'node_modules', '@xterm/xterm', 'LICENSE'), path.join(outDir, 'vendor', pkg, 'LICENSE'));
 }
-console.log(`built docs/app/ — index.html + ${assets.length} vendor files + ${pkgs.length} licences`);
+console.log(`built docs/app/ — index.html, app.css + ${assets.length} vendor files + ${pkgs.length} licences`);

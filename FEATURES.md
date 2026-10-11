@@ -4,7 +4,7 @@ Single source of truth for what the TermDeck does. **Keep this current:**
 any change that adds, removes, or alters user-facing behavior must update this file in
 the same change (see the rule in `CLAUDE.md`).
 
-Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
+Legend: 🖥️ frontend (`public/index.html` + `public/app.css`) · 🔌 backend (`server.js`)
 
 ---
 

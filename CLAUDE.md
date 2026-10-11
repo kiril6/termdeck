@@ -32,7 +32,7 @@ Three files. Backend + frontend, no framework beyond Express.
 - `log=1` query param = read-only terminal (input from client is ignored — `isLog` gate in `bindWsEvents`).
 - `cwd` validated by `safeDir()` before spawn, falls back to `$HOME`.
 
-**`public/index.html`** — entire frontend in one ~360KB file (HTML + CSS + JS, no bundler).
+**`public/index.html`** + **`public/app.css`** — the frontend: markup and all JS in `index.html` (~300KB), styles in `app.css` (no bundler; split further in the refinement plan's R5).
 - xterm.js + addons served locally from `node_modules` at `/vendor` (see `server.js`) — no CDN, runs fully offline after `npm install`.
 - Floating draggable/resizable window panes, tiling, projects sidebar, theme picker, command palette (⌘K), search.
 - Each pane opens its own WebSocket to the backend, passing `id`, `cols`, `rows`, `cwd`, optional `log`.
@@ -40,7 +40,7 @@ Three files. Backend + frontend, no framework beyond Express.
 - Demo mode (no backend): forced on `file://`, `?demo`, or a `github.io` host (`FORCE_DEMO`). Static hosts get the UI + a fake shell, no PTYs.
 
 **`docs/`** — GitHub Pages showcase (served at `kiril6.github.io/termdeck/`). `docs/index.html` is the landing page; `docs/app/` is a backend-free copy of the frontend for the live "Try the demo" link.
-- ⚠️ **`docs/app/index.html` is a generated copy of `public/index.html`.** After ANY edit to `public/index.html`, run `npm run build:demo` (→ `scripts/build-demo.js`) and commit the result, or the hosted demo drifts from the real app. The script copies the HTML with `/vendor/` rewritten to relative paths and re-copies the xterm assets.
+- ⚠️ **`docs/app/index.html` and `docs/app/app.css` are generated copies of `public/`.** After ANY edit to `public/index.html` or `public/app.css`, run `npm run build:demo` (→ `scripts/build-demo.js`) and commit the result, or the hosted demo drifts from the real app. The script copies the HTML with `/vendor/` rewritten to relative paths, copies `app.css`, and re-copies the xterm assets.
 
 **`install.js`** — one-shot dependency installer. Picks node-pty variant by platform, installs base deps `--ignore-scripts` first, falls back to plain `npm install` on failure.
 
