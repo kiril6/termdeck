@@ -557,7 +557,9 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   kept in `~/.termdeck/token` (0600, created on first start) and the cookie lasts 400 days, so a restart needs nothing;
   started without a terminal (launchd / systemd) the banner prints the URL without the secret. A browser without the
   cookie gets a *This browser isn't linked yet — run `termdeck open`* page; an open tab that loses it shows a sticky
-  *Signed out* toast. **Remote** (non-loopback `HOST` or `TD_ALLOWED_HOSTS`): a random per-start token instead, printed
+  *Signed out* toast. On the default bind, a page opened as `localhost` is redirected (302) to the same URL on
+  `127.0.0.1` — path and `?t=` link kept, `/api/*` untouched — so one sign-in covers both spellings and the
+  duplicate-tab check (per-host `localStorage`) sees every tab. **Remote** (non-loopback `HOST` or `TD_ALLOWED_HOSTS`): a random per-start token instead, printed
   in the URL; restart = new token. Terminals never get the secret: each gets `TD_HOOK_AUTH` (an HMAC of it for that
   terminal id), which only authenticates `POST /api/agent-events` for that terminal. Not a sandbox: a process that can
   read your files can read the secret too.
