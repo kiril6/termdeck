@@ -424,6 +424,26 @@ test.describe('live backend', () => {
     await page.locator('#sb-btn').click();
     await expect(sb).toHaveCSS('width', '240px');   // width is not remembered
   });
+  test('Cast (broadcast) reaches only the active project\'s shells and turns off on a project switch', async ({ page }) => {
+    const sent = [];                                                   // [{ id, input }] in socket-creation order
+    page.on('websocket', (ws) => {
+      const s = { id: /[?&]id=([^&]+)/.exec(ws.url())?.[1], input: '' }; sent.push(s);
+      ws.on('framesent', (f) => { try { const m = JSON.parse(String(f.payload)); if (m.type === 'input') s.input += m.data; } catch {} });
+    });
+    await boot(page, '/');
+    await page.locator('#new').click();                                 // project A: two shells
+    await page.locator('#padd').click(); await page.locator('#new').click();   // project B: one shell
+    await expect.poll(() => sent.length).toBe(3);
+    await page.locator('.ptab').first().click();                        // back to A
+    await page.locator('#bcast').click();
+    await expect(page.locator('#bcast')).toHaveClass(/active/);
+    await page.locator('.win:visible .xterm').first().click({ force: true });
+    await page.keyboard.type('echo cast-42');
+    await expect.poll(() => sent.filter((s) => s.input.includes('echo cast-42')).length).toBe(2);   // both of A's shells
+    expect(sent[2].input).not.toContain('cast-42');                     // B's shell got nothing
+    await page.locator('.ptab').nth(1).click();
+    await expect(page.locator('#bcast')).not.toHaveClass(/active/);     // never carried into another project
+  });
   test('dock "move to project" is disabled with one project and enabled with two', async ({ page }) => {
     await boot(page, '/');
     const mv = page.locator('.chip .cmove').first();

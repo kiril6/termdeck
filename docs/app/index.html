@@ -2390,10 +2390,7 @@ function switchTab(s,tid){
     const on=t.id===tid;
     t.pane.classList.toggle("active",on);
     t.wt.classList.toggle("active",on);
-    if(on){t.wt.scrollIntoView({inline:"nearest",block:"nearest"}); setTimeout(()=>{
-      const ae=document.activeElement;                         // don't steal focus from a tab name being renamed (dblclick fires after this switchTab)
-      if(ae&&ae.classList.contains("wt-name")&&ae.isContentEditable)return;
-      try{t.term.focus();}catch{}},0);}
+    if(on){t.wt.scrollIntoView({inline:"nearest",block:"nearest"}); focusTermSoon(t);}   // (also spares a tab name being renamed: dblclick fires after this)
   });
   updTabEdges(s.wtabsTrack);
   const tab=s.tabs.find((t)=>t.id===tid);
@@ -3018,11 +3015,22 @@ function toggleMax(s){
   requestAnimationFrame(()=>refitActive(s)); scheduleSave();
 }
 function unmaxKeeping(s){const p=s.prevRect||{width:"580px",height:"380px"};s.win.classList.remove("max");s.maximized=false;s.win.style.width=p.width;s.win.style.height=p.height;refitActive(s);}
+// Focus a terminal on the next tick — unless focus moved somewhere else meanwhile (the palette or a dialog opened, a
+// tab name went into rename): a late timer must never pull keystrokes back into a shell. Seen when ⌘K follows page
+// load closely: the queued timer fired after the palette opened, closed it, and Enter went to the shell.
+function focusTermSoon(t){
+  const before=document.activeElement;
+  setTimeout(()=>{
+    const ae=document.activeElement;
+    if(ae&&ae!==before&&ae!==document.body&&!ae.classList.contains("xterm-helper-textarea")) return;
+    try{t.term.focus();}catch{}
+  },0);
+}
 function focus(s){
   const wasFocused=focusedId===s.id;
   if(focusedId&&sessions.has(focusedId)){sessions.get(focusedId).win.classList.remove("focused");sessions.get(focusedId).chip.classList.remove("active");}
   focusedId=s.id;s.win.style.zIndex=++zTop;s.win.classList.add("focused");s.chip.classList.add("active"); touchTab(activeTab(s));
-  if(!s.minimized){const t=activeTab(s); if(t){clearTabAttn(s,t); setTimeout(()=>{try{t.term.focus();}catch{}},0);}}
+  if(!s.minimized){const t=activeTab(s); if(t){clearTabAttn(s,t); focusTermSoon(t);}}
   if(sidebarOpen&&!wasFocused) followTree();   // re-clicking the focused window leaves the tree alone
   if(sessSearchOpen&&ssInput.value) closeSessSearch();   // picked a match → drop the filter
 }
