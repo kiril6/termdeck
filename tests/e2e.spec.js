@@ -284,6 +284,12 @@ test.describe('demo mode (no backend)', () => {
     await page.locator('#ov-to-queue').click();
     await expect(page.locator('#ov-overlay')).not.toHaveClass(/open/);
     await expect(page.locator('#agent-pop')).toHaveClass(/open/);
+    // A click on the backdrop outside the sheet closes the overview; a click inside it does not.
+    await page.locator('#agent-to-grid').click();
+    await page.locator('#ov-overlay .ov-foot').click();
+    await expect(page.locator('#ov-overlay')).toHaveClass(/open/);
+    await page.locator('#ov-overlay').click({ position: { x: 5, y: 5 } });
+    await expect(page.locator('#ov-overlay')).not.toHaveClass(/open/);
   });
 
   test('Sessions empty state: "Start an agent" opens the palette on its Agents tab', async ({ page }) => {

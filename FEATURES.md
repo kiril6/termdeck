@@ -361,7 +361,10 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   tab across all projects (grouped by project): the tab's last ~9 output lines plus its state (needs approval /
   waiting / running / idle / exited; dot and border tinted). Tiles are **sorted by urgency** within each project (needs approval → waiting → working → running → idle → exited; window order kept inside a state) and the border/dot is colour-coded (red / amber / teal). An **All | Active** filter beside the view toggle hides idle and exited sessions (*Active · N* shows the count); with no saved choice it defaults to Active while anything is running and to All otherwise, and an explicit pick is remembered in browser storage. With *Active* and nothing running it says so instead of showing an empty grid. Refreshes every 1.5 s **only while open** (timer
   stops on close); output is rendered as text, no input. Click a tile (or Enter) to jump to that window and
-  tab; Esc or ✕ closes; **Queue** in its header switches back to the agent queue. Reads the already-streamed xterm buffer — no extra endpoint or WebSocket.
+  tab; Esc, ✕ or a click on the backdrop closes; **Queue** in its header switches back to the agent queue. Reads the already-streamed xterm buffer — no extra endpoint or WebSocket.
+  The grid sits on a theme-coloured sheet (header with *Queue | Grid* left, *Show All | Active* and ✕ right; a
+  footer with the hints), so its text keeps the theme's contrast on light themes too. Tiles show the state as a
+  tinted pill, lift on hover with an *Open ↵* hint, take a visible keyboard focus ring, and open with Enter or Space.
 - 🖥️ **Cross-project agent queue** — the toolbar **Sessions** button (⋯ overflow menu below 1260px) opens a popover
   (its *Queue* view; **Grid** switches to the Live overview — one home for both)
   listing **every agent tab across all projects** in one who-needs-me queue, ranked

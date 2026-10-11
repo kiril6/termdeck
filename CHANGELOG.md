@@ -3,6 +3,7 @@
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
 ## 1.26.0
+- **Clearer Live overview (Sessions → Grid)** — the grid now sits on a themed panel, so its buttons and labels are readable on light themes (they were almost invisible there), toggle buttons show a clear hover, tiles show their state as a coloured pill and an *Open ↵* hint on hover, keyboard focus is visible, and a click outside the panel closes it.
 - **Start an agent from the empty Sessions list** — when no agents are running, the Sessions popover has a *Start an agent…* button that opens the command palette on its Agents tab (AI CLI presets and *New agent task…*).
 - **Export / import settings** — palette → *Export settings…* saves your theme, terminal font, scrollback, snippets, SSH hosts, AI CLI presets and toggles to one file; *Import settings…* loads it in another browser (or after clearing site data). The window layout stays separate (*Save layout as…*).
 - **Fixed: a blank page when the browser denies site storage** — with storage blocked for the site, termdeck stopped while starting and showed no windows. It now starts normally (nothing is remembered between visits).

@@ -190,8 +190,11 @@
 
 <!-- ═══ LIVE GRID OVERVIEW (#25) ═══ -->
 <div class="ov-overlay" id="ov-overlay" role="dialog" aria-modal="true" aria-label="Live overview">
-  <div class="ov-head"><span class="ov-title"><span class="seg" role="group" aria-label="Sessions view"><button type="button" id="ov-to-queue" aria-pressed="false" title="Agent queue (who needs you)">Queue</button><button type="button" class="on" aria-pressed="true">Grid</button></span><span class="seg" id="ov-filter" role="group" aria-label="Show"><button type="button" data-f="all" title="Every session">All</button><button type="button" data-f="active" title="Agents and running commands only">Active</button></span><small>read-only · click a tile to jump · Esc closes</small></span><button type="button" class="ov-x" id="ov-close" title="Close (Esc)" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+  <div class="ov-sheet">
+  <div class="ov-head"><span class="seg" role="group" aria-label="Sessions view"><button type="button" id="ov-to-queue" aria-pressed="false" title="Agent queue (who needs you)">Queue</button><button type="button" class="on" aria-pressed="true">Grid</button></span><span class="ov-head-r"><span class="ov-show" aria-hidden="true">Show</span><span class="seg" id="ov-filter" role="group" aria-label="Show"><button type="button" data-f="all" title="Every session">All</button><button type="button" data-f="active" title="Agents and running commands only">Active</button></span><button type="button" class="ov-x" id="ov-close" title="Close (Esc)" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></span></div>
   <div class="ov-body" id="ov-body"></div>
+  <div class="ov-foot">Read-only · click a tile or press Enter to jump to it · Esc closes</div>
+  </div>
 </div>
 <!-- ═══ KEYBOARD SHORTCUTS ═══ -->
 <div class="sc-overlay" id="sc-overlay" role="dialog" aria-modal="true" aria-label="Help">
