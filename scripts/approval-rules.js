@@ -10,6 +10,11 @@ const path = require('path');
 const norm = (c) => String(c).trim();                              // no whitespace collapsing: quoted args stay literal
 const OPERATORS = /[;&|`$(){}<>\\\n\r]/;                           // anything that can chain or substitute another command
 const SAFE_PREFIX = /^[\w@%+=:,./-]+( [\w@%+=:,./-]+)*$/;          // plain words only: no quotes, globs, operators
+// What a "starts with" rule lets follow its prefix: plain words only. No options (`-x`, `--x`) and no `name=value` —
+// many tools take options that run or write arbitrary things — and no path that leaves the project
+// (absolute, `~`, `..`). Anything else after the prefix needs a click (or an exact rule).
+const PLAIN_ARG = /^[\w@%+:,.\/][\w@%+:,.\/-]*$/;
+const plainArg = (a) => PLAIN_ARG.test(a) && !a.startsWith('/') && !a.split('/').includes('..');
 
 const DENY = [
   [/\b(sudo|doas|su)\b/, 'privilege escalation'],
@@ -29,7 +34,7 @@ const DENY = [
   [/\b(chmod|chown)\s+(-\S*R|--recursive|0?777\b)/, 'recursive / world-writable permissions'],
   [/\b(killall|pkill)\b|\bkill\s+-9\s+-1\b/, 'mass process kill'],
   [/:\(\)\s*\{/, 'fork bomb'],
-  [/(>>?|\btee\b)\s*[^\s|;&]*\.(bashrc|zshrc|profile|zprofile|bash_profile)\b/, 'edits shell startup files'],
+  [/(^|[\s/=:'"])\.(bashrc|zshrc|zshenv|zprofile|zlogin|profile|bash_profile|bash_login)\b/, 'touches shell startup files'],
   [/\b(npm|yarn|pnpm|cargo|gem)\s+publish\b|\btwine\s+upload\b|\bgh\s+(repo|release|secret)\s+delete\b/, 'publishes / deletes remotely'],
   [/\bdrop\s+(table|database|schema)\b|\btruncate\s+table\b/i, 'drops data'],
   [/\bdocker\s+run\b.*(--privileged|-v\s+\/:)/, 'privileged container'],
@@ -64,7 +69,9 @@ function matches(rule, ev) {
   if (rule.mode === 'exact') return c === rule.pattern;
   if (rule.mode !== 'prefix' || !c.startsWith(rule.pattern)) return false;
   const rest = c.slice(rule.pattern.length);
-  return rest === '' || (rest[0] === ' ' && !OPERATORS.test(rest));   // token boundary, and nothing chained after it
+  if (rest === '') return true;
+  if (rest[0] !== ' ' || OPERATORS.test(rest)) return false;          // token boundary, and nothing chained after it
+  return rest.trim().split(/ +/).every(plainArg);
 }
 
 module.exports = { norm, riskReason, prefixOf, matches, inDir };

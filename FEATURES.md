@@ -368,10 +368,13 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 - 🔐 **Opt-in allow-rules + hard deny-list (#44, phase 2)** — **off by default, none shipped.** A hook-backed
   approval row for a shell command also offers **Always allow…**: a confirm dialog names the scope (the **git
   repo / worktree** containing the agent's working directory, so a `cd` into a subfolder still matches) and
-  asks *only this exact command* or *anything starting with its first two words*. The rule is derived on the
+  asks *only this exact command* or *its first two words followed by plain words*. The rule is derived on the
   server from the command you were just shown — the client never sends a pattern, and there is no user regex.
   Matching is literal: exact string, or a prefix on a word boundary **with nothing chained after it** (`;`, `&`,
-  `|`, backticks, `$(`, redirects, newlines make a prefix rule not match), the same agent, Bash only, inside
+  `|`, backticks, `$(`, redirects, newlines make a prefix rule not match) **and only plain words after it** — no
+  options (`-x`, `--x`), no `name=value`, no quotes, no absolute / `~` / `..` paths, since many tools take options
+  that run or write arbitrary things (`npm test src/a.test.js` matches a `npm test` rule; `npm test -- --watch`
+  needs a click or an exact rule), the same agent, Bash only, inside
   the scope dir. Stored `0600` in `~/.termdeck/approval-rules.json`; capped at 100. **Visible, never silent:**
   each automatic answer is a toast ("Auto-allowed by rule") and an audit entry (*source: rule*, rule id) next to
   your manual ones; under the queue, *Auto-allow rules* lists them with **✕ delete** and **pause / resume**

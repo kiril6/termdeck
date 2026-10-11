@@ -2766,7 +2766,7 @@ async function alwaysAllow(tab){
   const w=a.cmd.trim().split(/\s+/), pre=w.length>=2?w.slice(0,2).join(" "):"";
   const v=await inputModal("Always allow this command?",[
     {type:"note",label:"termdeck will then answer on its own, without asking, whenever this agent runs a matching command in the git repo / worktree (or folder) containing:\n"+a.cwd+"\n\nTurned on only by you, right now. Risky commands (deleting, sudo, network, secrets\u2026) are never covered. Every automatic answer is logged and shown as a toast; manage or pause rules under Agents."},
-    {key:"mode",label:"Allow",type:"select",options:[{value:"exact",label:"Only exactly: "+a.cmd},...(pre?[{value:"prefix",label:"Anything starting with: "+pre+" \u2026"}]:[])]},
+    {key:"mode",label:"Allow",type:"select",options:[{value:"exact",label:"Only exactly: "+a.cmd},...(pre?[{value:"prefix",label:"Starting with: "+pre+" + plain words (no options, no paths outside the project)"}]:[])]},
   ],"Always allow");
   if(!v)return;
   let r; try{r=await fetch("/api/approval-rules",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reqId:a.reqId,mode:v.mode})});}catch{toast(ICON.bot,"Rule not saved","Server unreachable",4000);return;}
