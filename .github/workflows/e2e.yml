@@ -24,15 +24,18 @@ jobs:
     env:
       PW_ALL_BROWSERS: ${{ matrix.all }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
-      - run: node install.js
+      # Lockfile install, as `npx @kiril6/termdeck` users get (both node-pty variants are optional dependencies).
+      - run: npm ci
+      - name: node-pty loads
+        run: node -e "try { require('node-pty') } catch { require('@homebridge/node-pty-prebuilt-multiarch') }"
       - run: npx playwright install --with-deps ${{ matrix.browsers }}
       - run: npm test
       - if: failure()   # trace + screenshot of each failed test (throwaway HOME and token, nothing real)
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: e2e-failures-${{ matrix.os }}
           path: test-results/

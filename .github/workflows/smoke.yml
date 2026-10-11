@@ -19,8 +19,8 @@ jobs:
     # Bug-catching rules only (eslint.config.js). Pure JS, so no node-pty build or tmux needed.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
       - run: npm ci --ignore-scripts
@@ -37,8 +37,8 @@ jobs:
           - { os: macos-latest, node: '22' }
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ matrix.node }}
       - if: runner.os == 'Linux'   # tmux.test.js needs it (skips without)
@@ -49,24 +49,12 @@ jobs:
       - run: node server.js --help
       - run: node scripts/check-hooks-docs.js
       - run: node scripts/check-hooks.js
-      - run: node scripts/hooks.test.js
-      - run: node scripts/notify.test.js
-      - run: node scripts/buffer.test.js
-      - run: node scripts/output.test.js
-      - run: node scripts/access.test.js
-      - run: node scripts/secret-race.test.js
-      - run: npm audit --omit=dev --audit-level=high
-      - run: node scripts/update-check.test.js
       - run: node scripts/check-rules.js
-      - run: node scripts/json-store.test.js
-      - run: node scripts/shared-home.test.js
       - run: node scripts/check-usage.js
       - run: node scripts/check-pack.js
-      - run: node scripts/uninstall.test.js
-      - run: node scripts/approval.test.js
-      - run: node scripts/finish.test.js
-      - run: node scripts/tmux.test.js
-      - run: node scripts/robustness.test.js
+      - run: npm audit --omit=dev --audit-level=high
+      # Every scripts/*.test.js (a new one is picked up on its own), one at a time: tmux.test.js uses the real tmux server.
+      - run: node --test --test-concurrency=1 scripts/*.test.js
       - run: node server.js autostart install --dry-run
       - run: test "$(node server.js --bogus >/dev/null 2>&1; echo $?)" = 2
 
@@ -75,8 +63,8 @@ jobs:
     # The rest of the suite drives bash, tmux and POSIX signals.
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
       - run: node install.js
