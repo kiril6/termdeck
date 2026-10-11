@@ -45,8 +45,10 @@ const until = async (fn, ms) => { for (let t = 0; t < ms; t += 50) { if (fn()) r
     const mark = a.msgs.length;
     a.ws.send(JSON.stringify({ type: 'input', data: 'seq 1 30000; echo DONE""ONE\r' }));
     assert.ok(await until(() => text(a.msgs.slice(mark)).includes('DONEONE'), 20000), 'seq output never finished');
-    const nums = text(a.msgs.slice(mark)).replace(/\r/g, '').split('\n').filter((l) => /^\d+$/.test(l)).map(Number);
-    assert.strictEqual(nums.length, 30000, `got ${nums.length} lines`);
+    // Strip escape codes first: bash 5.1+ writes \x1b[?2004l (bracketed paste off) right before the first output line.
+    const nums = text(a.msgs.slice(mark)).replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '').replace(/\r/g, '').split('\n').filter((l) => /^\d+$/.test(l)).map(Number);
+    const missing = nums.length === 30000 ? null : Array.from({ length: 30000 }, (_, i) => i + 1).find((n) => !nums.includes(n));
+    assert.strictEqual(nums.length, 30000, `got ${nums.length} lines; first missing: ${missing}`);
     assert.ok(nums.every((n, i) => n === i + 1), 'lines out of order');
     const frames = a.msgs.slice(mark).filter((m) => m.type === 'output').length;
     a.ws.send(JSON.stringify({ type: 'kill' })); a.ws.close();
