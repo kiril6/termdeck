@@ -56,6 +56,11 @@ setTimeout(() => { console.error('tmux.test: timed out'); cleanup(1); }, 60000).
     const pid = /PID=(\d+)/.exec(out(c))[1];
     assert.match(tmux('list-sessions', '-F', '#{session_name}'), /^td_tmuxtest/m, 'the shell runs in a td_* tmux session');
 
+    // `cd` is followed: the server polls tmux for the active pane's directory and pushes {type:'cwd'}.
+    const sub = path.join(home, 'sub dir'); fs.mkdirSync(sub);
+    c.ws.send(JSON.stringify({ type: 'input', data: `cd '${sub}'\r` }));
+    assert.ok(await until(() => c.msgs.some((m) => m.type === 'cwd' && m.cwd === fs.realpathSync(sub))), 'cwd change reported');
+
     // The server goes away (crash / restart); tmux keeps the shell.
     await new Promise((r) => { srv.once('exit', r); srv.kill('SIGKILL'); });
     start();

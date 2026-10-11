@@ -1246,10 +1246,17 @@ if (readCwds || TMUX_OK) setInterval(async () => {
     let map; try { map = await readCwds([...rawByPid.keys()]); } catch { map = new Map(); }
     for (const [pid, cwd] of map) pushCwd(rawByPid.get(pid), cwd);
   }
-  for (const s of live.values()) if (s.tmuxName) {
-    execFile('tmux', ['display-message', '-p', '-t', s.tmuxName, '#{pane_current_path}'],
-             { timeout: CWD_POLL_MS }, (e, out) => { if (!e && out) pushCwd(s, out.trim()); });
-  }
+  // One tmux call for every session (not one per session): the active pane of each session's active window.
+  const byName = new Map();
+  for (const s of live.values()) if (s.tmuxName) byName.set(s.tmuxName, s);
+  if (byName.size) execFile('tmux', ['list-panes', '-a', '-F', '#{window_active}#{pane_active} #{session_name} #{pane_current_path}'],
+    { timeout: CWD_POLL_MS }, (e, out) => {
+      if (e) return;
+      for (const line of out.split('\n')) {
+        const m = /^11 (\S+) (.+)$/.exec(line);                 // tmux may print a tab as "_": split on spaces (names have none)
+        if (m) pushCwd(byName.get(m[1]), m[2]);
+      }
+    });
 }, CWD_POLL_MS).unref();
 
 // Graceful shutdown: kill every live PTY before exiting. Without this a dead parent
