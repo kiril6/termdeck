@@ -3,6 +3,7 @@
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
 ## 1.26.0
+- **Start an agent from the empty Sessions list** — when no agents are running, the Sessions popover has a *Start an agent…* button that opens the command palette on its Agents tab (AI CLI presets and *New agent task…*).
 - **Export / import settings** — palette → *Export settings…* saves your theme, terminal font, scrollback, snippets, SSH hosts, AI CLI presets and toggles to one file; *Import settings…* loads it in another browser (or after clearing site data). The window layout stays separate (*Save layout as…*).
 - **Fixed: a blank page when the browser denies site storage** — with storage blocked for the site, termdeck stopped while starting and showed no windows. It now starts normally (nothing is remembered between visits).
 - **Lighter when idle** — the window clocks no longer redraw every window every second: 10 idle windows went from ~3 % to under 1 % of the browser's main thread, and nothing ticks while the tab is in the background.

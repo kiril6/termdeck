@@ -369,7 +369,9 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   Clicking a row jumps straight to it: switches project, reveals the window, focuses the tab, closes the
   popover. The button's badge mirrors the highest-priority state in the queue (**red** approval beats
   **amber** waiting beats working), and its tooltip carries the count, so the whole fleet collapses to one
-  glanceable control. Empty state reads *"No active agents / All quiet"*.
+  glanceable control. Empty state reads *"No active agents / Agents you start show up here"* with a
+  **Start an agent…** button (shows the palette shortcut) that closes the popover and opens the command palette
+  on its **Agents** tab — AI CLI presets and *New agent task…* — so nothing launches until you pick one there.
 - 🖥️🔌 **Approve / Deny from the queue (#44, phase 1)** — with agent hooks installed, an approval row in the
   agent queue shows the **exact request** (tool + command or file) and **Approve / Deny** buttons. Not
   keystroke injection: the CLI's `PermissionRequest` hook is held open by `scripts/td-hook.js` until you click,

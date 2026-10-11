@@ -285,6 +285,17 @@ test.describe('demo mode (no backend)', () => {
     await expect(page.locator('#ov-overlay')).not.toHaveClass(/open/);
     await expect(page.locator('#agent-pop')).toHaveClass(/open/);
   });
+
+  test('Sessions empty state: "Start an agent" opens the palette on its Agents tab', async ({ page }) => {
+    await boot(page, '/?demo');
+    await page.locator('#agent-btn').click();
+    await expect(page.locator('#agent-pop .agent-empty')).toContainText('No active agents');
+    await page.locator('#agent-pop .agent-start').click();
+    await expect(page.locator('#agent-pop')).not.toHaveClass(/open/);
+    await expect(page.locator('#palette')).toHaveClass(/open/);
+    await expect(page.locator('#pal-cats .pal-cat.on')).toHaveText('Agents');
+    await expect(page.locator('#pal-input')).toBeFocused();
+  });
 });
 
 test.describe('layout presets + Alt+N (#51)', () => {

@@ -1669,8 +1669,14 @@ function renderAgentList(queue){
   if(!queue.length){
     const emp=el("div","agent-empty");
     const t1=el("span"); t1.textContent="No active agents";
-    const t2=el("span","agent-empty-sub"); t2.textContent="All quiet";
-    emp.append(t1,t2);
+    const t2=el("span","agent-empty-sub"); t2.textContent="Agents you start show up here";
+    // The palette's Agents tab is the one place to start an agent (presets, new agent task) — no second menu here.
+    const go=el("button","agent-btn agent-start"); go.type="button";
+    go.innerHTML=ICON.plus+"<span>Start an agent\u2026</span>";
+    const k=el("kbd","agent-start-kbd"); k.textContent=kbd("\u2318","K"); go.append(k);
+    go.title="Command palette \u2192 Agents: launch an AI CLI, or start an agent task in its own git worktree";
+    go.addEventListener("click",(e)=>{e.stopPropagation(); openPalette(); setPalCat("Agents");});   // openPalette closes this popover
+    emp.append(t1,t2,go);
     agentList.append(emp);
     return;
   }
