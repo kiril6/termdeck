@@ -18,6 +18,11 @@ async function boot(page, url) {
   await expect(page.locator('.win')).toHaveCount(1);   // a fresh visit opens one terminal
   return errors;
 }
+// Keep a handle on the app's xterm instances (the app runs inside an IIFE): window.__terms, in creation order.
+const trackTerms = (page) => page.addInitScript(() => {
+  let T; Object.defineProperty(window, 'Terminal', { configurable: true, get: () => T,
+    set: (v) => { T = class extends v { constructor(o) { super(o); (window.__terms ||= []).push(this); } }; } });
+});
 const treeMenu = async (page, label) => { await page.locator('#sb-more-btn').click(); await page.locator('.ctxmenu .ctx-item', { hasText: label }).click(); };
 const openPalette = async (page) => { await page.keyboard.press('ControlOrMeta+k'); await expect(palette(page)).toHaveClass(/open/); };
 
@@ -26,6 +31,16 @@ test.describe('demo mode (no backend)', () => {
     const errors = await boot(page, '/?demo');
     await page.waitForTimeout(500);
     expect(errors).toEqual([]);
+  });
+
+  test('wide characters use Unicode 11 widths (an emoji takes two cells)', async ({ page }) => {
+    await trackTerms(page);
+    await boot(page, '/?demo');
+    const r = await page.evaluate(() => new Promise((ok) => {
+      const t = window.__terms[0];
+      t.write('\r\n\u{1F642}', () => ok({ version: t.unicode.activeVersion, x: t.buffer.active.cursorX }));
+    }));
+    expect(r).toEqual({ version: '11', x: 2 });
   });
 
   test('palette shows labels as text, never as markup (with and without a search)', async ({ page }) => {
@@ -398,6 +413,7 @@ test.describe('live backend', () => {
     await expect(mv).toBeEnabled();
   });
   test('Terminal font… sets family + size live on open terminals and persists', async ({ page }) => {
+    await trackTerms(page);
     await boot(page, '/');
     await openPalette(page);
     await page.locator('#palette input').first().fill('terminal font');
@@ -406,11 +422,10 @@ test.describe('live backend', () => {
     await dlg.fill('Courier New');
     await page.locator('input[placeholder="13"]').fill('17');
     await page.getByRole('button', { name: 'Save' }).click();
-    const rows = page.locator('.win .xterm-char-measure-element').first();
-    await expect(rows).toHaveCSS('font-size', '17px');
-    await expect(rows).toHaveCSS('font-family', /Courier New/);
+    const font = () => page.evaluate(() => { const o = window.__terms[0].options; return { size: o.fontSize, family: o.fontFamily }; });
+    await expect.poll(font).toEqual({ size: 17, family: expect.stringMatching(/Courier New/) });   // applied live
     await page.reload();
-    await expect(page.locator('.win .xterm-char-measure-element').first()).toHaveCSS('font-size', '17px');   // persisted
+    await expect.poll(font).toEqual({ size: 17, family: expect.stringMatching(/Courier New/) });   // persisted
   });
   test('API guard: baseline headers, one cross-site check for every route, launch routes are POST-only', async ({ request }) => {
     const home = await request.get('/');

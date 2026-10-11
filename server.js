@@ -127,8 +127,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Resolve each package's real path via node resolution (not __dirname/node_modules):
 // when termdeck runs as an installed dependency, npm hoists these to a parent
 // node_modules, so a hardcoded __dirname/node_modules/<p> would 404. See require.resolve.
-for (const p of ['xterm', 'xterm-addon-fit', 'xterm-addon-search',
-                 'xterm-addon-web-links', 'xterm-addon-webgl', 'xterm-addon-serialize']) {
+for (const p of ['@xterm/xterm', '@xterm/addon-fit', '@xterm/addon-search', '@xterm/addon-web-links',
+                 '@xterm/addon-webgl', '@xterm/addon-serialize', '@xterm/addon-unicode11']) {
   try {
     app.use('/vendor/' + p, express.static(path.dirname(require.resolve(p + '/package.json'))));
   } catch { console.error('  [vendor] cannot resolve', p, '— run: node install.js'); }

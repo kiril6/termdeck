@@ -523,7 +523,8 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
 
 ## Backend / security
 - 🔌 Express static server + `ws` WebSocket PTY multiplexer; node-pty (standard or Linux prebuilt fork).
-- 🔌 **Fully offline** — xterm.js + addons are served locally from `node_modules` at `/vendor` (no CDN); after `npm install` the app needs no internet.
+- 🔌 **Fully offline** — xterm.js + addons (the scoped `@xterm/*` packages, 5.5) are served locally from `node_modules` at `/vendor/@xterm/…` (no CDN); after `npm install` the app needs no internet.
+- 🖥️ **Unicode 11 character widths** — the unicode11 addon is on, so emoji and CJK take two cells as modern shells and TUIs (vim, htop, Claude Code…) count them; with xterm's default Unicode 6 table, lines with emoji drifted out of line.
 - 📄 **Remote access docs** — `docs/remote-access.md`: Tailscale Serve (recommended), SSH tunnel, LAN bind.
 - 🔌 **`TD_ALLOWED_HOSTS`** — opt-in, comma-separated, exact-match hostnames added to the Origin + Host check so a
   reverse proxy like `tailscale serve` works while the server stays on loopback. No wildcards; unset = localhost only.

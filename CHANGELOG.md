@@ -3,6 +3,7 @@
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
 ## 1.26.0
+- **Emoji and wide characters line up** — terminals now use Unicode 11 character widths, so emoji and CJK take two cells as shells and terminal apps expect (lines with emoji no longer drift). Under the hood xterm.js moved from the deprecated `xterm` packages to `@xterm/*` 5.5.
 - **Two servers, one home folder** — saved layouts and *Always allow* rules no longer get lost when two termdeck servers run at once (for example on two ports); each sees the other's changes without a restart. A `layouts.json` or `approval-rules.json` that can't be read is now kept as `<file>.corrupt-<time>` instead of being silently replaced with an empty one.
 - **One live screen per terminal** — opening a terminal on another device (or browser) now moves it there; the old screen says *opened on another device* and stops sending keystrokes, instead of freezing while still typing into the shell. Click ⟳ on it to take it back.
 - **Phone alerts leave out the command by default** — `TD_NOTIFY_URL` messages no longer include the command or file path unless you set `TD_NOTIFY_DETAIL=1`, since the message goes to a third-party service and commands can hold secrets. `TD_NOTIFY_DETAIL=0` still works and is now the default.

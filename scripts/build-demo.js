@@ -9,13 +9,14 @@ const path = require('path');
 const root = path.join(__dirname, '..');
 const outDir = path.join(root, 'docs', 'app');
 const assets = [
-  'xterm/css/xterm.css',
-  'xterm/lib/xterm.js',
-  'xterm-addon-fit/lib/xterm-addon-fit.js',
-  'xterm-addon-search/lib/xterm-addon-search.js',
-  'xterm-addon-web-links/lib/xterm-addon-web-links.js',
-  'xterm-addon-webgl/lib/xterm-addon-webgl.js',
-  'xterm-addon-serialize/lib/xterm-addon-serialize.js',
+  '@xterm/xterm/css/xterm.css',
+  '@xterm/xterm/lib/xterm.js',
+  '@xterm/addon-fit/lib/addon-fit.js',
+  '@xterm/addon-search/lib/addon-search.js',
+  '@xterm/addon-web-links/lib/addon-web-links.js',
+  '@xterm/addon-webgl/lib/addon-webgl.js',
+  '@xterm/addon-serialize/lib/addon-serialize.js',
+  '@xterm/addon-unicode11/lib/addon-unicode11.js',
 ];
 
 // index.html with absolute /vendor/ made relative so it works under /termdeck/app/

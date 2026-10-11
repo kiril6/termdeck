@@ -40,7 +40,7 @@ async function boot({ width = 1440, height = 900, dsf = 2, theme = 'tokyoNight' 
     localStorage.setItem('td.pets.v1', '0');
     localStorage.setItem('td.aicli.v1', JSON.stringify([{ id: 'ai_demo', label: 'demo agent', cmd: 'clear' }]));
   }, theme);
-  await page.route('**/xterm-addon-webgl.js', (r) => r.fulfill({ body: '', contentType: 'text/javascript' }));   // headless WebGL mis-scales; use the app's DOM fallback
+  await page.route('**/addon-webgl.js', (r) => r.fulfill({ body: '', contentType: 'text/javascript' }));   // headless WebGL mis-scales; use the app's DOM fallback
   await page.goto(URL + '/');
   await page.waitForSelector('.win');
   const done = async () => { await browser.close(); srv.kill(); };
