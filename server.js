@@ -957,8 +957,7 @@ wss.on('connection', (ws, req) => {
     clearTimeout(existing.killTimer);
     existing.killTimer = null;
     existing.ws = ws;
-    send(ws, { type:'attach', id, shell:existing.shellName, cwd:existing.cwd, resumed:true });
-    if (existing.buffer) send(ws, { type:'output', data:tail(existing) });
+    replayTo(existing, ws, id);
     if (existing.agentEvt) {   // a replayed request is only answerable while its hook is still held; settled ones lose the reqId
       const e = existing.agentEvt, held = pendingApprovals.get(id)?.reqId === e.reqId;
       send(ws, { type:'agent', event: held || !e.reqId ? e : { ...e, reqId: undefined } });
@@ -1038,7 +1037,7 @@ wss.on('connection', (ws, req) => {
     return;
   }
 
-  const sess = { term, buffer:'', ws, killTimer:null, cwd, shellName:baseName(usedShell), isLog, tmuxName };
+  const sess = { term, buffer:'', pend:'', flushT:null, behind:false, ws, killTimer:null, cwd, shellName:baseName(usedShell), isLog, tmuxName };
   live.set(id, sess);
   console.log('  [+]', usedShell, tmuxName ? '(tmux '+tmuxName+')' : '', 'pid='+term.pid, 'id='+id);
 
@@ -1047,9 +1046,11 @@ wss.on('connection', (ws, req) => {
     // The ring may hold up to 2× BUFFER; readers take the last BUFFER via tail().
     sess.buffer += data;
     if (sess.buffer.length > 2 * BUFFER) sess.buffer = tail(sess);
-    if (sess.ws?.readyState === 1) send(sess.ws, { type:'output', data });
+    pushOutput(sess, id, data);
   });
   term.onExit(({ exitCode }) => {
+    clearTimeout(sess.flushT); sess.flushT = null;                 // last batched output must reach the screen before 'exit'
+    if (sess.pend) { sendLive(sess, id, sess.pend); sess.pend = ''; }
     if (sess.ws) send(sess.ws, { type:'exit', code:exitCode });
     saveLog(sess, id, exitCode);
     clearTimeout(sess.killTimer);
@@ -1091,6 +1092,45 @@ function bindWsEvents(ws, id) {
     s.ws = null;
     s.killTimer = setTimeout(() => { try { s.term.kill(); } catch {} live.delete(id); }, GRACE_MS);
   });
+}
+
+// ── live output: batched, with backpressure ──
+// The ring buffer above always gets every byte; this only decides what goes to the socket and when.
+// Batching: a chunk with nothing pending goes out at once (typing echo stays instant); chunks arriving within the
+// next FLUSH_MS are merged into one message — far fewer frames and JSON encodes under heavy output.
+// Backpressure: a socket more than BEHIND_BYTES behind (stalled / sleeping / slow browser) stops getting live output,
+// so server memory stays bounded. The shell never pauses. Once the socket has drained, it gets the same reset +
+// ring-buffer replay a reconnect gets — so the screen is correct again without anything ever being dropped silently.
+const FLUSH_MS = 8, BEHIND_BYTES = 4 * 1024 * 1024;
+function replayTo(sess, ws, id) {
+  clearTimeout(sess.flushT); sess.flushT = null; sess.pend = ''; sess.behind = false;   // pending output is in the ring already
+  send(ws, { type:'attach', id, shell:sess.shellName, cwd:sess.cwd, resumed:true });
+  if (sess.buffer) send(ws, { type:'output', data:tail(sess) });
+}
+function pushOutput(sess, id, data) {
+  if (!sess.ws || sess.ws.readyState !== 1 || sess.behind) return;
+  if (sess.flushT) { sess.pend += data; return; }
+  sendLive(sess, id, data);
+  sess.flushT = setTimeout(() => flushOutput(sess, id), FLUSH_MS);
+}
+function flushOutput(sess, id) {
+  sess.flushT = null;
+  const data = sess.pend; sess.pend = '';
+  if (!data) return;
+  sendLive(sess, id, data);
+  sess.flushT = setTimeout(() => flushOutput(sess, id), FLUSH_MS);
+}
+function sendLive(sess, id, data) {
+  const ws = sess.ws;
+  if (!ws || ws.readyState !== 1 || sess.behind) return;
+  if (ws.bufferedAmount <= BEHIND_BYTES) return send(ws, { type:'output', data });
+  sess.behind = true; sess.pend = '';
+  const wait = setInterval(() => {
+    if (sess.ws !== ws || ws.readyState !== 1) return clearInterval(wait);   // closed or replaced: reattach replays anyway
+    if (ws.bufferedAmount > 0) return;
+    clearInterval(wait);
+    replayTo(sess, ws, id);
+  }, 100);
 }
 
 function send(ws, obj)  { if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj)); }

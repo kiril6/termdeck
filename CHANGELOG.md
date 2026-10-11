@@ -3,6 +3,7 @@
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
 ## 1.26.0
+- **Steadier under heavy output** — output is sent in small batches (about a third of the server CPU when a command prints a lot), and a browser tab that can't keep up — asleep, stalled or slow — no longer makes the server's memory grow without limit; when it catches up, its screen is refreshed from the replay buffer.
 - **Hardened API** — one cross-site check covers every API route; *Reveal*, *Open in default app* and *Open in editor* now use POST; responses forbid framing by other sites and send no referrer.
 - **Stricter "Always allow" rules** — a *starting with* rule now covers the command's first two words followed by plain words only (for example `npm test src/a.test.js`). Options, `name=value` and paths outside the project need a click or an exact rule, because many tools take options that run or write arbitrary things. Existing rules keep working with the stricter match. The deny-list also catches any command that touches shell startup files (`.bashrc`, `.zshrc`, `.profile`…).
 - **Sign in once per browser** — termdeck now only answers browsers that hold its access cookie, so other programs on your computer (another user account, or an agent running inside termdeck) can no longer type into your terminals or click Approve for you. Nothing changes in the normal flow: the tab termdeck opens on start is already signed in, and the cookie survives restarts. A different browser shows a short page — run `termdeck open` once.

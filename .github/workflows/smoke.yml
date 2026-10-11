@@ -27,6 +27,7 @@ jobs:
       - run: node scripts/hooks.test.js
       - run: node scripts/notify.test.js
       - run: node scripts/buffer.test.js
+      - run: node scripts/output.test.js
       - run: node scripts/access.test.js
       - run: npm audit --omit=dev --audit-level=high
       - run: node scripts/update-check.test.js

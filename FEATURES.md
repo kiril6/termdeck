@@ -170,6 +170,13 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   tmux, leak the old `td_*` session) instead of reattaching.
   `TD_GRACE_MS` and `TD_BUFFER` override those defaults with positive numeric values;
   invalid, zero, and negative values safely fall back to the defaults.
+- 🔌 **Live output: batching + backpressure** — the replay ring gets every byte; what goes to the socket is batched:
+  a chunk with nothing pending is sent at once (typing echo stays instant), and chunks arriving within the next 8 ms
+  are merged into one message (30 000 lines → ~17 frames; about a third of the server CPU under heavy output). A
+  socket more than 4 MB behind — a stalled, sleeping or slow browser — stops getting live output, so server memory
+  stays bounded (measured: before, +1.3 GB in 30 s and climbing; now it levels off); the shell never pauses. Once the
+  socket has drained, the tab gets the same reset + ring-buffer replay as a reconnect, so the screen is current.
+  Output still batched when a shell exits is sent before the *exit* message.
 - 🔌 **Backend terminal cap** — once `TD_MAX_PANELS` (default 64) live shells exist, the server spawns no
   more, so a client bypassing the UI's per-project limit can't exhaust the host. Only brand-new sessions
   count; reattaching to an existing `id` is never blocked. Invalid/zero/negative values fall back to 64.
