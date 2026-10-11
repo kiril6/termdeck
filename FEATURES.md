@@ -573,7 +573,8 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   creation writes to the repo but grants no capability a shell in that repo doesn't already have
   (`git worktree add` is one command); **nothing deletes except the opt-in cleanup of *Finish agent task*** (`git worktree remove` / `git
   branch -d`, never forced, only termdeck-made worktrees) — no `-D`, no reset. Branch names are validated against a strict pattern and every git call uses `execFile` with an
-  argument array (no shell), so a branch name or prompt can't inject a command.
+  argument array (no shell), so a branch name or prompt can't inject a command. Local git calls time out after 60 s
+  (`git took longer than 60 s`) and never prompt for credentials, so a held lock or a huge repo can't hang a route.
 - 🔌 **`/api/ls` + `/api/reveal` + `/api/read`** — sidebar-tree filesystem read, OS-file-manager reveal,
   and file-text read for the in-app viewer (2 MB cap, NUL-byte binary detection), all behind the
   **same** Origin+Host guard as the WS (`apiGuard`) so a cross-site page can't read the disk. `apiGuard` also rejects
@@ -628,9 +629,9 @@ Legend: 🖥️ frontend (`public/index.html`) · 🔌 backend (`server.js`)
   full-screen app or agent tab, and not answering a `password:`/`passphrase:`/`token:`-style prompt. The port is the latest
   `localhost` / `127.0.0.1` / `0.0.0.0` / `[::1]` `:PORT` in the current output (ANSI stripped; on reattach only the screen
   tail is scanned) and clears when the prompt returns. Browser-only, per tab, never sent to the server or saved.
-- 🔌 **`npx` runnable** — `npx github:kiril6/termdeck` fetches deps and launches the server with no clone (`bin: termdeck`, shebang on `server.js`). Runs correctly as an installed dependency (npx / `npm i -g`), not just from a repo clone: `/vendor/*` assets resolve xterm via `require.resolve` (deps get hoisted to a parent `node_modules`, so `__dirname/node_modules` would 404), and node-pty's `spawn-helper` is `chmod +x`'d at startup on macOS (installs that skip `install.js` leave it non-executable → `posix_spawnp failed`). tmux/durable-session support only if `tmux` is on the host (offered for install on first interactive run — see Durable sessions).
+- 🔌 **`npx` runnable** — `npx @kiril6/termdeck` fetches the released npm package and launches the server with no clone (`bin: termdeck`, shebang on `server.js`). The docs only show the npm package (tagged, CI-gated releases), not `npx github:…`, which runs whatever is on `master`. The package ships only the runtime files (`files` lists each runtime script; `scripts/check-pack.js` in CI fails if a shipped file needs one that isn't listed, or if a test / dev tool is shipped). Runs correctly as an installed dependency (npx / `npm i -g`), not just from a repo clone: `/vendor/*` assets resolve xterm via `require.resolve` (deps get hoisted to a parent `node_modules`, so `__dirname/node_modules` would 404), and node-pty's `spawn-helper` is `chmod +x`'d at startup on macOS (installs that skip `install.js` leave it non-executable → `posix_spawnp failed`). tmux/durable-session support only if `tmux` is on the host (offered for install on first interactive run — see Durable sessions).
 - 🔌 **Auto port fallback** — default port is 3000. If it's busy and `PORT` wasn't set, the server walks up to the next free port automatically (3001, 3002, … up to 20 tries) and prints which one it landed on — so `npx` still works when 3000 is taken. If you **explicitly** set `PORT`, it's respected: a clash fails loudly with a `PORT=<n+1>` hint rather than silently moving. `HOST=0.0.0.0` (or a LAN IP) still binds where you ask.
 
 ## Modes
 - 🖥️ **Live** over `http(s)://` (real shells). **Demo** over `file://`, with `?demo` in the URL, or on a `github.io` host (no backend, UI preview with a fake shell).
-- 🌐 **Hosted demo** — `npm run build:demo` produces a static, backend-free copy under `docs/app/` (vendored xterm, relative paths) for GitHub Pages. Served at [kiril6.github.io/termdeck/app](https://kiril6.github.io/termdeck/app/?demo).
+- 🌐 **Hosted demo** — `npm run build:demo` produces a static, backend-free copy under `docs/app/` (vendored xterm with each package's MIT `LICENSE`, relative paths) for GitHub Pages. Served at [kiril6.github.io/termdeck/app](https://kiril6.github.io/termdeck/app/?demo).

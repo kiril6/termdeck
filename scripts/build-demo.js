@@ -31,4 +31,11 @@ for (const rel of assets) {
   fs.mkdirSync(path.dirname(dst), { recursive: true });
   fs.copyFileSync(src, dst);
 }
-console.log(`built docs/app/ — index.html + ${assets.length} vendor files`);
+// MIT asks for the notice to travel with the code. Every package here is from the xterm.js monorepo; one that ships
+// no LICENSE file (addon-serialize) gets the repo's own, which is the same MIT notice.
+const pkgs = [...new Set(assets.map((rel) => rel.split('/').slice(0, 2).join('/')))];
+for (const pkg of pkgs) {
+  const own = path.join(root, 'node_modules', pkg, 'LICENSE');
+  fs.copyFileSync(fs.existsSync(own) ? own : path.join(root, 'node_modules', '@xterm/xterm', 'LICENSE'), path.join(outDir, 'vendor', pkg, 'LICENSE'));
+}
+console.log(`built docs/app/ — index.html + ${assets.length} vendor files + ${pkgs.length} licences`);

@@ -552,14 +552,16 @@ app.post('/api/approval-rules/enabled', apiGuard, (req, res) => {   // pause / r
 // deletes except "Finish task" (#83): explicit opt-in cleanup of a termdeck-made worktree, never --force,
 // never `branch -D`, never reset. Review is read-only.
 const GIT_BRANCH_RE = /^[A-Za-z0-9._][A-Za-z0-9._/-]{0,99}$/;   // no leading '-', no spaces/globs
+const GIT_TIMEOUT_MS = 60000;                                    // a held index lock or a huge repo must not hang a route forever
 function gitP(args, cwd) {                                       // execFile (no shell) → args can't inject
   return new Promise((resolve, reject) => {
-    execFile('git', args, { cwd, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) =>
+    execFile('git', args, { cwd, timeout: GIT_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } }, (err, stdout, stderr) =>
       err ? reject(Object.assign(err, { stderr: String(stderr || '') })) : resolve(String(stdout)));
   });
 }
 const GIT_MISSING = 'git is not installed';
 const gitFail = (e) => e.code === 'ENOENT' ? GIT_MISSING
+  : e.killed ? 'git took longer than ' + GIT_TIMEOUT_MS / 1000 + ' s'
   : (e.stderr || e.message || 'git failed').trim().split('\n')[0];
 
 app.get('/api/git/root', apiGuard, async (req, res) => {         // is this dir a repo? → toplevel

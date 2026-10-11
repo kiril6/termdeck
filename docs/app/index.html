@@ -4151,11 +4151,11 @@ const sbMoreBtn=document.getElementById("sb-more-btn"); sbMoreBtn.innerHTML=ICON
 const syncMoreBtn=()=>sbMoreBtn.classList.toggle("flag",followTerm);   // accent dot: a toggle inside the menu is on
 syncMoreBtn();
 function toggleFollow(){
-  followTerm=!followTerm; localStorage.setItem("td-follow",followTerm?"1":"0"); syncMoreBtn();
+  followTerm=!followTerm; try{localStorage.setItem("td-follow",followTerm?"1":"0");}catch{} syncMoreBtn();
   if(!followTerm){hereDir=null;followOpened.forEach((d)=>treeOpen.delete(d));followOpened.clear();}
   if(followTerm) followTree(); else refreshTree();   // off: re-render so the folders follow opened collapse
 }
-function toggleHidden(){showHidden=!showHidden;localStorage.setItem("td-hidden",showHidden?"1":"0");refreshTree();}
+function toggleHidden(){showHidden=!showHidden;try{localStorage.setItem("td-hidden",showHidden?"1":"0");}catch{}refreshTree();}
 sbMoreBtn.addEventListener("click",()=>{
   const r=sbMoreBtn.getBoundingClientRect(), blank='<svg viewBox="0 0 24 24" aria-hidden="true"></svg>';
   const it=[
@@ -4353,9 +4353,14 @@ function serializeState(){
                // agent tag + resume command persist (resume only fires on a fresh shell, see agentRun); the launch cmd deliberately does NOT, so it can't re-fire
                tabs:s.tabs.map((t)=>({id:t.id,name:t.name,cwd:t.cwd||"",agent:!!t.agent,shell:t.shell||"",resume:t.resume||"",rtpl:t.rtpl||""}))};}).filter(Boolean)};
 }
+let saveFailed=false;
 function saveState(){
   if(!instanceActive) return;   // passive tab: never write — would clobber the active tab's layout
-  try{ localStorage.setItem(STORE,JSON.stringify(serializeState())); }catch{}
+  try{ localStorage.setItem(STORE,JSON.stringify(serializeState())); saveFailed=false; }
+  catch(e){   // full or blocked storage: the layout would be lost on reload — say so once (again only after a save worked)
+    if(!saveFailed) toast(ICON.warn,"Layout not saved","This browser refused to store it ("+(e.name||"error")+"). Free some site storage or leave private mode.",0);
+    saveFailed=true;
+  }
 }
 function restoreState(){
   let data=null;try{data=JSON.parse(localStorage.getItem(STORE)||"null");}catch{}
@@ -4989,7 +4994,7 @@ window.addEventListener("focus",()=>{petAway=false;petActivity();petEval();});
 setInterval(()=>{const idle=Date.now()-petLastAct>PET_IDLE_MS; if(idle!==petIdle){petIdle=idle;petEval();}},2000);
 function togglePets(){                                      // cycles auto → on → off → auto
   const next={auto:"on",on:"off",off:"auto"}[petsMode()];
-  localStorage.setItem(PETS_STORE,next);
+  try{localStorage.setItem(PETS_STORE,next);}catch{}
   petEval();
   toast(ICON.gamepad,"Pixel pets: "+next,
     {on:"Always visible",off:"Hidden",auto:"Shown when idle or the tab loses focus"}[next]);

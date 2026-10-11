@@ -43,6 +43,20 @@ test.describe('demo mode (no backend)', () => {
     expect(r).toEqual({ version: '11', x: 2 });
   });
 
+  test('full or blocked browser storage: one "Layout not saved" warning, no errors', async ({ page }) => {
+    const errors = await boot(page, '/?demo');
+    await page.evaluate(() => { Storage.prototype.setItem = () => { throw new DOMException('full', 'QuotaExceededError'); }; });
+    await page.keyboard.press('Escape');                                 // (tour, if any)
+    await page.locator('#new').click();                             // a layout change → save fails
+    await page.locator('#new').click();
+    await expect(page.locator('.toast', { hasText: 'Layout not saved' })).toHaveCount(1);
+    await page.locator('#sb-btn').click();
+    await treeMenu(page, 'Show hidden files');                           // unguarded before: threw in the click handler
+    await page.waitForTimeout(800);
+    await expect(page.locator('.toast', { hasText: 'Layout not saved' })).toHaveCount(1);
+    expect(errors).toEqual([]);
+  });
+
   test('palette shows labels as text, never as markup (with and without a search)', async ({ page }) => {
     const label = '<img src=x onerror="window.__pwned=1">snip';
     await page.addInitScript((l) => localStorage.setItem('td.snippets.v1', JSON.stringify([{ id: 'sn1', label: l, cmd: 'echo hi' }])), label);
@@ -325,9 +339,13 @@ test.describe('live backend', () => {
     const ask = async (branch) => {
       await openPalette(page);
       await page.locator('#pal-input').fill('New agent task');
-      await expect(page.locator('.pal-item.hi', { hasText: 'New agent task' })).toBeVisible();   // Enter only runs the highlighted row once filtering has settled (slow CI)
-      await page.keyboard.press('Enter');
-      await page.getByPlaceholder('agent/fix-login').fill(branch);
+      await page.locator('.pal-item', { hasText: 'New agent task' }).first().click();
+      // The dialog opens only after /api/git/root answers; if it fails a toast says why instead — show that, not a timeout.
+      const field = page.getByPlaceholder('agent/fix-login');
+      await field.waitFor({ timeout: 15000 }).catch(async (e) => {
+        throw new Error('no dialog; toasts: ' + (await page.locator('.toast').allInnerTexts()).join(' | ') + '\n' + e.message);
+      });
+      await field.fill(branch);
       await page.getByRole('button', { name: 'Create' }).click();
     };
     await ask('bad name..x');

@@ -32,6 +32,8 @@ module.exports = defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
     storageState: { cookies: [{ name: 'td_token', value: TOKEN, domain: '127.0.0.1', path: '/', expires: -1, httpOnly: true, secure: false, sameSite: 'Strict' }], origins: [] },
+    trace: process.env.CI ? 'retain-on-failure' : 'off',   // CI uploads test-results/ when a test fails
+    screenshot: 'only-on-failure',
     launchOptions: process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
   },
   webServer: {

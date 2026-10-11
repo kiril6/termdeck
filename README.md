@@ -144,8 +144,7 @@ See also [Known limits](#known-limits).
 |---|---|---|
 | Run once | `npx @kiril6/termdeck` | Trying it out (npx may reuse a cached copy — see [Updating](#updating)) |
 | Install globally | `npm i -g @kiril6/termdeck`, then `termdeck` | Daily use; needed for `termdeck autostart` |
-| Latest from GitHub | `npx github:kiril6/termdeck` | Unreleased changes |
-| Clone | `node install.js && npm start` | Contributing |
+| Clone | `node install.js && npm start` | Contributing, or trying unreleased changes |
 
 - **tmux (recommended):** with tmux installed, shells run inside it and survive a server restart or crash. Without it everything else works. Not available on Windows; `NO_TMUX=1` turns it off.
 - **Browser:** it opens automatically, already signed in. Disable with `--no-open` / `NO_OPEN=1`, pick one with `BROWSER` (e.g. `BROWSER=firefox`). Another browser, or a bookmark to a fresh one, shows a *link this browser* page: run `termdeck open` once.
@@ -191,7 +190,7 @@ Set via environment variable; `--port`, `--host` and `--no-open` also exist as f
 The running version is shown in the app's **? Help** panel; see [Releases](https://github.com/kiril6/termdeck/releases) for what's new.
 
 - **Global install:** `npm update -g @kiril6/termdeck`
-- **npx** caches, so force a fresh copy: `npx -y @kiril6/termdeck@latest` (or `npx -y github:kiril6/termdeck@latest`)
+- **npx** caches, so force a fresh copy: `npx -y @kiril6/termdeck@latest`
 - **Clone:** `git pull && node install.js && npm start`
 
 ### Platform notes

@@ -3,6 +3,9 @@
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
 ## 1.26.0
+- **Clear warning when the layout can't be saved** — if the browser refuses to store it (storage full, or blocked in a private window), a toast says so once instead of losing the layout silently on reload. Toggling *Follow*, *Show hidden files* or pixel pets no longer fails there.
+- **Git calls time out** — local git commands behind the agent-worktree features give up after 60 s with a clear error instead of hanging on a held lock.
+- **Smaller npm package** — ships only the files termdeck runs (19 instead of 56; no tests or fixtures). Install with `npx @kiril6/termdeck` or `npm i -g @kiril6/termdeck`; the docs no longer suggest `npx github:…`, which runs unreleased code.
 - **Emoji and wide characters line up** — terminals now use Unicode 11 character widths, so emoji and CJK take two cells as shells and terminal apps expect (lines with emoji no longer drift). Under the hood xterm.js moved from the deprecated `xterm` packages to `@xterm/*` 5.5.
 - **Two servers, one home folder** — saved layouts and *Always allow* rules no longer get lost when two termdeck servers run at once (for example on two ports); each sees the other's changes without a restart. A `layouts.json` or `approval-rules.json` that can't be read is now kept as `<file>.corrupt-<time>` instead of being silently replaced with an empty one.
 - **One live screen per terminal** — opening a terminal on another device (or browser) now moves it there; the old screen says *opened on another device* and stops sending keystrokes, instead of freezing while still typing into the shell. Click ⟳ on it to take it back.
