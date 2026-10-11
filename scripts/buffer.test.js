@@ -1,6 +1,7 @@
 // node scripts/buffer.test.js — the replay ring keeps the last TD_BUFFER chars across many chunks, and a
 // reattach replays only that tail (the ring is trimmed lazily, so it may briefly hold up to 2× before trimming).
-// Also: opening the same id elsewhere tells and closes the old socket, and the new one drives the shell.
+// Also: opening the same id elsewhere tells and closes the old socket, and the new one drives the shell; and the
+// TD_MAX_PANELS cap refuses a new terminal with a clear error but never blocks a reattach.
 const assert = require('assert');
 const fs = require('fs');
 const net = require('net');
@@ -16,7 +17,7 @@ const free = () => new Promise((ok) => { const s = net.createServer().listen(0, 
 (async () => {
   const port = await free();
   const srv = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {
-    env: { ...process.env, HOME: home, PORT: String(port), TD_BUFFER: String(BUFFER), NO_TMUX: '1', NO_OPEN: '1' }, stdio: ['ignore', 'ignore', 'pipe'] });
+    env: { ...process.env, HOME: home, PORT: String(port), TD_BUFFER: String(BUFFER), TD_MAX_PANELS: '2', NO_TMUX: '1', NO_OPEN: '1' }, stdio: ['ignore', 'ignore', 'pipe'] });
   let srvErr = ''; srv.stderr.on('data', (d) => { srvErr += d; });
   const done = (code) => {                                       // wait for exit: the server removes its own files on the way out
     srv.once('exit', () => { fs.rmSync(home, { recursive: true, force: true }); process.exit(code); });
@@ -24,9 +25,9 @@ const free = () => new Promise((ok) => { const s = net.createServer().listen(0, 
   };
   setTimeout(() => { console.error('buffer.test: timed out'); done(1); }, 20000).unref();
 
-  const connect = () => new Promise((ok, fail) => {
+  const connect = (id = 'buftest') => new Promise((ok, fail) => {
     let cookie = ''; try { cookie = 'td_token=' + fs.readFileSync(path.join(home, '.termdeck', 'token'), 'utf8').trim(); } catch {}   // written on start
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/?id=buftest&cols=80&rows=24`, { headers: { Origin: `http://127.0.0.1:${port}`, Cookie: cookie } });
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/?id=${id}&cols=80&rows=24`, { headers: { Origin: `http://127.0.0.1:${port}`, Cookie: cookie } });
     const msgs = []; ws.on('message', (raw) => msgs.push(JSON.parse(raw))); ws.on('open', () => ok({ ws, msgs })); ws.on('error', fail);
   });
   let c; for (let i = 0; i < 50 && !c; i++) c = await connect().catch(() => new Promise((r) => setTimeout(r, 100)));
@@ -54,7 +55,20 @@ const free = () => new Promise((ok) => { const s = net.createServer().listen(0, 
   t.ws.send(JSON.stringify({ type: 'input', data: 'echo TAK""EN\r' }));
   for (let i = 0; i < 50 && !t.msgs.some((m) => m.type === 'output' && m.data.includes('TAKEN')); i++) await new Promise((res) => setTimeout(res, 100));
   assert.ok(t.msgs.some((m) => m.type === 'output' && m.data.includes('TAKEN')), 'the new socket drives the shell');
-  t.ws.send(JSON.stringify({ type: 'kill' })); t.ws.close();
+
+  // TD_MAX_PANELS=2: a third NEW terminal is told why and closed (the client then stops retrying); reattaching an
+  // existing one is never blocked.
+  const a = await connect('cap-a');
+  for (let i = 0; i < 50 && !a.msgs.some((m) => m.type === 'attach'); i++) await new Promise((res) => setTimeout(res, 100));
+  const b = await connect('cap-b');
+  const bClosed = new Promise((res) => b.ws.on('close', res));
+  await bClosed;
+  assert.deepStrictEqual(b.msgs, [{ type: 'error', code: 'panel_cap_reached', limit: 2, current: 2 }], 'over the cap: one clear error');
+  const again = await connect();                                 // buftest exists: reattach is allowed at the cap
+  for (let i = 0; i < 50 && !again.msgs.some((m) => m.type === 'attach'); i++) await new Promise((res) => setTimeout(res, 100));
+  assert.ok(again.msgs.some((m) => m.type === 'attach' && m.resumed), 'reattach is never blocked by the cap');
+  a.ws.send(JSON.stringify({ type: 'kill' })); a.ws.close();
+  again.ws.send(JSON.stringify({ type: 'kill' })); again.ws.close();
   console.log('buffer.test: ok');
   done(0);
 })().catch((e) => { console.error(e); process.exit(1); });
