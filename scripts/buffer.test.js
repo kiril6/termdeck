@@ -16,7 +16,8 @@ const free = () => new Promise((ok) => { const s = net.createServer().listen(0, 
 (async () => {
   const port = await free();
   const srv = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {
-    env: { ...process.env, HOME: home, PORT: String(port), TD_BUFFER: String(BUFFER), NO_TMUX: '1', NO_OPEN: '1' }, stdio: 'ignore' });
+    env: { ...process.env, HOME: home, PORT: String(port), TD_BUFFER: String(BUFFER), NO_TMUX: '1', NO_OPEN: '1' }, stdio: ['ignore', 'ignore', 'pipe'] });
+  let srvErr = ''; srv.stderr.on('data', (d) => { srvErr += d; });
   const done = (code) => {                                       // wait for exit: the server removes its own files on the way out
     srv.once('exit', () => { fs.rmSync(home, { recursive: true, force: true }); process.exit(code); });
     srv.kill();
@@ -29,7 +30,7 @@ const free = () => new Promise((ok) => { const s = net.createServer().listen(0, 
     const msgs = []; ws.on('message', (raw) => msgs.push(JSON.parse(raw))); ws.on('open', () => ok({ ws, msgs })); ws.on('error', fail);
   });
   let c; for (let i = 0; i < 50 && !c; i++) c = await connect().catch(() => new Promise((r) => setTimeout(r, 100)));
-  assert.ok(c, 'server did not start');
+  assert.ok(c, 'server did not start\n' + srvErr);
 
   // ~14 KB in many small chunks: forces several trims of a 2000-char ring.
   c.ws.send(JSON.stringify({ type: 'input', data: 'seq 1 3000; echo END""MARK\r' }));

@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { CLIS, commandFor, psCommandFor } = require('./hooks');
 
-const md = fs.readFileSync(path.join(__dirname, '..', 'docs', 'agent-hooks.md'), 'utf8');
+const md = fs.readFileSync(path.join(__dirname, '..', 'docs', 'agent-hooks.md'), 'utf8').replace(/\r\n/g, '\n');   // Windows checkouts use CRLF
 const HEADING = { claude: '## Claude Code', gemini: '## Gemini CLI', codex: '## Codex', copilot: '## GitHub Copilot CLI' };
 let bad = 0;
 for (const [agent, cli] of Object.entries(CLIS)) {
