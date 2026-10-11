@@ -1,6 +1,6 @@
 // node scripts/access.test.js — local access control: the browser signs in once with the /?t=… link and keeps a
 // cookie; terminals only get a per-terminal hook credential (TD_HOOK_AUTH). Pins:
-//  - no cookie → sign-in page / 401, WS refused; the link sets a persistent HttpOnly cookie
+//  - no cookie → sign-in page / 401, WS refused; the link sets a persistent HttpOnly cookie (Secure behind an https proxy)
 //  - the secret persists in ~/.termdeck/token (0600) and is never written to server.json or a terminal's env
 //  - only a trusted hook (TD_HOOK_AUTH) or the browser can hold a permission request for a click; an untrusted
 //    event is display-only and cannot clear a held request
@@ -65,6 +65,8 @@ const until = async (fn, ms = 5000) => { for (let t = 0; t < ms; t += 50) { if (
     assert.strictEqual(link.status, 302);
     const setCookie = String(link.headers['set-cookie']);
     assert.ok(/HttpOnly/.test(setCookie) && /SameSite=Strict/.test(setCookie) && /Max-Age=\d+/.test(setCookie), setCookie);
+    const viaProxy = await req(port, { path: '/?t=' + secret, headers: { 'X-Forwarded-Proto': 'https' } });
+    assert.ok(!/Secure/.test(String(viaProxy.headers['set-cookie'])), 'the proxy header counts only on an allowed host');
     const cookie = 'td_token=' + secret;
     assert.strictEqual((await req(port, { path: '/api/version', headers: { Cookie: cookie } })).status, 200);
     assert.strictEqual((await req(port, { path: '/?t=' + 'f'.repeat(48) })).status, 401, 'a wrong link signs nothing in');
@@ -112,6 +114,19 @@ const until = async (fn, ms = 5000) => { for (let t = 0; t < ms; t += 50) { if (
     const cli = spawnSync(process.execPath, [path.join(ROOT, 'server.js'), 'open', '--no-open'], { env, encoding: 'utf8' });
     assert.strictEqual(cli.status, 0, cli.stderr);
     assert.strictEqual(cli.stdout.trim(), `http://127.0.0.1:${port}/?t=${secret}`);
+
+    // Remote access through an https proxy (TD_ALLOWED_HOSTS): the cookie gets Secure; plain http on that host does not.
+    const port2 = await free();
+    const srv2 = spawn(process.execPath, [path.join(ROOT, 'server.js')], { env: { ...env, PORT: String(port2), TD_ALLOWED_HOSTS: 'box.example' }, stdio: ['ignore', 'pipe', 'ignore'] });
+    try {
+      let log = ''; srv2.stdout.on('data', (d) => { log += d; });
+      assert.ok(await until(() => /\?t=\w+/.test(log)), 'second server did not print its link');
+      const t2 = /\?t=(\w+)/.exec(log)[1], host = { Host: 'box.example', Origin: 'https://box.example' };
+      const tls = await req(port2, { path: '/?t=' + t2, headers: { ...host, 'X-Forwarded-Proto': 'https' } });
+      assert.match(String(tls.headers['set-cookie']), /; Secure/);
+      const plain = await req(port2, { path: '/?t=' + t2, headers: host });
+      assert.ok(!/Secure/.test(String(plain.headers['set-cookie'])), 'no Secure without https');
+    } finally { srv2.kill(); }
 
     console.log('access.test: ok');
     done(0);

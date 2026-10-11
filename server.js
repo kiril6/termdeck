@@ -118,7 +118,9 @@ or open the link termdeck printed when it started. You only need to do this once
 </main></body></html>`;
 app.use((req, res, next) => {
   if (req.query.t !== undefined && tokenEq(req.query.t, TOKEN)) {
-    res.setHeader('Set-Cookie', `td_token=${TOKEN}; Path=/; HttpOnly; SameSite=Strict${LOCAL_ONLY ? '; Max-Age=34560000' : ''}`);
+    // Behind an https proxy on an allowed host (tailscale serve, a tunnel): Secure, so the cookie never goes out over plain http.
+    const secure = EXTRA_HOSTS.has(hostnameOf(req.headers.host)) && req.get('x-forwarded-proto') === 'https';
+    res.setHeader('Set-Cookie', `td_token=${TOKEN}; Path=/; HttpOnly; SameSite=Strict${secure ? '; Secure' : ''}${LOCAL_ONLY ? '; Max-Age=34560000' : ''}`);
     return res.redirect(req.path);
   }
   if (hasAuthCookie(req)) return next();
@@ -404,7 +406,7 @@ app.post('/api/stop-port', apiGuard, async (req, res) => {
   if (!s || s.isLog || !Number.isInteger(port) || port < 1 || port > 65535) return res.status(400).end();
   if (isWindows) return res.status(501).json({ error: 'not supported on Windows' });
   const root = s.tmuxName
-    ? parseInt(await execP('tmux', ['display-message', '-p', '-t', s.tmuxName, '#{pane_pid}']), 10)   // the pty pid is only the tmux client
+    ? parseInt(await execP('tmux', ['display-message', '-p', '-t', tmuxTarget(s.tmuxName, true), '#{pane_pid}']), 10)   // the pty pid is only the tmux client
     : s.term?.pid;
   if (!root) return res.status(404).json({ error: 'shell not found' });
   const kids = new Map();                                                 // ppid → [pid]
@@ -890,7 +892,10 @@ const MAX_PANELS = Math.floor(positiveEnvNumber('TD_MAX_PANELS', 64)); // live P
 const { execFileSync } = require('child_process');
 const tmuxPresent = () => { try { execFileSync('tmux', ['-V'], { stdio: 'ignore' }); return true; } catch { return false; } };
 let TMUX_OK = !isWindows && !process.env.NO_TMUX && tmuxPresent();   // let: maybePromptTmux() may flip it on after an install
+// Ids are checked at connect (VALID_ID); dropping '-' keeps the names of shells already running under older versions.
 function tmuxSessionName(id) { return 'td_' + String(id).replace(/[^A-Za-z0-9_]/g, '').slice(0, 60); }
+// tmux resolves `-t name` by prefix when there is no exact match (td_ab → td_abc), so target sessions with '='.
+const tmuxTarget = (name, pane) => '=' + name + (pane ? ':' : '');
 
 // ── One-time offer to install tmux for durable sessions ──────────────────────
 // Only when attached to a real terminal (npx / `npm start` by hand), tmux is
@@ -994,6 +999,8 @@ const tmuxEnvFlags = (() => {
 function onConnection(ws, req) {
   const q     = url.parse(req.url, true).query;
   const id    = String(q.id || genId());
+  // The app sends `<window>-<tab>` (letters, digits). Anything else is refused, never rewritten into a valid one.
+  if (!VALID_ID.test(id)) return ws.close(1008, 'invalid terminal id');
   const cols  = clampInt(q.cols, 80, MAX_COLS);
   const rows  = clampInt(q.rows, 24, MAX_ROWS);
   const isLog = q.log === '1';
@@ -1024,6 +1031,8 @@ function onConnection(ws, req) {
     send(ws, { type:'error', code:'panel_cap_reached', limit:MAX_PANELS, current:live.size });
     return ws.close();
   }
+  // Two ids that differ only by '-' share a tmux name: never let a second one attach to the first one's shell.
+  if (TMUX_OK && [...live.values()].some((s) => s.tmuxName === tmuxSessionName(id))) return ws.close(1008, 'terminal id in use');
   let cwd = q.cwd ? String(q.cwd) : HOME;
   if (!safeDir(cwd)) cwd = HOME;
   const wantShell = shellCandidates().includes(String(q.shell)) ? String(q.shell) : null;   // allowlist only — never an arbitrary executable
@@ -1039,7 +1048,7 @@ function onConnection(ws, req) {
     // Whether the session already exists decides if `cmd` should run: only on a fresh create,
     // never on a reattach (else the startup command re-fires every server restart).
     let existed = false;
-    try { execFileSync('tmux', ['has-session', '-t', name], { stdio:'ignore' }); existed = true; } catch {}
+    try { execFileSync('tmux', ['has-session', '-t', tmuxTarget(name)], { stdio:'ignore' }); existed = true; } catch {}
     try {
       term = pty.spawn('tmux', ['new-session', '-A', '-D', '-s', name, '-c', cwd,
                                    ...(tmuxEnvFlags ? ['-e', 'TD_ID=' + id, '-e', 'TD_URL=' + AGENT_URL, '-e', 'TD_HOOK=' + AGENT_HOOK, '-e', 'TD_HOOK_AUTH=' + access.hookAuth(SECRET, id)] : []),
@@ -1152,7 +1161,7 @@ function onMessage(ws, id, m) {
     else if (m.type === 'kill')   {
       // tmux: killing the pty only detaches the client — the session would live on and
       // reattach as a "dead" terminal. Kill the session so the shell actually ends.
-      if (s.tmuxName) { try { execFile('tmux', ['kill-session', '-t', s.tmuxName], () => {}); } catch {} }
+      if (s.tmuxName) { try { execFile('tmux', ['kill-session', '-t', tmuxTarget(s.tmuxName)], () => {}); } catch {} }
       try { s.term.kill(); } catch {}
       clearTimeout(s.killTimer); live.delete(id);
     }
@@ -1201,6 +1210,7 @@ function send(ws, obj)  { if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(
 const MAX_COLS = 1000, MAX_ROWS = 500;                   // far beyond any screen; bounds what a client can make the pty allocate
 function clampInt(v, d, max) { const n = parseInt(v, 10); return Number.isFinite(n) && n > 0 ? Math.min(n, max) : d; }
 function baseName(p)    { return String(p).split(/[\\/]/).pop(); }
+const VALID_ID = /^[A-Za-z0-9_-]{1,64}$/;
 function genId()        { return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function safeDir(p)     { try { return fs.statSync(p).isDirectory(); } catch { return false; } }
 

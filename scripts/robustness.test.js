@@ -51,6 +51,15 @@ const until = async (fn, ms = 5000) => { for (let t = 0; t < ms; t += 50) { if (
     assert.strictEqual(r.status, 400); assert.match(r.type, /json/);
     assert.deepStrictEqual(JSON.parse(r.body), { error: 'bad request' }, 'no stack trace or server paths');
 
+    // An id outside [A-Za-z0-9_-] is refused (1008), not rewritten into another terminal's id.
+    for (const id of ['../x', 'a b', 'x'.repeat(65)]) {
+      const code = await new Promise((ok) => {
+        const ws = new WebSocket(`ws://127.0.0.1:${port}/?id=${encodeURIComponent(id)}`, { headers: { Origin: origin, Cookie: 'td_token=' + secret } });
+        ws.on('close', (cd) => ok(cd)); ws.on('error', () => {});
+      });
+      assert.strictEqual(code, 1008, `id ${JSON.stringify(id)} must be refused`);
+    }
+
     c.ws.send(JSON.stringify({ type: 'kill' })); c.ws.close();
     console.log('robustness.test: ok');
     done(0);

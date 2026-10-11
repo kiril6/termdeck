@@ -164,6 +164,9 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
   Windows) or when `NO_TMUX=1` — falls back to raw-shell spawn. **Explicit kill** ends the tmux
   session (`kill-session`); disconnect/grace only detaches the client, so the session lives on for
   later reattach. cwd tracking uses `tmux display-message #{pane_current_path}` for tmux sessions.
+  Terminal ids may only hold letters, digits, `_` and `-` (anything else, or over 64 characters, is refused with WS
+  close 1008, never rewritten); a second id that maps to a tmux name a live terminal already holds is refused too.
+  termdeck addresses its sessions by exact name (`-t =td_…`), since tmux otherwise falls back to a prefix match.
   termdeck's own `td_*` sessions hide the tmux status bar (`status off`, set per session on create and reattach): the window
   chrome already shows name, shell and time, and tmux's black-on-green bar was unreadable on light themes. Other tmux sessions
   are untouched; `tmux set status on` brings it back in that terminal until the next reattach.
@@ -579,7 +582,8 @@ Legend: 🖥️ frontend (`public/index.html` + `app.js` + `app.css`) · 🔌 ba
 - 🔌 **Local access (sign-in once per browser)** — any program on the machine can reach a loopback port (another OS user,
   or an agent running inside termdeck), so every HTTP request and WS upgrade needs the `td_token` cookie (401 otherwise).
   The browser gets it from a `/?t=<token>` link: the tab termdeck auto-opens on start carries it, `termdeck open` opens
-  (and prints) it, and visiting it sets an `HttpOnly; SameSite=Strict` cookie and redirects. **Loopback:** the secret is
+  (and prints) it, and visiting it sets an `HttpOnly; SameSite=Strict` cookie and redirects (plus `Secure` when it
+  arrives on a `TD_ALLOWED_HOSTS` name with `X-Forwarded-Proto: https`, i.e. through an https proxy). **Loopback:** the secret is
   kept in `~/.termdeck/token` (0600, created on first start) and the cookie lasts 400 days, so a restart needs nothing;
   started without a terminal (launchd / systemd) the banner prints the URL without the secret. A browser without the
   cookie gets a *This browser isn't linked yet — run `termdeck open`* page; an open tab that loses it shows a sticky
