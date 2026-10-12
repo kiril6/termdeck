@@ -62,6 +62,7 @@ test.describe('demo mode (no backend)', () => {
   test('xterm 6 scrollbar: thin, under the resize grips, wheel scrolls; resize snaps flush to the last row', async ({ page }) => {
     await trackTerms(page);
     await boot(page, '/?demo');
+    await page.evaluate(() => new Promise((ok) => requestAnimationFrame(ok)));   // the app fits a new terminal on the next frame; measure after it
     await page.evaluate(() => new Promise((ok) => window.__terms[0].write(Array.from({ length: 200 }, (_, i) => 'line ' + i).join('\r\n'), ok)));
     const win = page.locator('.win').first();
     const bar = win.locator('.xterm-scrollable-element > .scrollbar.vertical');
