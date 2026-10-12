@@ -143,30 +143,45 @@ async function gitRootOf(dir){   // -> {root} | {error} — the error matters: "
     return r.ok?{root:j.root}:{error:j.error||("HTTP "+r.status)};}
   catch(e){return {error:e.message};}
 }
+// Each project remembers the repo its tasks are cut from (p.repo, the main tree); the dialog defaults to it, else to the
+// repo the project's folder is in. Recent repos (any project) are offered too, so a fresh start isn't a dead end.
+const AGENT_REPOS="td.agentRepos.v1", AGENT_REPOS_MAX=5;
+let agentRepos=(()=>{try{const a=JSON.parse(localStorage.getItem(AGENT_REPOS)||"[]");return Array.isArray(a)?a:[];}catch{return [];}})();
+function rememberRepo(root){
+  agentRepos=[root,...agentRepos.filter((r)=>r!==root)].slice(0,AGENT_REPOS_MAX);
+  try{localStorage.setItem(AGENT_REPOS,JSON.stringify(agentRepos));}catch{}
+}
 async function newAgentTask(){
   if(!LIVE){toast(ICON.warn,"Demo mode","Agent worktrees need a backend \u2014 run termdeck locally",5000);return;}
-  const dir=projects.get(activeProject)?.root||curCwd()||"";
-  if(!dir){toast(ICON.warn,"No project root","Open a terminal in your repo first",4000);return;}
-  const g=await gitRootOf(dir);
-  if(!g.root){toast(ICON.warn,"Can\u2019t create a worktree",(g.error||"not a git repository")+" \u2014 "+dir,6000);return;}
-  const root=g.root;
+  const src=projects.get(activeProject);
+  const dir=src?.root||curCwd()||"";
+  const repo=src?.repo||(dir&&(await gitRootOf(dir)).root)||"";
+  const known=[...new Set([repo,...projectOrder.map((pid)=>projects.get(pid)?.repo),...agentRepos].filter(Boolean))];
   const presets=aiRanked();
+  let j;
   const v=await inputModal("New agent task",[
+    {key:"repo",label:"Repository",placeholder:"~/code/my-app",value:repo,suggest:known},
     {key:"branch",label:"Branch name",placeholder:"agent/fix-login"},
     {key:"cli",label:"Agent CLI",type:"select",options:presets.map((p)=>({value:p.cmd,label:p.label}))},
     {key:"prompt",label:"Prompt (optional) — pre-filled into the agent (not supported by Aider)",placeholder:"Fix the login redirect bug"},
-  ],"Create");
-  if(!v||!v.branch)return;
-  let j;
-  try{
-    const r=await fetch("/api/git/worktree",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({dir:root,branch:v.branch})});
-    j=await r.json().catch(()=>({}));
-    if(!r.ok){toast(ICON.warn,"Couldn’t create worktree",j.error||("HTTP "+r.status),6000);return;}
-  }catch(e){toast(ICON.warn,"Couldn’t create worktree",e.message,6000);return;}
+  ],"Create",async(v)=>{
+    if(!v.repo) return "Pick the repository to cut the worktree from";
+    if(!v.branch) return "Name the branch for this task";
+    const g=await gitRootOf(v.repo);
+    if(!g.root) return (g.error||"not a git repository")+" \u2014 "+v.repo;
+    try{
+      const r=await fetch("/api/git/worktree",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({dir:g.root,branch:v.branch})});
+      j=await r.json().catch(()=>({}));
+      if(!r.ok) return "Couldn\u2019t create worktree: "+(j.error||("HTTP "+r.status));
+    }catch(e){return "Couldn\u2019t create worktree: "+e.message;}
+  });
+  if(!v)return;
+  if(src) src.repo=j.root;   // the project's repo is the last one a task was cut from
+  rememberRepo(j.root);
   const p=addProject(v.branch);
-  if(!p){toast(ICON.warn,"Worktree created, no project slot",j.path,6000);return;}
-  p.root=j.path; p.base=j.base; p.baseBranch=j.baseBranch||""; p.launchedAt=Date.now();   // base = commit the branch was cut from; the diff baseline; launchedAt → cycle time (#119)
+  if(!p){scheduleSave(); toast(ICON.warn,"Worktree created, no project slot",j.path,6000);return;}
+  p.root=j.path; p.repo=j.root; p.base=j.base; p.baseBranch=j.baseBranch||""; p.launchedAt=Date.now();   // base = commit the branch was cut from; the diff baseline; launchedAt → cycle time (#119)
   treeRoot=null; treeLastRoot=null; refreshTree();
   const preset=presets.find((x)=>x.cmd===v.cli)||{cmd:v.cli};
   if(preset.id) bumpAiUse(preset);

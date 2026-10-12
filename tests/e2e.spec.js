@@ -662,28 +662,44 @@ test.describe('live backend', () => {
     await expect(page.locator('.toast', { hasText: 'Done' })).toContainText('finished in', { timeout: 8000 });   // zsh/bash wrap the prompt in escape codes
   });
 
-  test('new agent task: bad branch name is rejected, a good one creates a worktree project', async ({ page }) => {
+  test('new agent task: works from a non-repo folder, errors stay in the dialog, the project remembers the repo', async ({ page }) => {
+    const plain = fs.mkdtempSync(path.join(require('os').tmpdir(), 'td-plain-'));   // outside the HOME repo: not a git repository
+    const repo = fs.realpathSync(process.env.TD_E2E_HOME);                         // git reports the resolved path (/var → /private/var on macOS)
     await boot(page, '/');
-    await page.locator('#folder').click();                       // pick the repo dir → becomes the project's cwd
-    await page.locator('#cwd-input').fill(process.env.TD_E2E_HOME);
+    await page.locator('#folder').click();                       // first shell with a cwd anchors the project root
+    await page.locator('#cwd-input').fill(plain);
     await page.keyboard.press('Enter');
     await expect(page.locator('.win')).toHaveCount(2);
-    const ask = async (branch) => {
+    const open = async () => {
       await openPalette(page);
       await page.locator('#pal-input').fill('New agent task');
       await page.locator('.pal-item', { hasText: 'New agent task' }).first().click();
-      // The dialog opens only after /api/git/root answers; if it fails a toast says why instead — show that, not a timeout.
-      const field = page.getByPlaceholder('agent/fix-login');
-      await field.waitFor({ timeout: 15000 }).catch(async (e) => {
-        throw new Error('no dialog; toasts: ' + (await page.locator('.toast').allInnerTexts()).join(' | ') + '\n' + e.message);
-      });
-      await field.fill(branch);
-      await page.getByRole('button', { name: 'Create' }).click();
     };
-    await ask('bad name..x');
-    await expect(page.getByText('Couldn’t create worktree')).toBeVisible();
-    await ask('agent/e2e-' + Date.now().toString(36));   // unique: the shared test repo keeps branches across --repeat-each runs
+    const repoField = page.getByPlaceholder('~/code/my-app'), branchField = page.getByPlaceholder('agent/fix-login');
+    const create = page.getByRole('button', { name: 'Create' }), alert = page.getByRole('alert');
+    await open();
+    await expect(repoField).toHaveValue('');                      // nothing to guess from, but the dialog still opens
+    await branchField.fill('agent/e2e-x');
+    await create.click();
+    await expect(alert).toHaveText('Pick the repository to cut the worktree from');
+    await repoField.fill(plain);
+    await create.click();
+    await expect(alert).toContainText('not a git repository');
+    await repoField.fill(process.env.TD_E2E_HOME);
+    await branchField.fill('bad name..x');
+    await create.click();
+    await expect(alert).toContainText('Couldn’t create worktree: invalid branch name');
+    await expect(repoField).toHaveValue(process.env.TD_E2E_HOME);  // what was typed is kept
+    await branchField.fill('agent/e2e-' + Date.now().toString(36));   // unique: the shared test repo keeps branches across --repeat-each runs
+    await create.click();
     await expect(page.getByText('Worktree ready')).toBeVisible();
+    await open();                                                 // from the new task's project: defaults to the main repo, not the worktree
+    await expect(repoField).toHaveValue(repo);
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.locator('.ptab').first().click();                  // the project it was started from is now bound to that repo too
+    await open();
+    await expect(repoField).toHaveValue(repo);
+    await page.getByRole('button', { name: 'Cancel' }).click();
   });
   test('tree follows the focused terminal when "Follow" is on (reveal only, no re-root)', async ({ page }) => {
     const proj = path.join(fs.realpathSync(process.env.TD_E2E_HOME), 'follow-proj');   // real path: the live-cwd poll (lsof) reports resolved paths, /var → /private/var on macOS

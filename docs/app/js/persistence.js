@@ -8,7 +8,7 @@
 function scheduleSave(){updateGlueUI();clearTimeout(saveTimer);saveTimer=setTimeout(saveState,300);}
 function serializeState(){
     return {activeProject,
-      projects:projectOrder.map((pid)=>({id:pid,name:projects.get(pid).name,root:projects.get(pid).root||null,base:projects.get(pid).base||null,baseBranch:projects.get(pid).baseBranch||null,launchedAt:projects.get(pid).launchedAt||null,lastCwd:projects.get(pid).lastCwd||null})),
+      projects:projectOrder.map((pid)=>({id:pid,name:projects.get(pid).name,root:projects.get(pid).root||null,repo:projects.get(pid).repo||null,base:projects.get(pid).base||null,baseBranch:projects.get(pid).baseBranch||null,launchedAt:projects.get(pid).launchedAt||null,lastCwd:projects.get(pid).lastCwd||null})),
       sessions:order.map((id)=>{const s=sessions.get(id);if(!s)return null;const st=s.win.style;
         return{id:s.id,project:s.project,name:s.name,cwd:s.cwd,themeId:s.themeId||null,isLog:s.isLog||false,
                left:st.left,top:st.top,width:st.width,height:st.height,
@@ -32,7 +32,7 @@ function restoreState(){
   return true;
 }
 function applyState(data){
-  if(data.projects?.length) data.projects.forEach((p)=>{addProject(p.name,p.id,true); const pr=projects.get(p.id); if(pr){if(p.root)pr.root=p.root; if(p.base)pr.base=p.base; if(p.baseBranch)pr.baseBranch=p.baseBranch; if(p.launchedAt)pr.launchedAt=p.launchedAt; if(p.lastCwd)pr.lastCwd=p.lastCwd;}});
+  if(data.projects?.length) data.projects.forEach((p)=>{addProject(p.name,p.id,true); const pr=projects.get(p.id); if(pr){if(p.root)pr.root=p.root; if(p.repo)pr.repo=p.repo; if(p.base)pr.base=p.base; if(p.baseBranch)pr.baseBranch=p.baseBranch; if(p.launchedAt)pr.launchedAt=p.launchedAt; if(p.lastCwd)pr.lastCwd=p.lastCwd;}});
   else addProject("default",null,true);
   activeProject=projects.has(data.activeProject)?data.activeProject:projectOrder[0];
   projects.forEach((p)=>p.tab.classList.toggle("active",p.id===activeProject));

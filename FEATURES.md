@@ -258,8 +258,8 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   *Not verified:* Codex / Gemini / Copilot / Antigravity (`agy --continue`) resume flows. A Claude that opens its agent dashboard on bare
   `claude` can't `--resume` a running background agent (falls back to a clean start).
 - 🖥️ **Agent worktrees — one isolated checkout per task** (palette → *New agent task…*). Three agents
-  loose in one repo overwrite each other, so a task gets its own `git worktree`: pick a **branch name**,
-  an **AI CLI preset**, and an optional **prompt**, and the backend cuts a worktree off the project's repo
+  loose in one repo overwrite each other, so a task gets its own `git worktree`: pick the **repository**, a
+  **branch name**, an **AI CLI preset**, and an optional **prompt**, and the backend cuts a worktree off that repo
   at its current HEAD (`POST /api/git/worktree`). The worktree opens as its **own project tab**, rooted at
   the new checkout — so the tree, the cwd and every shell in it are scoped to that branch — and the agent
   CLI launches there with the prompt as its first argument (shell-quoted, so apostrophes and shell
@@ -267,7 +267,13 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   `<main-repo>-worktrees/<branch>` folder, keeping the repo itself clean — always cut from the **main**
   working tree, even when started from another agent's worktree tab (never nested). **Nothing is removed
   automatically:** a finished task stays on disk until you run *Finish agent task…* (below) and opt in to cleanup.
-  Requires the project root to be inside a git repo. Failures name their **real** cause rather than
+  **Each project remembers its repo:** the *Repository* field defaults to the repo the project's last task
+  was cut from (a task's own project points at the main repo, not its worktree), else to the repo the project's
+  folder is in, else empty — a fresh start in a non-repo folder (your home) still opens the dialog. The field
+  also suggests the other projects' repos and the last 5 used (`td.agentRepos.v1` in `localStorage`); any
+  path can be typed (`~` works). The project's repo is saved with the layout. Errors show **inside the dialog**,
+  which stays open with what you typed (empty repo or branch, not a repo, bad or taken branch name).
+  Failures name their **real** cause rather than
   a plausible-sounding wrong one: a non-repo says so, a host without git installed says *that*, and in
   backend-free demo mode both commands say so — three different messages, never one catch-all.
 - 🖥️ **Review agent changes — read-only diff** (palette → *Review agent changes…*). Reviewing what an
