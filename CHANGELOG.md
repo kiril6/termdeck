@@ -2,6 +2,13 @@
 
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
+## 1.27.0
+- **Pick the repository for a new agent task** — *New agent task…* now has a *Repository* field, so it works on a fresh start too. Before, it used the folder of the current project and stopped with *not a git repository* when that folder (often your home folder) wasn't in a repo. The field suggests your other projects' repos and the last 5 you used, and any path can be typed (`~` works).
+- **Projects remember their repo** — each project keeps the repo its last agent task was cut from, saved with the layout, so the next task defaults to it. A task's own project points at the main repo, not its worktree.
+- **Errors stay in the dialog** — a missing repo or branch name, a folder that isn't a repo, or a bad or taken branch name now shows inside the dialog, which keeps what you typed, instead of closing behind a notification.
+- **Fixed: the page reloading itself when busy** — if the tab was blocked for more than 5 seconds (heavy work, or a background tab the browser throttled), termdeck thought another tab had taken over and reloaded the page. It now reloads only when another tab really took over. Your terminals were never lost (they reattach), but the screen flashed and scroll positions reset.
+- **Server framework updated to Express 5** — no change in how termdeck behaves.
+
 ## 1.26.0
 - **Clearer Live overview (Sessions → Grid)** — the grid now sits on a themed panel, so its buttons and labels are readable on light themes (they were almost invisible there), toggle buttons show a clear hover, tiles show their state as a coloured pill and an *Open ↵* hint on hover, keyboard focus is visible, and a click outside the panel closes it.
 - **Start an agent from the empty Sessions list** — when no agents are running, the Sessions popover has a *Start an agent…* button that opens the command palette on its Agents tab (AI CLI presets and *New agent task…*).
