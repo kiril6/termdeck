@@ -7,6 +7,7 @@
 ![Node ≥20](https://img.shields.io/badge/node-%E2%89%A520-brightgreen)
 ![Platforms: macOS · Windows · Linux](https://img.shields.io/badge/platform-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-blue)
 [![smoke](https://github.com/kiril6/termdeck/actions/workflows/smoke.yml/badge.svg)](https://github.com/kiril6/termdeck/actions/workflows/smoke.yml)
+[![e2e](https://github.com/kiril6/termdeck/actions/workflows/e2e.yml/badge.svg)](https://github.com/kiril6/termdeck/actions/workflows/e2e.yml)
 
 **A local dashboard for running AI coding agents side by side.**
 
