@@ -258,7 +258,8 @@ if(held && held.id!==myTab){
   showDupOverlay();
 }else{
   claimLock();
-  setInterval(()=>{const l=readLock(); if(!l||l.id!==myTab){selfReload=true;location.reload();} else claimLock();},2000);  // heartbeat; reload if taken over
+  // heartbeat; reload only if another tab took over. An expired lock (this tab stalled past LOCK_TTL: a busy main thread, a throttled background tab) is just reclaimed.
+  setInterval(()=>{const l=readLock(); if(l&&l.id!==myTab){selfReload=true;location.reload();} else claimLock();},2000);
   updateConn();
   if(!restoreState()){addProject("default",null,true);switchProject(projectOrder[0]);createSession();}
   else{toast('<span class="led live"></span>',"Restored","Layout loaded from last session",3500);}

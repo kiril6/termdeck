@@ -241,6 +241,14 @@ test.describe('demo mode (no backend)', () => {
     if (browserName === 'chromium') expect(warnings).toEqual([]);   // Chrome frees a released context at once
   });
 
+  test('a tab that stalls past the instance lock lifetime keeps running instead of reloading itself', async ({ page }) => {
+    await boot(page, '/?demo');
+    await page.evaluate(() => { window.__alive = 1; const end = Date.now() + 6000; while (Date.now() < end); });   // block the main thread > LOCK_TTL (5 s)
+    await page.waitForTimeout(2500);                                                                          // one more heartbeat
+    expect(await page.evaluate(() => window.__alive)).toBe(1);                                                 // a reload would have cleared it
+    await expect(page.getByText('Already open in another tab')).toHaveCount(0);
+  });
+
   test('two terminals: tile, close one, layout survives reload', async ({ page }) => {
     await boot(page, '/?demo');
     await page.locator('#new').click();

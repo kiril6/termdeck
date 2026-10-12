@@ -584,7 +584,9 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   (it warns that snippets and AI presets run commands), writes them over the same keys here, and reloads; terminals
   reconnect. A file from a newer format, invalid JSON or a non-settings file is refused with a toast.
 - 🖥️ **Single-instance guard** — a timestamped `localStorage` lock + heartbeat elects one active
-  tab; extra dashboard tabs go passive behind an overlay so they can't clobber shared state.
+  tab; extra dashboard tabs go passive behind an overlay so they can't clobber shared state. The active
+  tab reloads only when another tab takes over; if it stalls past the lock's 5 s lifetime (busy main thread,
+  throttled background tab) it just reclaims the lock instead of reloading itself.
 - 🖥️ **Confirm before losing shells** — `beforeunload` native prompt on browser close/refresh when
   any shell is live; in-app modal for app-controlled closes (`⌘⌥W`, window ✕, dock chip, delete project).
   The in-app modal only fires when a command is actively running — closing an idle shell (sitting at its
