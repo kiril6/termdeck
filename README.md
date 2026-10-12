@@ -53,7 +53,7 @@ termdeck uses tmux under the hood when it's installed, so you keep tmux's durabi
 
 ## The agent loop
 
-**1. Launch.** Palette (`⌘K`) → *New agent task…*: pick a branch name, an agent and a prompt. termdeck creates a **git worktree** in a sibling `<repo>-worktrees/` folder and opens it as its own project tab with the agent running in it.
+**1. Launch.** Palette (`⌘K`) → *New agent task…*: pick the repository (each project remembers its own), a branch name, an agent and a prompt. termdeck creates a **git worktree** in a sibling `<repo>-worktrees/` folder and opens it as its own project tab with the agent running in it.
 
 **2. Watch.** Every agent tab shows its state — green *working*, amber *waiting on you*, red *needs approval* — and the **agent queue** lists all of them across projects, most urgent first. If two agents change the same file, the **conflict radar** warns you before merge time.
 
