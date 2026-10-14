@@ -2,6 +2,9 @@
 
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
+## 1.28.0
+- **Find files in the tree** — a *Find files…* box under the directory tree's header searches file and folder names across the whole project root, not just the folders you have expanded. Press `/` to jump to it, `Esc` to clear, `Enter` to open the first match. A file opens in the viewer; a folder re-roots the tree there. `node_modules` and `.git` are skipped, dotfiles follow *Show hidden files*, and results stop at 200 with a note.
+
 ## 1.27.0
 - **Pick the repository for a new agent task** — *New agent task…* now has a *Repository* field, so it works on a fresh start too. Before, it used the folder of the current project and stopped with *not a git repository* when that folder (often your home folder) wasn't in a repo. The field suggests your other projects' repos and the last 5 you used, and any path can be typed (`~` works).
 - **Projects remember their repo** — each project keeps the repo its last agent task was cut from, saved with the layout, so the next task defaults to it. A task's own project points at the main repo, not its worktree.
