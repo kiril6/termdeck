@@ -854,3 +854,11 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
   .win{left:0!important;top:0!important;width:100%!important;height:100%!important;border-radius:0;}
   .wgrip,.win-grip{display:none;}
 }
+.tree-find{display:flex;align-items:center;gap:6px;padding:0 10px;height:30px;flex:none;border-bottom:1px solid var(--line);}
+.tree-find .tf-icon{display:flex;color:var(--muted);}
+.tree-find .tf-icon svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;}
+.tree-find input{flex:1;min-width:0;height:24px;background:none;border:0;outline:0;font-family:var(--mono);font-size:11.5px;color:var(--text);}
+.tree-find input::placeholder{color:var(--muted);}
+.tree-find:focus-within{box-shadow:inset 2px 0 0 var(--accent);}
+.tree[hidden]{display:none;}
+.tn .tn-sub{margin-left:8px;font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;max-width:45%;}

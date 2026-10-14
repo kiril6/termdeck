@@ -313,6 +313,22 @@ test.describe('demo mode (no backend)', () => {
   });
 });
 
+test.describe('tree find (#167)', () => {
+  test('/ focuses the box; filters the demo tree by name; Esc restores the tree', async ({ page }) => {
+    const errors = await boot(page, '/?demo');
+    await page.locator('#sb-btn').click();
+    await page.locator('body').press('/');
+    await expect(page.locator('#tf-input')).toBeFocused();
+    await page.locator('#tf-input').fill('LOG');
+    await expect(page.locator('#tree-results .tn-name')).toHaveText(['logger.ts']);
+    await expect(page.locator('#tree')).toBeHidden();
+    await page.locator('#tf-input').press('Escape');
+    await expect(page.locator('#tree-results')).toBeHidden();
+    await expect(page.locator('#tree')).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+});
+
 test.describe('layout presets + Alt+N (#51)', () => {
   test('1×1 minimizes extras; Alt+2 restores/focuses the 2nd window', async ({ page }) => {
     await boot(page, '/?demo');
@@ -527,6 +543,21 @@ test('hosted demo copy matches a fresh npm run build:demo', () => {
 });
 
 test.describe('live backend', () => {
+  test('/api/find: nested case-insensitive match; skips node_modules/.git; dotfiles only on request; result cap', async ({ request }) => {
+    const root = fs.mkdtempSync(path.join(process.env.TD_E2E_HOME, 'find-'));
+    for (const f of ['a/deep/NeedleFile.txt', 'node_modules/needle.js', '.git/needle', '.hid/needle.txt']) {
+      fs.mkdirSync(path.join(root, path.dirname(f)), { recursive: true }); fs.writeFileSync(path.join(root, f), '');
+    }
+    for (let i = 0; i < 205; i++) fs.writeFileSync(path.join(root, `bulk${i}.log`), '');
+    const find = async (q, extra = '') => (await request.get(`/api/find?dir=${encodeURIComponent(root)}&q=${q}${extra}`)).json();
+    expect((await find('NEEDLE')).results).toEqual([{ path: 'a/deep/NeedleFile.txt', dir: false }]);
+    expect((await find('needle', '&all=1')).results.map((r) => r.path).sort()).toEqual(['.hid/needle.txt', 'a/deep/NeedleFile.txt']);
+    const bulk = await find('bulk');
+    expect([bulk.results.length, bulk.truncated]).toEqual([200, true]);
+    expect((await request.get('/api/find?dir=/nonexistent-td-path&q=x')).status()).toBe(404);
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
   test('agent queue: red → amber → working, badge follows', async ({ page, request }) => {
     const ids = [];
     page.on('websocket', (ws) => { const m = /[?&]id=([^&]+)/.exec(ws.url()); if (m) ids.push(decodeURIComponent(m[1])); });
@@ -828,7 +859,7 @@ test.describe('live backend', () => {
     expect(home.headers()['x-content-type-options']).toBe('nosniff');
     expect(home.headers()['referrer-policy']).toBe('no-referrer');
     const q = encodeURIComponent(process.env.TD_E2E_HOME);
-    for (const p of [`/api/ls?dir=${q}`, `/api/read?path=${q}/README.md`, `/api/stat?path=${q}/README.md`, '/api/layouts', '/api/shells', '/debug']) {
+    for (const p of [`/api/ls?dir=${q}`, `/api/read?path=${q}/README.md`, `/api/stat?path=${q}/README.md`, `/api/find?dir=${q}&q=readme`, '/api/layouts', '/api/shells', '/debug']) {
       expect((await request.get(p)).status(), p).toBe(200);
       expect((await request.get(p, { headers: { 'Sec-Fetch-Site': 'cross-site' } })).status(), p + ' cross-site').toBe(403);
     }

@@ -22,6 +22,8 @@ const RAW_MAX = 25 * 1024 * 1024;                     // images/PDF; audio/video
 // anything executable-looking: a click on a path in terminal output must not be able to run a script.
 const NO_OPEN = new Set(['app','command','tool','sh','bash','zsh','csh','ksh','fish','bat','cmd','com','exe','msi','scr',
   'ps1','vbs','vbe','js','jse','wsf','jar','lnk','url','pkg','dmg','workflow','action','terminal','desktop','appimage','run','pif','reg','hta']);
+const FIND_SKIP = new Set(['node_modules', '.git']);
+const FIND_MAX_RESULTS = 200, FIND_MAX_DEPTH = 8, FIND_MAX_DIRS = 5000;
 const EDITOR = process.env.TD_EDITOR || 'code';     // fixed by config, never by the request; no shell → a path can't inject a command
 
 module.exports = function fsApi({ apiGuard, expandDir, safeDir }) {
@@ -38,6 +40,35 @@ module.exports = function fsApi({ apiGuard, expandDir, safeDir }) {
       .map((e) => { try { return { name:e.name, dir:e.isDirectory() }; } catch { return { name:e.name, dir:false }; } })
       .sort((a, b) => (a.dir !== b.dir ? (a.dir ? -1 : 1) : a.name.localeCompare(b.name)));
     res.json({ dir, entries });
+  });
+  // /api/find — filename search under a root for the tree's filter box (#167). Breadth-first so shallow hits come
+  // first; skips node_modules/.git, never follows symlinks, and is capped on depth, visited dirs and results.
+  r.get('/api/find', apiGuard, (req, res) => {
+    const dir = expandDir(req.query.dir);
+    if (!safeDir(dir)) return res.status(404).json({ error:'not a directory', dir });
+    const q = String(req.query.q || '').trim().toLowerCase().slice(0, 200);
+    if (!q) return res.json({ dir, results:[], truncated:false });
+    const all = req.query.all === '1';
+    const results = []; let truncated = false, visited = 0;
+    const queue = [{ abs:dir, rel:'', depth:0 }];
+    scan: while (queue.length) {
+      const { abs, rel, depth } = queue.shift();
+      if (++visited > FIND_MAX_DIRS) { truncated = true; break; }
+      let ents;
+      try { ents = fs.readdirSync(abs, { withFileTypes:true }); } catch { continue; }
+      for (const e of ents) {
+        if (!all && e.name.startsWith('.')) continue;
+        const isDir = e.isDirectory();                  // a symlinked dir reports false → listed but not entered
+        if (isDir && FIND_SKIP.has(e.name)) continue;
+        const relPath = rel ? rel + '/' + e.name : e.name;
+        if (e.name.toLowerCase().includes(q)) {
+          if (results.length >= FIND_MAX_RESULTS) { truncated = true; break scan; }
+          results.push({ path:relPath, dir:isDir });
+        }
+        if (isDir && depth < FIND_MAX_DEPTH) queue.push({ abs:path.join(abs, e.name), rel:relPath, depth:depth + 1 });
+      }
+    }
+    res.json({ dir, results, truncated });
   });
   r.get('/api/shells', apiGuard, (_req, res) => {      // shells the "Shell" picker may offer (the same allowlist spawn enforces)
     res.json({ shells: shellCandidates().map((p) => ({ path: p, name: baseName(p) })) });

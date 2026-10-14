@@ -124,6 +124,14 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   shell's **live** cwd (see *Live working directory*), so it also follows a `cd` in the focused terminal.
   Turning it off collapses the folders it expanded (ones you opened yourself stay open).
   Live mode only; off keeps the project-anchored behaviour below.
+- 🖥️ **Find files in the tree** (#167) — a *Find files…* box under the tree header searches **file and folder names
+  under the whole root**, not just expanded rows (`GET /api/find?dir=&q=[&all=1]`, behind `apiGuard`: breadth-first,
+  case-insensitive substring, skips `node_modules` and `.git`, never follows symlinks, capped at depth 8 / 5000
+  folders / 200 results — a "first 200" note shows when truncated). Dotfiles follow the *Show hidden files* toggle.
+  Press **`/`** (when no terminal or input has focus) to jump to the box; input is debounced and stale requests
+  are cancelled. Matches replace the tree as a flat list (name + dimmed relative parent path); a file opens in the
+  viewer, a folder re-roots the tree there, **Enter** takes the first match, **Esc** clears. Hosted demo: filters
+  the fake tree.
 - 🖥️ **Resizable tree** — drag the tree's right edge to widen/narrow it (180–640 px); double-click the edge to reset.
   The width is deliberately **not remembered**: each time the tree opens it is the default 240 px. A long breadcrumb
   fades out on the left instead of cutting letters, and hovering it shows the full path.
