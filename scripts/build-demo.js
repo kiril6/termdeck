@@ -31,6 +31,12 @@ for (const f of appFiles) {
   fs.writeFileSync(path.join(outDir, f), src);
 }
 
+const extraPublicAssets = ['manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
+for (const f of extraPublicAssets) {
+  const src = path.join(root, 'public', f);
+  fs.copyFileSync(src, path.join(outDir, f));
+}
+
 for (const rel of assets) {
   const src = path.join(root, 'node_modules', rel);
   const dst = path.join(outDir, 'vendor', rel);

@@ -543,6 +543,17 @@ test('hosted demo copy matches a fresh npm run build:demo', () => {
 });
 
 test.describe('live backend', () => {
+  test('PWA manifest loads with the sign-in cookie and the app is installable (#1)', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'CDP (getAppManifest) is Chromium-only');
+    await boot(page, '/');
+    const cdp = await page.context().newCDPSession(page);
+    const { data, errors } = await cdp.send('Page.getAppManifest');
+    expect(errors).toEqual([]);
+    expect(JSON.parse(data).display).toBe('standalone');
+    const { installabilityErrors } = await cdp.send('Page.getInstallabilityErrors');
+    expect(installabilityErrors.map((e) => e.errorId).filter((id) => id !== 'in-incognito')).toEqual([]);
+  });
+
   test('/api/find: nested case-insensitive match; skips node_modules/.git; dotfiles only on request; result cap', async ({ request }) => {
     const root = fs.mkdtempSync(path.join(process.env.TD_E2E_HOME, 'find-'));
     for (const f of ['a/deep/NeedleFile.txt', 'node_modules/needle.js', '.git/needle', '.hid/needle.txt']) {
