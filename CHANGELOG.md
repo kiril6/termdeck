@@ -2,6 +2,9 @@
 
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
+## 1.29.0
+- **Install termdeck as a desktop app** — Chrome and Edge show an install icon in the address bar; in Safari use *File → Add to Dock*. termdeck then opens in its own window, without tabs or address bar. Pin a fixed port (`PORT=3000`) so the install keeps one address; if it ever lands on a new one, ⌘K → *Export settings…* / *Import settings…* bring your setup back. There is no offline mode and nothing is cached, so updating is just a reload. Thanks @DYNOSuprovo!
+
 ## 1.28.0
 - **Find files in the tree** — a *Find files…* box under the directory tree's header searches file and folder names across the whole project root, not just the folders you have expanded. Press `/` to jump to it, `Esc` to clear, `Enter` to open the first match. A file opens in the viewer; a folder re-roots the tree there. `node_modules` and `.git` are skipped, dotfiles follow *Show hidden files*, and results stop at 200 with a note.
 
