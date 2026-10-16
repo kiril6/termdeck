@@ -121,6 +121,7 @@ See also [Known limits](#known-limits). Found a vulnerability? Report it private
 - **Export / import settings** (palette): theme, font, snippets, SSH hosts and AI CLI presets in one JSON file, for another browser or a backup.
 - **Keyboard and screen readers:** move or resize a window from the keyboard (palette → *Move or resize window*); the palette, dialogs and toasts work with screen readers.
 - **Phone layout:** on a screen 600 px wide or less, every window fills the screen; switch between them from the dock.
+- **Install as a desktop app (PWA):** Chrome and Edge show an install icon; Safari uses *File → Add to Dock*. It opens in its own window without tabs or address bar. It needs the running server (`termdeck autostart install` starts it at login), and the install is tied to one address, so pin a port (`PORT=3000`).
 
 ![Four terminals tiled with the file tree open, in the GitHub Light theme](https://raw.githubusercontent.com/kiril6/termdeck/master/docs/screenshots/workspace-light.png)
 
