@@ -2,6 +2,9 @@
 
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
+## 1.30.0
+- **A warning when termdeck starts on a different port** — when port 3000 is busy, termdeck moves to the next free port. That is a different browser address, so the windows, projects and themes you saved on the old one don't show, and it looked like they were lost. termdeck now remembers the port it ran on last time. When it starts somewhere else (3000 busy, or back on 3000 after a run on 3001), the console and the app say where your workspace is and how to get it back: restart termdeck on that port (`PORT=3001`), or use ⌘K → *Export settings…* / *Import settings…*. Click the notice to jump to those commands. There's no notice on a first run or with a pinned `PORT`.
+
 ## 1.29.0
 - **Install termdeck as a desktop app** — Chrome and Edge show an install icon in the address bar; in Safari use *File → Add to Dock*. termdeck then opens in its own window, without tabs or address bar. Pin a fixed port (`PORT=3000`) so the install keeps one address; if it ever lands on a new one, ⌘K → *Export settings…* / *Import settings…* bring your setup back. There is no offline mode and nothing is cached, so updating is just a reload. Thanks @DYNOSuprovo!
 
