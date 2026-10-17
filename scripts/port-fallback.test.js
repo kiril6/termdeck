@@ -1,6 +1,7 @@
-// node scripts/port-fallback.test.js — an unpinned run whose default port (3000) is busy moves to another port, which
-// is a new browser origin: the banner says so and /api/version reports movedFrom so the app can warn (#245).
-// Not on the very first run (nothing saved anywhere yet), and never for a pinned PORT, which doesn't move.
+// node scripts/port-fallback.test.js — an unpinned run that lands on another port than the last run (the default one
+// busy, or back on it after a fallback) is on a new browser origin: the banner says so and /api/version reports
+// movedFrom so the app can warn (#245). Not on the very first run (nothing saved anywhere yet), and never for a
+// pinned PORT, which is chosen.
 const assert = require('assert');
 const fs = require('fs');
 const http = require('http');
@@ -55,7 +56,11 @@ const get = (port, p, cookie) => new Promise((ok, fail) => {
     assert.doesNotMatch(first.out, /different browser address/, 'no workspace warning on a first run');
     assert.strictEqual((await version(firstPort)).movedFrom, undefined, 'no movedFrom on a first run');
 
-    // Later runs: the workspace saved on the default port's origin isn't visible on the new one.
+    const lastPortFile = path.join(home, '.termdeck', 'last-port');
+    assert.strictEqual(fs.readFileSync(lastPortFile, 'utf8').trim(), String(firstPort), 'each run records its port');
+
+    // Upgrade from a version without last-port: the last run was on the default port, now busy.
+    fs.rmSync(lastPortFile);
     const moved = start({});
     const port = await portOf(moved);
     assert.ok(port && port !== DEFAULT_PORT, 'unpinned run moved off the busy default port\n' + moved.out);
@@ -63,11 +68,19 @@ const get = (port, p, cookie) => new Promise((ok, fail) => {
     assert.match(moved.out, /Export settings/, 'banner says how to get the workspace back');
     assert.strictEqual((await version(port)).movedFrom, DEFAULT_PORT, '/api/version reports movedFrom');
 
+    // The other direction: the last run was on another port (here one still held, so this run can't land on it).
+    fs.writeFileSync(lastPortFile, `${firstPort}\n`);
+    const back = start({});
+    const backPort = await portOf(back);
+    assert.match(back.out, new RegExp(`termdeck is on ${backPort}, but the last run was on ${firstPort}`), 'banner names the last run\'s port\n' + back.out);
+    assert.strictEqual((await version(backPort)).movedFrom, firstPort, 'movedFrom is the last run\'s port');
+
     const pinnedPort = await free();
     const pinned = start({ PORT: String(pinnedPort) });
     assert.strictEqual(await portOf(pinned), pinnedPort, 'pinned run binds its port\n' + pinned.out);
     assert.doesNotMatch(pinned.out, /was busy/, 'no note on a pinned port');
     assert.strictEqual((await version(pinnedPort)).movedFrom, undefined, 'no movedFrom on a pinned port');
+    assert.doesNotMatch(pinned.out, /different browser address/, 'no workspace warning on a pinned port');
     console.log('port-fallback.test: ok');
     done(0);
   } catch (e) { console.error(e); done(1); }
