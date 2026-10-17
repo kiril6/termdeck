@@ -73,6 +73,9 @@ function safeDir(p)     { try { return fs.statSync(p).isDirectory(); } catch { r
 
 const app = express();
 // Headers, the localhost → 127.0.0.1 redirect and the sign-in gate, before anything is served.
+// Read before createSecurity makes the secret: none yet means termdeck never ran on this account, so there is no saved
+// workspace on the default port to warn about when the port falls back (#245).
+const ranBefore = !!require('./scripts/access').readSecret();
 const security = createSecurity({ host: HOST, publicDir: path.join(__dirname, 'public') });
 const { LOOPBACK, LOCAL_ONLY, EXTRA_HOSTS, TOKEN, apiGuard } = security;
 app.use(...security.middleware);
@@ -165,7 +168,8 @@ Then run <code>node install.js</code> again.
 
 // ── /api — version, update check, changelog; the route groups live in scripts/*-api.js ──
 const APP_VERSION = require('./package.json').version;  // single source of truth
-app.get('/api/version', (_req, res) => res.json({ version: APP_VERSION }));
+let portMovedFrom = null;   // set when an unpinned run fell back off the default port (#245): the app warns, the workspace is on the old origin
+app.get('/api/version', (_req, res) => res.json({ version: APP_VERSION, ...(portMovedFrom ? { movedFrom: portMovedFrom } : {}) }));
 const checkUpdate = require('./scripts/update-check').createChecker(APP_VERSION, process.env.TD_UPDATE_URL || undefined);
 app.get('/api/update-check', apiGuard, (_req, res) =>             // click-initiated only; the server (not the browser) asks npm
   checkUpdate().then((r) => res.json(r), () => res.status(502).json({ error: 'registry unreachable' })));
@@ -262,7 +266,16 @@ function listenOn(port, triesLeft) {
     console.log(`  Debug             → ${base}/debug`);
     console.log(`  ${os.platform()} ${os.arch()}  |  Node ${process.version}  |  ${ptyPkg}`);
     console.log(`  Durable sessions  → ${sessions.tmuxOk() ? 'tmux (shells survive server restart)' : 'off — raw shells (install tmux, or NO_TMUX unset, to enable)'}`);
-    if (actual !== START_PORT) console.log(`  \x1b[2m(port ${START_PORT} was busy)\x1b[0m`);
+    // A new port is a new browser origin: localStorage (windows, projects, themes) and the sign-in cookie stay on the old one (#245).
+    // First run: nothing is saved anywhere yet, so the short note is enough.
+    if (actual !== START_PORT && !ranBefore) console.log(`  \x1b[2m(port ${START_PORT} was busy)\x1b[0m`);
+    else if (actual !== START_PORT) {
+      portMovedFrom = START_PORT;
+      console.log(`\n  \x1b[33m⚠ Port ${START_PORT} was busy, so termdeck is on ${actual}: a different browser address.\x1b[0m\n` +
+        `    Windows, projects and themes saved at http://${host}:${START_PORT} don't show here.\n` +
+        `    To get them back: free port ${START_PORT} and restart, or move them with ⌘K → Export settings… / Import settings….\n` +
+        `    Pin one to keep the address fixed: PORT=<n> (or --port <n>)`);
+    }
     if (EXTRA_HOSTS.size) console.log(`  Extra allowed hosts → ${[...EXTRA_HOSTS].join(', ')}  (token required)`);
     if (!LOOPBACK) console.log(`\n  \x1b[33m⚠ Bound to ${HOST} — shells reachable from the network, gated by the token in the URL above. Keep it secret.\n    Safer: keep the loopback bind and use a tunnel / tailscale serve — see docs/remote-access.md\x1b[0m`);
     console.log('');

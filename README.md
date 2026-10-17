@@ -155,7 +155,7 @@ See also [Known limits](#known-limits). Found a vulnerability? Report it private
 
 - **tmux (recommended):** with tmux installed, shells run inside it and survive a server restart or crash. Without it everything else works. Not available on Windows; `NO_TMUX=1` turns it off.
 - **Browser:** it opens automatically, already signed in. Disable with `--no-open` / `NO_OPEN=1`, pick one with `BROWSER` (e.g. `BROWSER=firefox`). Another browser, or a bookmark to a fresh one, shows a *link this browser* page: run `termdeck open` once.
-- **Port:** defaults to 3000 and moves to the next free port if that's taken. `--port 4000` / `PORT=4000` pins it.
+- **Port:** defaults to 3000 and moves to the next free port if that's taken. A new port is a new browser address, so windows and settings saved on the old one don't show there: termdeck says so in the console and in the app, and ⌘K → *Export / Import settings* moves them. `--port 4000` / `PORT=4000` pins it.
 - **No compiler needed:** `node-pty` ships prebuilt binaries for macOS, Windows and Linux (x64/arm64).
 
 ### CLI commands
