@@ -203,6 +203,21 @@ if(LIVE) fetch("/api/version").then(r=>r.ok?r.json():null).then(d=>{
   let seen=null; try{seen=localStorage.getItem("td.seenVersion.v1");}catch{}
   try{localStorage.setItem("td.seenVersion.v1",d.version);}catch{}
   if(seen&&seen!==d.version) toast(ICON.check,"Updated to v"+d.version,"Click to see what\u2019s new",9000,openWhatsNew);   // first visit (no stored version) stays quiet — the tour covers it
+  // Unpinned server landed on another port than its last run (#245): a new origin, so the saved workspace isn't here.
+  // Once per old port: where the default port is always busy, the workspace builds up on this one and the note is noise.
+  // Remembered only once the user closes or clicks it: on a new origin the first-run tour covers it, and a reload
+  // before then must not lose it.
+  if(d.movedFrom){
+    let told=null; try{told=localStorage.getItem("td.portNotice.v1");}catch{}
+    const ack=()=>{try{localStorage.setItem("td.portNotice.v1",String(d.movedFrom));}catch{}};
+    if(told!==String(d.movedFrom)){
+      // Toast text is clamped to two lines: the console banner has the long form; the click lists Export / Import settings.
+      const t=toast(ICON.warn,"Saved workspace is on :"+d.movedFrom,"Restart termdeck on :"+d.movedFrom+", or click to move settings.",0,()=>{
+        ack(); openPalette(); palInput.value="settings"; palInput.dispatchEvent(new Event("input"));
+      });
+      t.querySelector(".t-close").addEventListener("click",ack);
+    }
+  }
 }).catch(()=>{});
 themeBtn.addEventListener("click",(e)=>{e.stopPropagation();openThemePop(null,themeBtn);});
 function themeFilter(){const q=themeSearch.value.trim();themeClear.style.display=q?"":"none";renderThemeGrid(q);}
