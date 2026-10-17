@@ -19,6 +19,8 @@ termdeck runs Claude Code, Codex, Gemini and your own shells as windows in your 
 
 **[Try the live demo](https://kiril6.github.io/termdeck/app/?demo)** (UI only, no install) · [Showcase](https://kiril6.github.io/termdeck/) · [All features](FEATURES.md)
 
+<a href="https://www.producthunt.com/products/termdeck/reviews/new?utm_source=badge-product_review&utm_medium=badge&utm_source=badge-termdeck" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/product_review.svg?product_id=1317095&theme=light" alt="termdeck - A&#0032;local&#0032;dashboard&#0032;for&#0032;running&#0032;AI&#0032;coding&#0032;agents&#0032;side&#0032;by&#0032;side&#0046; | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
+
 [Quick start](#quick-start) · [Agent loop](#the-agent-loop) · [Phone](#away-from-your-desk) · [Security](#security-model) · [Features](#features) · [Install](#install-and-run) · [Configuration](#configuration) · [Shortcuts](#keyboard-shortcuts)
 
 ---
