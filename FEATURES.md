@@ -693,8 +693,10 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   [docs/agent-hooks.md](docs/agent-hooks.md) drifts from it. Only runs on this explicit command, never on start.
 - 🔌 **`termdeck doctor`** — offline self-check (`scripts/doctor.js`), run in a child process so the server never starts:
   Node version, node-pty (and the macOS `spawn-helper` execute bit — missing after `npx`/global installs; doctor restores it, as the server does on start, so the shell check below is honest), a shell actually spawns, tmux present and ≥ 3.2 (needed
-  for the agent-hook env), git, whether the port is free (a pinned `PORT` that's busy is a failure; otherwise a note
-  that the server will move), network exposure / token state, wildcard `TD_ALLOWED_HOSTS`, `TD_*` numbers that would
+  for the agent-hook env), git, whether the port is free — the pinned `PORT`, else the port of the last run
+  (`~/.termdeck/last-port`), else 3000, and it says which (`17300 (last run)`); a pinned `PORT` that's busy is a
+  failure, otherwise a warning (the last run's port busy = termdeck may already run there; 3000 busy = the server
+  will move) — network exposure / token state, wildcard `TD_ALLOWED_HOSTS`, `TD_*` numbers that would
   silently fall back to defaults, and `TD_LOG_DIR` writability. Each problem prints its fix. Exit 0 = all good,
   1 = any warning/failure. No network calls; plain text when piped or `NO_COLOR` is set.
 - 🖥️ **Layout presets + Alt+N (#51)** — the toolbar Tile **▾** menu or palette commands *Layout 1×1 / 2×1 / 1×2 / 2×2 / 3×2* (columns × rows) arrange the active
