@@ -99,11 +99,9 @@ for (const p of ['@xterm/xterm', '@xterm/addon-fit', '@xterm/addon-search', '@xt
   } catch { console.error('  [vendor] cannot resolve', p, '— run: node install.js'); }
 }
 app.get('/', (_req, res) => {
-  const found = [
-    path.join(__dirname, 'index.html'),
-    path.join(__dirname, 'public', 'index.html'),
-  ].find((p) => fs.existsSync(p));
-  if (found) return res.sendFile(found);
+  const found = ['index.html', path.join('public', 'index.html')].find((p) => fs.existsSync(path.join(__dirname, p)));
+  // root: — sendFile checks only the part below it for dot-segments, so an install under ~/.nvm etc. still works.
+  if (found) return res.sendFile(found, { root: __dirname });
   res.status(500).send('index.html not found. It should live next to server.js or in ./public/');
 });
 
@@ -176,7 +174,7 @@ app.get('/api/version', (_req, res) => res.json({ version: APP_VERSION, ...(port
 const checkUpdate = require('./scripts/update-check').createChecker(APP_VERSION, process.env.TD_UPDATE_URL || undefined);
 app.get('/api/update-check', apiGuard, (_req, res) =>             // click-initiated only; the server (not the browser) asks npm
   checkUpdate().then((r) => res.json(r), () => res.status(502).json({ error: 'registry unreachable' })));
-app.get('/api/changelog', (_req, res) => res.type('text/plain').sendFile(path.join(__dirname, 'CHANGELOG.md'), (e) => { if (e && !res.headersSent) res.status(404).end(); }));
+app.get('/api/changelog', (_req, res) => res.type('text/plain').sendFile('CHANGELOG.md', { root: __dirname }, (e) => { if (e && !res.headersSent) res.status(404).end(); }));
 
 /** id -> { term, buffer, ws, killTimer, cwd, shellName, isLog, tmuxName } — the terminals, shared by sessions and the agent routes */
 const live = new Map();
