@@ -31,7 +31,7 @@ npx @kiril6/termdeck
 
 Needs **Node.js 20+**. It opens **http://127.0.0.1:3000** in your browser (`localhost:3000` redirects there). Optional: install **tmux** (a terminal session manager that keeps shells alive across restarts; `brew install tmux` / `sudo apt install tmux`) so shells survive a server restart. Other ways to install are [below](#install-and-run).
 
-> **Install as a desktop app:** in Chrome or Edge click the install icon in the address bar; in Safari use *File → Add to Dock*. termdeck then opens in its own window without tabs or address bar. The install is tied to the origin, so use a fixed port (`PORT=3000 npx @kiril6/termdeck`) and open `http://127.0.0.1:3000` (the install is bound to that exact address; `localhost` redirects to it). The installed app is only a window onto the running server, so keep the server running: `termdeck autostart install` starts it at login. Details in [FEATURES.md](FEATURES.md).
+> **Install as a desktop app:** in Chrome or Edge click the install icon in the address bar; in Safari use *File → Add to Dock*. termdeck then opens in its own window without tabs or address bar. The install is tied to the origin, so pin an uncommon port: start with `PORT=17300 npx @kiril6/termdeck` and open `http://127.0.0.1:17300` (the install is bound to that exact address; `localhost` redirects to it). Not 3000: dev servers often take it, and the app would then open their page instead. The installed app is only a window onto the running server, so keep it running on that port: `termdeck autostart install --port 17300` starts it at login. Already installed on `:3000`? Keep that port: a new one is a new address (⌘K → *Export / Import settings* moves your setup). Details in [FEATURES.md](FEATURES.md).
 
 ---
 
@@ -121,7 +121,7 @@ See also [Known limits](#known-limits). Found a vulnerability? Report it private
 - **Export / import settings** (palette): theme, font, snippets, SSH hosts and AI CLI presets in one JSON file, for another browser or a backup.
 - **Keyboard and screen readers:** move or resize a window from the keyboard (palette → *Move or resize window*); the palette, dialogs and toasts work with screen readers.
 - **Phone layout:** on a screen 600 px wide or less, every window fills the screen; switch between them from the dock.
-- **Install as a desktop app (PWA):** Chrome and Edge show an install icon; Safari uses *File → Add to Dock*. It opens in its own window without tabs or address bar. It needs the running server (`termdeck autostart install` starts it at login), and the install is tied to one address, so pin a port (`PORT=3000`).
+- **Install as a desktop app (PWA):** Chrome and Edge show an install icon; Safari uses *File → Add to Dock*. It opens in its own window without tabs or address bar. It needs the running server (`termdeck autostart install --port 17300` starts it at login), and the install is tied to one address, so pin an uncommon port (`PORT=17300`; dev servers often take 3000).
 
 ![Four terminals tiled with the file tree open, in the GitHub Light theme](https://raw.githubusercontent.com/kiril6/termdeck/master/docs/screenshots/workspace-light.png)
 
@@ -165,7 +165,7 @@ termdeck [options]             # start the server (--port <n>, --host <h>, --no-
 termdeck open                  # open the running dashboard in your browser, signed in (--no-open: print the link)
 termdeck doctor                # check Node, node-pty, shell, tmux, git, ports (offline)
 termdeck hooks install         # wire Claude Code, Gemini CLI, Codex and Copilot hooks (also: uninstall, --dry-run, --yes)
-termdeck autostart install     # start termdeck at login via launchd/systemd (also: uninstall, --dry-run)
+termdeck autostart install     # start termdeck at login via launchd/systemd (also: uninstall, --port, --dry-run)
 termdeck uninstall             # remove hooks, start-at-login, termdeck's tmux sessions and ~/.termdeck (--dry-run, --yes)
 ```
 
