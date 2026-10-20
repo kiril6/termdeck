@@ -195,23 +195,28 @@ function checkBar(dir,key){
   const bar=el("div"); bar.style.cssText="display:flex;gap:10px;align-items:flex-start;margin-bottom:6px;font-family:system-ui,sans-serif";
   const btn=el("button","cm-btn"); btn.textContent="Run check\u2026";
   const out=el("pre","d-meta"); out.setAttribute("role","status"); out.style.cssText="margin:0;flex:1;white-space:pre-wrap;font:12px ui-monospace,monospace";
-  btn.addEventListener("click",async()=>{
+  let ctl=null;   // set while a check runs: the button then cancels it (closing the request kills the check on the server)
+  const run=async()=>{
     const checks=(()=>{try{return JSON.parse(localStorage.getItem(CHECK_STORE)||"{}");}catch{return {};}})();
     const v=await inputModal("Run check",[
       {type:"note",label:"Runs in the worktree, so it runs code from this branch. Must exit 0. Nothing is merged."},
       {key:"check",label:"Check command",placeholder:"npm test",value:checks[key]||""}],"Run");
     if(!v?.check) return;
     if(v.check!==checks[key]){checks[key]=v.check; try{localStorage.setItem(CHECK_STORE,JSON.stringify(checks));}catch{}}
-    btn.disabled=true; out.className="d-meta"; out.textContent="Running "+v.check+"\u2026";
+    ctl=new AbortController(); btn.textContent="Cancel"; out.className="d-meta"; out.textContent="Running "+v.check+"\u2026";
     try{
-      const r=await fetch("/api/git/check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dir,check:v.check})});
+      const r=await fetch("/api/git/check",{method:"POST",headers:{"Content-Type":"application/json"},signal:ctl.signal,body:JSON.stringify({dir,check:v.check})});
       const j=await r.json().catch(()=>({}));
       const ok=r.ok&&j.ok;
       out.className=ok?"d-add":"d-del";
       out.textContent=(ok?"\u2713 Check passed":"\u2717 "+(j.error||("HTTP "+r.status)))+(j.output?"\n"+j.output:"");
-    }catch(e){out.className="d-del"; out.textContent="\u2717 "+e.message;}
-    btn.disabled=false;
-  });
+    }catch(e){
+      out.className=e.name==="AbortError"?"d-meta":"d-del";
+      out.textContent=e.name==="AbortError"?"Check cancelled":"\u2717 "+e.message;
+    }
+    ctl=null; btn.textContent="Run check\u2026";
+  };
+  btn.addEventListener("click",()=>{ctl?ctl.abort():run();});
   bar.append(btn,out); return bar;
 }
 // Read-only review: what has the agent changed since the branch was cut? Diffs the
