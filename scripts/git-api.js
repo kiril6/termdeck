@@ -33,7 +33,8 @@ const run = (cmd, args, cwd, timeout = 120000) => new Promise((resolve) => {
     (err, stdout, stderr) => resolve({ err, stdout: String(stdout || ''), stderr: String(stderr || '') }));
 });
 const lines = (s) => s.split('\n').map((l) => l.trimEnd()).filter(Boolean);
-async function finishPreview(dir, baseBranch) {
+// The worktree's root and its main tree; throws unless `dir` is inside a worktree termdeck made.
+async function agentWorktree(dir) {
   const top = (await gitP(['rev-parse', '--show-toplevel'], dir)).trim();
   const main = (await gitP(['worktree', 'list', '--porcelain'], top)).split('\n')
                  .find((l) => l.startsWith('worktree '))?.slice(9).trim();
@@ -41,6 +42,10 @@ async function finishPreview(dir, baseBranch) {
   if (!main || real(main) === real(top)) throw new Error('this is the main working tree, not an agent worktree');
   if (path.dirname(real(top)) !== real(path.join(path.dirname(main), path.basename(main) + '-worktrees')))
     throw new Error('not a worktree created by termdeck');
+  return { top, main };
+}
+async function finishPreview(dir, baseBranch) {
+  const { top, main } = await agentWorktree(dir);
   const branch = (await gitP(['rev-parse', '--abbrev-ref', 'HEAD'], top)).trim();
   if (!GIT_BRANCH_RE.test(branch)) throw new Error('worktree is on a detached HEAD');
   const mainBranch = (await gitP(['rev-parse', '--abbrev-ref', 'HEAD'], main)).trim();
@@ -173,7 +178,7 @@ function gitApi({ apiGuard, expandDir, safeDir }) {
   });
 
   // Run the pre-merge check from the review view (same command store as Finish, same trust: typed by the user,
-  // worktrees made by termdeck only — finishPreview throws for anything else). Landing is not touched.
+  // worktrees made by termdeck only — agentWorktree throws for anything else). Landing is not touched.
   const checking = new Set();
   r.post('/api/git/check', apiGuard, async (req, res) => {
     const dir = expandDir(req.body?.dir);
@@ -181,7 +186,7 @@ function gitApi({ apiGuard, expandDir, safeDir }) {
     if (!safeDir(dir)) return res.status(400).json({ error: 'not a directory' });
     if (!check || check.length > 500) return res.status(400).json({ error: 'check command missing or too long' });
     let p;
-    try { p = await finishPreview(dir, ''); } catch (e) { return res.status(400).json({ error: gitFail(e) }); }
+    try { p = await agentWorktree(dir); } catch (e) { return res.status(400).json({ error: gitFail(e) }); }
     if (checking.has(p.top)) return res.status(409).json({ error: 'a check is already running in this worktree' });
     checking.add(p.top);
     try { const c = await runCheck(check, p.top); res.json({ ok: c.ok, error: c.ok ? '' : c.error, output: c.output }); }

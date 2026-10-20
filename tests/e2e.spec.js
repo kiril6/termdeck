@@ -584,6 +584,8 @@ test.describe('live backend', () => {
     expect((await check(tree, '  ')).status()).toBe(400);                   // empty command
     expect((await check(tree, 'echo hi', { 'Sec-Fetch-Site': 'cross-site' })).status()).toBe(403);
     expect((await (await request.get(`/api/git/diff?dir=${encodeURIComponent(tree)}&base=HEAD`)).json()).main).toBe(fs.realpathSync(main));
+    git(main, 'checkout', '-q', '--detach');                                 // an unrelated main-tree state must not block a check
+    expect((await (await check(tree, 'echo hi')).json()).ok).toBe(true);
     fs.rmSync(root, { recursive: true, force: true });
   });
 

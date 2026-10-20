@@ -194,7 +194,7 @@ async function newAgentTask(){
 function checkBar(dir,key){
   const bar=el("div"); bar.style.cssText="display:flex;gap:10px;align-items:flex-start;margin-bottom:6px;font-family:system-ui,sans-serif";
   const btn=el("button","cm-btn"); btn.textContent="Run check\u2026";
-  const out=el("pre","d-meta"); out.style.cssText="margin:0;flex:1;white-space:pre-wrap;font:12px ui-monospace,monospace";
+  const out=el("pre","d-meta"); out.setAttribute("role","status"); out.style.cssText="margin:0;flex:1;white-space:pre-wrap;font:12px ui-monospace,monospace";
   btn.addEventListener("click",async()=>{
     const checks=(()=>{try{return JSON.parse(localStorage.getItem(CHECK_STORE)||"{}");}catch{return {};}})();
     const v=await inputModal("Run check",[
