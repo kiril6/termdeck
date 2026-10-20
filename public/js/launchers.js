@@ -195,6 +195,10 @@ function checkBar(dir,key){
   const bar=el("div"); bar.style.cssText="display:flex;gap:10px;align-items:flex-start;margin-bottom:6px;font-family:system-ui,sans-serif";
   const btn=el("button","cm-btn"); btn.textContent="Run check\u2026";
   const out=el("pre","d-meta"); out.setAttribute("role","status"); out.style.cssText="margin:0;flex:1;white-space:pre-wrap;font:12px ui-monospace,monospace";
+  const show=(cls,head,output)=>{   // only the status line is coloured; the command's output stays muted
+    const h=el("span",cls); h.textContent=head; out.className="d-meta"; out.replaceChildren(h);
+    if(output) out.append("\n"+output);
+  };
   let ctl=null;   // set while a check runs: the button then cancels it (closing the request kills the check on the server)
   const run=async()=>{
     const checks=(()=>{try{return JSON.parse(localStorage.getItem(CHECK_STORE)||"{}");}catch{return {};}})();
@@ -203,16 +207,14 @@ function checkBar(dir,key){
       {key:"check",label:"Check command",placeholder:"npm test",value:checks[key]||""}],"Run");
     if(!v?.check) return;
     if(v.check!==checks[key]){checks[key]=v.check; try{localStorage.setItem(CHECK_STORE,JSON.stringify(checks));}catch{}}
-    ctl=new AbortController(); btn.textContent="Cancel"; out.className="d-meta"; out.textContent="Running "+v.check+"\u2026";
+    ctl=new AbortController(); btn.textContent="Cancel"; show("d-meta","Running "+v.check+"\u2026");
     try{
       const r=await fetch("/api/git/check",{method:"POST",headers:{"Content-Type":"application/json"},signal:ctl.signal,body:JSON.stringify({dir,check:v.check})});
       const j=await r.json().catch(()=>({}));
       const ok=r.ok&&j.ok;
-      out.className=ok?"d-add":"d-del";
-      out.textContent=(ok?"\u2713 Check passed":"\u2717 "+(j.error||("HTTP "+r.status)))+(j.output?"\n"+j.output:"");
+      show(ok?"d-add":"d-del",ok?"\u2713 Check passed":"\u2717 "+(j.error||("HTTP "+r.status)),j.output);
     }catch(e){
-      out.className=e.name==="AbortError"?"d-meta":"d-del";
-      out.textContent=e.name==="AbortError"?"Check cancelled":"\u2717 "+e.message;
+      if(e.name==="AbortError") show("d-meta","Check cancelled"); else show("d-del","\u2717 "+e.message);
     }
     ctl=null; btn.textContent="Run check\u2026";
   };

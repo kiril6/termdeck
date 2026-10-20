@@ -623,9 +623,9 @@ test.describe('live backend', () => {
     };
     const status = page.locator('pre[role=status]');
     await run('echo fine');
-    await expect(status).toContainText('Check passed'); await expect(status).toHaveClass(/d-add/);
+    await expect(status.locator('.d-add')).toHaveText('✓ Check passed');
     await run('echo nope; exit 1');
-    await expect(status).toContainText('Check failed (exit 1)'); await expect(status).toHaveClass(/d-del/);
+    await expect(status.locator('.d-del')).toHaveText('✗ Check failed (exit 1)'); await expect(status).toContainText('nope');   // the output is shown, uncoloured
     await run('sleep 30');
     await page.getByRole('button', { name: 'Cancel' }).click();
     await expect(status).toHaveText('Check cancelled');
