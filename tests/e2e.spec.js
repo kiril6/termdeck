@@ -569,6 +569,24 @@ test.describe('live backend', () => {
     fs.rmSync(root, { recursive: true, force: true });
   });
 
+  test('/api/git/check: runs the typed command in an agent worktree only; pass, fail, guard', async ({ request }) => {
+    const root = fs.mkdtempSync(path.join(process.env.TD_E2E_HOME, 'check-'));
+    const main = path.join(root, 'repo'), tree = path.join(root, 'repo-worktrees', 'task');
+    const git = (cwd, ...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd, stdio: 'pipe' });
+    fs.mkdirSync(main); fs.mkdirSync(path.dirname(tree));
+    git(main, 'init', '-q', '-b', 'main'); git(main, 'commit', '-q', '--allow-empty', '-m', 'init');
+    git(main, 'worktree', 'add', '-q', tree, '-b', 'task');
+    const check = (dir, cmd, headers) => request.post('/api/git/check', { data: { dir, check: cmd }, headers });
+    expect(await (await check(tree, 'echo hi')).json()).toEqual({ ok: true, error: '', output: 'hi' });
+    const bad = await (await check(tree, 'echo bad; exit 3')).json();
+    expect([bad.ok, bad.error, bad.output]).toEqual([false, 'Check failed (exit 3)', 'bad']);
+    expect((await check(main, 'echo hi')).status()).toBe(400);              // the main tree is not an agent worktree
+    expect((await check(tree, '  ')).status()).toBe(400);                   // empty command
+    expect((await check(tree, 'echo hi', { 'Sec-Fetch-Site': 'cross-site' })).status()).toBe(403);
+    expect((await (await request.get(`/api/git/diff?dir=${encodeURIComponent(tree)}&base=HEAD`)).json()).main).toBe(fs.realpathSync(main));
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
   test('agent queue: red → amber → working, badge follows', async ({ page, request }) => {
     const ids = [];
     page.on('websocket', (ws) => { const m = /[?&]id=([^&]+)/.exec(ws.url()); if (m) ids.push(decodeURIComponent(m[1])); });

@@ -167,8 +167,25 @@ function gitApi({ apiGuard, expandDir, safeDir }) {
       }) : [];
       const newFiles = untracked.trim() ? untracked.trim().split('\n') : [];
       newFiles.forEach((p) => files.push({ status: '?', path: p }));
-      res.json({ dir, base, files, diff, untracked: newFiles });
+      const main = await gitP(['worktree', 'list', '--porcelain'], dir).then((o) => o.split('\n').find((l) => l.startsWith('worktree '))?.slice(9).trim() || '', () => '');
+      res.json({ dir, base, main, files, diff, untracked: newFiles });
     } catch (e) { res.status(400).json({ error: gitFail(e) }); }
+  });
+
+  // Run the pre-merge check from the review view (same command store as Finish, same trust: typed by the user,
+  // worktrees made by termdeck only — finishPreview throws for anything else). Landing is not touched.
+  const checking = new Set();
+  r.post('/api/git/check', apiGuard, async (req, res) => {
+    const dir = expandDir(req.body?.dir);
+    const check = String(req.body?.check || '').trim();
+    if (!safeDir(dir)) return res.status(400).json({ error: 'not a directory' });
+    if (!check || check.length > 500) return res.status(400).json({ error: 'check command missing or too long' });
+    let p;
+    try { p = await finishPreview(dir, ''); } catch (e) { return res.status(400).json({ error: gitFail(e) }); }
+    if (checking.has(p.top)) return res.status(409).json({ error: 'a check is already running in this worktree' });
+    checking.add(p.top);
+    try { const c = await runCheck(check, p.top); res.json({ ok: c.ok, error: c.ok ? '' : c.error, output: c.output }); }
+    finally { checking.delete(p.top); }
   });
 
   const finishing = new Set();                                      // main trees with a finish in flight (double-click guard)
