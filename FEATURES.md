@@ -290,6 +290,11 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   file summary (modified / added / deleted / new) above the unified diff and untracked files listed.
   Deliberately **view-only** — no accept, discard or reset buttons; landing is a separate, explicit step
   (*Finish agent task…*). The base commit is persisted with the project, so the baseline survives reloads.
+  **Run check:** a *Run check…* button at the top of the diff runs the same command as Finish's *Check before
+  landing* (shared per-repo store `td.checks.v1`, editable in the dialog) in the worktree and shows ✓/✗ plus the last
+  15 lines of output, so you see pass/fail next to the diff before landing. Nothing is merged or changed. While it
+  runs the button turns into *Cancel*: closing the request kills the whole process tree on the server.
+  `POST /api/git/check` (behind `apiGuard`, termdeck worktrees only, one run per worktree, same `TD_CHECK_TIMEOUT`).
 - 🖥️ **Send to agent (#27)** — turn a selection into a prompt for another terminal, no copy-paste. **Three
   sources, one target picker:** a selection in the **file viewer** (a floating *Send to agent…* button appears
   next to it), a selection in the **Review agent changes** diff, or **any terminal's output** (right-click →

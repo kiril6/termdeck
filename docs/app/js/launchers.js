@@ -190,6 +190,37 @@ async function newAgentTask(){
   scheduleSave();
   toast(ICON.branch,"Worktree ready",v.branch+" → "+j.path,6000);
 }
+// Run check (view only, nothing lands): same stored command as the Finish dialog's "Check before landing" (#119).
+function checkBar(dir,key){
+  const bar=el("div"); bar.style.cssText="display:flex;gap:10px;align-items:flex-start;margin-bottom:6px;font-family:system-ui,sans-serif";
+  const btn=el("button","cm-btn"); btn.textContent="Run check\u2026";
+  const out=el("pre","d-meta"); out.setAttribute("role","status"); out.style.cssText="margin:0;flex:1;white-space:pre-wrap;font:12px ui-monospace,monospace";
+  const show=(cls,head,output)=>{   // only the status line is coloured; the command's output stays muted
+    const h=el("span",cls); h.textContent=head; out.className="d-meta"; out.replaceChildren(h);
+    if(output) out.append("\n"+output);
+  };
+  let ctl=null;   // set while a check runs: the button then cancels it (closing the request kills the check on the server)
+  const run=async()=>{
+    const checks=(()=>{try{return JSON.parse(localStorage.getItem(CHECK_STORE)||"{}");}catch{return {};}})();
+    const v=await inputModal("Run check",[
+      {type:"note",label:"Runs in the worktree, so it runs code from this branch. Must exit 0. Nothing is merged."},
+      {key:"check",label:"Check command",placeholder:"npm test",value:checks[key]||""}],"Run");
+    if(!v?.check) return;
+    if(v.check!==checks[key]){checks[key]=v.check; try{localStorage.setItem(CHECK_STORE,JSON.stringify(checks));}catch{}}
+    ctl=new AbortController(); btn.textContent="Cancel"; show("d-meta","Running "+v.check+"\u2026");
+    try{
+      const r=await fetch("/api/git/check",{method:"POST",headers:{"Content-Type":"application/json"},signal:ctl.signal,body:JSON.stringify({dir,check:v.check})});
+      const j=await r.json().catch(()=>({}));
+      const ok=r.ok&&j.ok;
+      show(ok?"d-add":"d-del",ok?"\u2713 Check passed":"\u2717 "+(j.error||("HTTP "+r.status)),j.output);
+    }catch(e){
+      if(e.name==="AbortError") show("d-meta","Check cancelled"); else show("d-del","\u2717 "+e.message);
+    }
+    ctl=null; btn.textContent="Run check\u2026";
+  };
+  btn.addEventListener("click",()=>{ctl?ctl.abort():run();});
+  bar.append(btn,out); return bar;
+}
 // Read-only review: what has the agent changed since the branch was cut? Diffs the
 // working tree against the base commit, so committed AND uncommitted work both show.
 // No accept/discard here on purpose — you have a real shell in that worktree.
@@ -215,6 +246,7 @@ async function openAgentDiff(){
   fvMode="diff"; fvRoot=dir; fvProject=activeProject; hideSendBtn();
   const frag=document.createDocumentFragment();
   const add=(text,cls,data)=>{const n=el("span",cls);n.textContent=text+"\n";if(data)Object.assign(n.dataset,data);frag.append(n);};
+  frag.append(checkBar(dir,j.main||dir));
   (j.files||[]).forEach((f)=>add(({A:"added   ",M:"modified",D:"deleted ",R:"renamed ","?":"new     "}[f.status]||f.status+"       ")+"  "+f.path,"d-file"));
   add("","");
   // Track file + line numbers per hunk line (data-p/-l/-o) so a selection can be sent as `path:from-to`. Counting the

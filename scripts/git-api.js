@@ -33,7 +33,8 @@ const run = (cmd, args, cwd, timeout = 120000) => new Promise((resolve) => {
     (err, stdout, stderr) => resolve({ err, stdout: String(stdout || ''), stderr: String(stderr || '') }));
 });
 const lines = (s) => s.split('\n').map((l) => l.trimEnd()).filter(Boolean);
-async function finishPreview(dir, baseBranch) {
+// The worktree's root and its main tree; throws unless `dir` is inside a worktree termdeck made.
+async function agentWorktree(dir) {
   const top = (await gitP(['rev-parse', '--show-toplevel'], dir)).trim();
   const main = (await gitP(['worktree', 'list', '--porcelain'], top)).split('\n')
                  .find((l) => l.startsWith('worktree '))?.slice(9).trim();
@@ -41,6 +42,10 @@ async function finishPreview(dir, baseBranch) {
   if (!main || real(main) === real(top)) throw new Error('this is the main working tree, not an agent worktree');
   if (path.dirname(real(top)) !== real(path.join(path.dirname(main), path.basename(main) + '-worktrees')))
     throw new Error('not a worktree created by termdeck');
+  return { top, main };
+}
+async function finishPreview(dir, baseBranch) {
+  const { top, main } = await agentWorktree(dir);
   const branch = (await gitP(['rev-parse', '--abbrev-ref', 'HEAD'], top)).trim();
   if (!GIT_BRANCH_RE.test(branch)) throw new Error('worktree is on a detached HEAD');
   const mainBranch = (await gitP(['rev-parse', '--abbrev-ref', 'HEAD'], main)).trim();
@@ -77,22 +82,25 @@ async function finishPreview(dir, baseBranch) {
 // "Run command on start"), run in the worktree before Merge / PR. Non-zero exit or timeout blocks landing; the
 // client may resubmit with skipCheck after an explicit "Land anyway". CI=1 keeps test runners out of watch mode.
 const CHECK_TIMEOUT_MS = (+process.env.TD_CHECK_TIMEOUT || 600) * 1000;
-const runCheck = (cmd, cwd) => new Promise((resolve) => {
+// `signal` (optional): aborting it kills the check, so the review view can cancel a run.
+const runCheck = (cmd, cwd, signal) => new Promise((resolve) => {
   const child = spawn(cmd, { cwd, shell: true, detached: !isWindows, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, CI: '1', GIT_TERMINAL_PROMPT: '0' } });
-  let tail = '', timedOut = false;
+  let tail = '', timedOut = false, cancelled = false;
   const keep = (b) => { tail = (tail + b).slice(-8000); };
   child.stdout.on('data', keep); child.stderr.on('data', keep);
-  const timer = setTimeout(() => {                                // kill the whole tree, not just the shell
-    timedOut = true;
+  const kill = () => {                                            // kill the whole tree, not just the shell
     if (isWindows) spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true });
     else try { process.kill(-child.pid, 'SIGKILL'); } catch {}
-  }, CHECK_TIMEOUT_MS);
-  const done = (r) => { clearTimeout(timer); resolve(r); };
+  };
+  const timer = setTimeout(() => { timedOut = true; kill(); }, CHECK_TIMEOUT_MS);
+  const cancel = () => { cancelled = true; kill(); };
+  signal?.addEventListener('abort', cancel, { once: true });
+  const done = (r) => { clearTimeout(timer); signal?.removeEventListener('abort', cancel); resolve(r); };
   child.on('error', (e) => done({ ok: false, error: 'check could not start: ' + e.message, output: '' }));
   child.on('close', (code) => done({
-    ok: code === 0 && !timedOut,
-    error: timedOut ? 'Check timed out after ' + CHECK_TIMEOUT_MS / 1000 + 's' : 'Check failed (exit ' + code + ')',
+    ok: code === 0 && !timedOut && !cancelled,
+    error: cancelled ? 'Check cancelled' : timedOut ? 'Check timed out after ' + CHECK_TIMEOUT_MS / 1000 + 's' : 'Check failed (exit ' + code + ')',
     output: lines(tail.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')).slice(-15).join('\n'),
   }));
 });
@@ -167,8 +175,27 @@ function gitApi({ apiGuard, expandDir, safeDir }) {
       }) : [];
       const newFiles = untracked.trim() ? untracked.trim().split('\n') : [];
       newFiles.forEach((p) => files.push({ status: '?', path: p }));
-      res.json({ dir, base, files, diff, untracked: newFiles });
+      const main = await gitP(['worktree', 'list', '--porcelain'], dir).then((o) => o.split('\n').find((l) => l.startsWith('worktree '))?.slice(9).trim() || '', () => '');
+      res.json({ dir, base, main, files, diff, untracked: newFiles });
     } catch (e) { res.status(400).json({ error: gitFail(e) }); }
+  });
+
+  // Run the pre-merge check from the review view (same command store as Finish, same trust: typed by the user,
+  // worktrees made by termdeck only — agentWorktree throws for anything else). Landing is not touched.
+  const checking = new Set();
+  r.post('/api/git/check', apiGuard, async (req, res) => {
+    const dir = expandDir(req.body?.dir);
+    const check = String(req.body?.check || '').trim();
+    if (!safeDir(dir)) return res.status(400).json({ error: 'not a directory' });
+    if (!check || check.length > 500) return res.status(400).json({ error: 'check command missing or too long' });
+    let p;
+    try { p = await agentWorktree(dir); } catch (e) { return res.status(400).json({ error: gitFail(e) }); }
+    if (checking.has(p.top)) return res.status(409).json({ error: 'a check is already running in this worktree' });
+    checking.add(p.top);
+    const ac = new AbortController();                               // the client closing the request (Cancel) kills the check
+    res.on('close', () => { if (!res.writableFinished) ac.abort(); });
+    try { const c = await runCheck(check, p.top, ac.signal); if (!ac.signal.aborted) res.json({ ok: c.ok, error: c.ok ? '' : c.error, output: c.output }); }
+    finally { checking.delete(p.top); }
   });
 
   const finishing = new Set();                                      // main trees with a finish in flight (double-click guard)

@@ -569,6 +569,70 @@ test.describe('live backend', () => {
     fs.rmSync(root, { recursive: true, force: true });
   });
 
+  test('/api/git/check: runs the typed command in an agent worktree only; pass, fail, guard', async ({ request }) => {
+    const root = fs.mkdtempSync(path.join(process.env.TD_E2E_HOME, 'check-'));
+    const main = path.join(root, 'repo'), tree = path.join(root, 'repo-worktrees', 'task');
+    const git = (cwd, ...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd, stdio: 'pipe' });
+    fs.mkdirSync(main); fs.mkdirSync(path.dirname(tree));
+    git(main, 'init', '-q', '-b', 'main'); git(main, 'commit', '-q', '--allow-empty', '-m', 'init');
+    git(main, 'worktree', 'add', '-q', tree, '-b', 'task');
+    const check = (dir, cmd, headers) => request.post('/api/git/check', { data: { dir, check: cmd }, headers });
+    expect(await (await check(tree, 'echo hi')).json()).toEqual({ ok: true, error: '', output: 'hi' });
+    const bad = await (await check(tree, 'echo bad; exit 3')).json();
+    expect([bad.ok, bad.error, bad.output]).toEqual([false, 'Check failed (exit 3)', 'bad']);
+    expect((await check(main, 'echo hi')).status()).toBe(400);              // the main tree is not an agent worktree
+    expect((await check(tree, '  ')).status()).toBe(400);                   // empty command
+    expect((await check(tree, 'echo hi', { 'Sec-Fetch-Site': 'cross-site' })).status()).toBe(403);
+    expect((await (await request.get(`/api/git/diff?dir=${encodeURIComponent(tree)}&base=HEAD`)).json()).main).toBe(fs.realpathSync(main));
+    git(main, 'checkout', '-q', '--detach');                                 // an unrelated main-tree state must not block a check
+    expect((await (await check(tree, 'echo hi')).json()).ok).toBe(true);
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  test('/api/git/check: a client that goes away (Cancel) kills the check and frees the worktree', async ({ request }) => {
+    const root = fs.mkdtempSync(path.join(process.env.TD_E2E_HOME, 'check-'));
+    const main = path.join(root, 'repo'), tree = path.join(root, 'repo-worktrees', 'task'), marker = path.join(root, 'ran');
+    const git = (cwd, ...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd, stdio: 'pipe' });
+    fs.mkdirSync(main); fs.mkdirSync(path.dirname(tree));
+    git(main, 'init', '-q', '-b', 'main'); git(main, 'commit', '-q', '--allow-empty', '-m', 'init');
+    git(main, 'worktree', 'add', '-q', tree, '-b', 'task');
+    const check = (cmd, timeout) => request.post('/api/git/check', { data: { dir: tree, check: cmd }, timeout });
+    await expect(check(`sleep 2; touch ${marker}`, 500)).rejects.toThrow();     // the client gives up after 0.5 s
+    await new Promise((r) => setTimeout(r, 2500));
+    expect(fs.existsSync(marker)).toBe(false);                                  // the check was killed, not left running
+    expect((await (await check('echo hi')).json()).ok).toBe(true);              // and the worktree is free again (no 409)
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  test('review view: Run check shows pass in green and fail in red; Cancel stops a running check', async ({ page }) => {
+    const root = fs.mkdtempSync(path.join(process.env.TD_E2E_HOME, 'check-'));
+    const main = path.join(root, 'repo'), tree = path.join(root, 'repo-worktrees', 'task');
+    const git = (cwd, ...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd, stdio: 'pipe' });
+    fs.mkdirSync(main); fs.mkdirSync(path.dirname(tree));
+    git(main, 'init', '-q', '-b', 'main'); git(main, 'commit', '-q', '--allow-empty', '-m', 'init');
+    git(main, 'worktree', 'add', '-q', tree, '-b', 'task');
+    fs.writeFileSync(path.join(tree, 'a.txt'), 'x');
+    await boot(page, '/');
+    /* eslint-disable no-undef -- projects, activeProject, openAgentDiff are the app's page globals */
+    await page.evaluate((dir) => { const p = projects.get(activeProject); p.root = dir; p.base = 'HEAD'; openAgentDiff(); }, tree);
+    /* eslint-enable no-undef */
+    const run = async (cmd) => {
+      await page.getByRole('button', { name: 'Run check…' }).click();
+      await page.getByPlaceholder('npm test').fill(cmd);
+      await page.getByRole('button', { name: 'Run', exact: true }).click();
+    };
+    const status = page.locator('pre[role=status]');
+    await run('echo fine');
+    await expect(status.locator('.d-add')).toHaveText('✓ Check passed');
+    await run('echo nope; exit 1');
+    await expect(status.locator('.d-del')).toHaveText('✗ Check failed (exit 1)'); await expect(status).toContainText('nope');   // the output is shown, uncoloured
+    await run('sleep 30');
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(status).toHaveText('Check cancelled');
+    await expect(page.getByRole('button', { name: 'Run check…' })).toBeVisible();
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
   test('agent queue: red → amber → working, badge follows', async ({ page, request }) => {
     const ids = [];
     page.on('websocket', (ws) => { const m = /[?&]id=([^&]+)/.exec(ws.url()); if (m) ids.push(decodeURIComponent(m[1])); });
