@@ -630,6 +630,15 @@ test.describe('live backend', () => {
     await page.getByRole('button', { name: 'Cancel' }).click();
     await expect(status).toHaveText('Check cancelled');
     await expect(page.getByRole('button', { name: 'Run check…' })).toBeVisible();
+    // The last finished result survives closing the view: coloured while the diff is unchanged, muted once it differs.
+    const reopen = () => page.evaluate(() => openAgentDiff());   // eslint-disable-line no-undef -- the app's page global
+    await reopen();
+    await expect(status.locator('.d-del')).toHaveText(/^✗ Last check failed · echo nope; exit 1 · just now$/);
+    fs.writeFileSync(path.join(tree, 'b.txt'), 'y');
+    await reopen();
+    await expect(status.locator('.d-del, .d-add')).toHaveCount(0);
+    await expect(status).toContainText('Last check failed · echo nope; exit 1');
+    await expect(status).toContainText('the changes differ now, run it again');
     fs.rmSync(root, { recursive: true, force: true });
   });
 

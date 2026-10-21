@@ -191,7 +191,19 @@ async function newAgentTask(){
   toast(ICON.branch,"Worktree ready",v.branch+" → "+j.path,6000);
 }
 // Run check (view only, nothing lands): same stored command as the Finish dialog's "Check before landing" (#119).
-function checkBar(dir,key){
+// The last result per worktree is kept (td.checkres.v1) and shown when the view is reopened; it is coloured only while
+// the diff is the one it ran on (sig), otherwise it is muted and says the changes differ now.
+const CHECK_RESULT="td.checkres.v1";
+const checkResults=()=>{try{return JSON.parse(localStorage.getItem(CHECK_RESULT)||"{}");}catch{return {};}};
+function saveCheckResult(dir,res){
+  const all=checkResults(); all[dir]=res;
+  const keep=Object.entries(all).sort((a,b)=>b[1].at-a[1].at).slice(0,30);   // newest 30 worktrees
+  try{localStorage.setItem(CHECK_RESULT,JSON.stringify(Object.fromEntries(keep)));}catch{}
+}
+// shortcut: hashes the diff and file list, so an edit to an untracked file's content is not noticed; fine for a hint
+const diffSig=(j)=>{const s=(j.diff||"")+JSON.stringify(j.files||[]); let h=5381; for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0; return String(h);};
+const agoOf=(t)=>{const m=Math.round((Date.now()-t)/60000); return m<1?"just now":m<60?m+" min ago":m<1440?Math.round(m/60)+" h ago":Math.round(m/1440)+" d ago";};
+function checkBar(dir,key,sig){
   const bar=el("div"); bar.style.cssText="display:flex;gap:10px;align-items:flex-start;margin-bottom:6px;font-family:system-ui,sans-serif";
   const btn=el("button","btn"); btn.textContent="Run check\u2026"; btn.style.minWidth="104px"; btn.style.justifyContent="center";   // same size for "Cancel"
   const out=el("pre","d-meta"); out.setAttribute("role","status"); out.style.cssText="margin:0;flex:1;white-space:pre-wrap;font:12px/1.5 var(--mono);max-height:13.5em;overflow:auto;scrollbar-width:thin;scrollbar-color:var(--line) transparent";   // long test output scrolls here, not the whole diff
@@ -213,12 +225,19 @@ function checkBar(dir,key){
       const j=await r.json().catch(()=>({}));
       const ok=r.ok&&j.ok;
       show(ok?"d-add":"d-del",ok?"\u2713 Check passed":"\u2717 "+(j.error||("HTTP "+r.status)),j.output);
+      if(r.status!==409&&r.status!==400) saveCheckResult(dir,{ok,cmd:v.check,at:Date.now(),sig});   // a refusal (busy, bad input) is not a result
     }catch(e){
       if(e.name==="AbortError") show("d-meta","Check cancelled"); else show("d-del","\u2717 "+e.message);
     }
     ctl=null; btn.textContent="Run check\u2026";
   };
   btn.addEventListener("click",()=>{ctl?ctl.abort():run();});
+  const last=checkResults()[dir];
+  if(last){
+    const fresh=last.sig===sig, what=(last.ok?"Last check passed":"Last check failed")+" \u00b7 "+last.cmd+" \u00b7 "+agoOf(last.at);
+    if(fresh) show(last.ok?"d-add":"d-del",(last.ok?"\u2713 ":"\u2717 ")+what);
+    else show("d-meta",what+" \u2014 the changes differ now, run it again");
+  }
   bar.append(btn,out); return bar;
 }
 // Files whose change deserves a closer look before landing: they run code on install/CI/commit, carry secrets, or
@@ -257,7 +276,7 @@ async function openAgentDiff(){
   fvMode="diff"; fvRoot=dir; fvProject=activeProject; hideSendBtn();
   const frag=document.createDocumentFragment();
   const add=(text,cls,data)=>{const n=el("span",cls);n.textContent=text+"\n";if(data)Object.assign(n.dataset,data);frag.append(n);};
-  frag.append(checkBar(dir,j.main||dir));
+  frag.append(checkBar(dir,j.main||dir,diffSig(j)));
   const risky=riskyFiles(j.files||[]);
   if(risky.length){add("Review closely \u2014 these files run code, carry secrets or pin dependencies:","d-hunk"); risky.forEach((r)=>add("  "+r.label.padEnd(21)+r.path,"d-hunk")); add("","");}
   (j.files||[]).forEach((f)=>add(({A:"added   ",M:"modified",D:"deleted ",R:"renamed ","?":"new     "}[f.status]||f.status+"       ")+"  "+f.path,"d-file"));
