@@ -71,9 +71,9 @@ termdeck uses tmux under the hood when it's installed, so you keep tmux's durabi
 
 **3. Unblock.** With the optional [agent hooks](docs/agent-hooks.md) (small scripts your agent CLI runs to report what it's doing; `termdeck hooks install` sets them up and asks first), the queue shows the exact command an agent wants to run with **Approve / Deny** buttons. termdeck never answers on its own — only when you click, or through an allow-rule you created yourself (a saved pattern such as `npm test` that may run without asking).
 
-**4. Review.** *Review agent changes…* shows a read-only diff of everything the agent changed since its branch was cut — committed and uncommitted work in one view.
+**4. Review.** *Review agent changes…* shows a read-only diff of everything the agent changed since its branch was cut — committed and uncommitted work in one view. *Run check…* runs your test command in the worktree and shows pass or fail next to the diff, and files that run code or carry secrets (lockfiles, CI config, `.env`) are flagged for a closer look.
 
-![Read-only diff of an agent's worktree: files added and modified, then the unified diff](https://raw.githubusercontent.com/kiril6/termdeck/master/docs/screenshots/review-changes.png)
+![Read-only diff of an agent's worktree: a passing check above the files added and modified, then the unified diff](https://raw.githubusercontent.com/kiril6/termdeck/master/docs/screenshots/review-changes.png)
 
 **5. Land.** *Finish agent task…* merges the branch or opens a pull request, optionally after a check like `npm test` that must pass first. Each option says why when it isn't available. Removing the worktree is a separate opt-in, and git still refuses to delete unmerged work.
 
@@ -196,7 +196,7 @@ Set via environment variable; `--port`, `--host` and `--no-open` also exist as f
 | `TD_BUFFER` | `1000000` | Output replayed on reconnect, per terminal (bytes). |
 | `TD_MAX_PANELS` | `64` | Maximum live terminals on the server. Never blocks reattaching. |
 | `TD_EDITOR` | `code` | Executable for the file tree's *Open in editor*. |
-| `TD_CHECK_TIMEOUT` | `600` | Seconds the *Finish agent task* check may run before landing is blocked. |
+| `TD_CHECK_TIMEOUT` | `600` | Seconds a check may run: in *Finish agent task* (landing is blocked after that) and in *Run check…* in the review view. |
 | `TD_LOG_DIR` | *(none)* | Write session logs (and the approval audit log) here. Off by default. |
 | `TD_ALLOWED_HOSTS` | *(none)* | Extra exact hostnames for a reverse proxy (e.g. `tailscale serve`). Switches to a per-start access token. |
 | `TD_NOTIFY_URL` | *(none)* | Webhook POSTed when an agent needs you (ntfy-ready). Also `TD_NOTIFY_EVENTS` (default `permission_request`), `TD_NOTIFY_DETAIL=1` (include the command). See [remote access](docs/remote-access.md#phone-notifications). |
