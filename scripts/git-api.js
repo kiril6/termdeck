@@ -84,6 +84,7 @@ async function finishPreview(dir, baseBranch) {
 const CHECK_TIMEOUT_MS = (+process.env.TD_CHECK_TIMEOUT || 600) * 1000;
 // `signal` (optional): aborting it kills the check, so the review view can cancel a run.
 const runCheck = (cmd, cwd, signal) => new Promise((resolve) => {
+  if (signal?.aborted) return resolve({ ok: false, error: 'Check cancelled', output: '' });   // cancelled before it started: an abort event would never come
   const child = spawn(cmd, { cwd, shell: true, detached: !isWindows, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, CI: '1', GIT_TERMINAL_PROMPT: '0' } });
   let tail = '', timedOut = false, cancelled = false;
@@ -91,7 +92,10 @@ const runCheck = (cmd, cwd, signal) => new Promise((resolve) => {
   child.stdout.on('data', keep); child.stderr.on('data', keep);
   const kill = () => {                                            // kill the whole tree, not just the shell
     if (isWindows) spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true });
-    else try { process.kill(-child.pid, 'SIGKILL'); } catch {}
+    else try {
+      process.kill(-child.pid, 'SIGSTOP');                        // freeze first: SIGKILL is not atomic across the group, and a shell that sees its child die
+      process.kill(-child.pid, 'SIGKILL');                        // would start the next command of `a; b` before its own kill arrives
+    } catch { child.kill('SIGKILL'); }                            // no group yet (killed right after spawn): kill the child itself
   };
   const timer = setTimeout(() => { timedOut = true; kill(); }, CHECK_TIMEOUT_MS);
   const cancel = () => { cancelled = true; kill(); };
@@ -184,6 +188,8 @@ function gitApi({ apiGuard, expandDir, safeDir }) {
   // worktrees made by termdeck only — agentWorktree throws for anything else). Landing is not touched.
   const checking = new Set();
   r.post('/api/git/check', apiGuard, async (req, res) => {
+    const ac = new AbortController();                               // the client closing the request (Cancel) kills the check
+    res.on('close', () => { if (!res.writableFinished) ac.abort(); });   // registered first: a disconnect during validation must count too
     const dir = expandDir(req.body?.dir);
     const check = String(req.body?.check || '').trim();
     if (!safeDir(dir)) return res.status(400).json({ error: 'not a directory' });
@@ -192,8 +198,6 @@ function gitApi({ apiGuard, expandDir, safeDir }) {
     try { p = await agentWorktree(dir); } catch (e) { return res.status(400).json({ error: gitFail(e) }); }
     if (checking.has(p.top)) return res.status(409).json({ error: 'a check is already running in this worktree' });
     checking.add(p.top);
-    const ac = new AbortController();                               // the client closing the request (Cancel) kills the check
-    res.on('close', () => { if (!res.writableFinished) ac.abort(); });
     try { const c = await runCheck(check, p.top, ac.signal); if (!ac.signal.aborted) res.json({ ok: c.ok, error: c.ok ? '' : c.error, output: c.output }); }
     finally { checking.delete(p.top); }
   });
