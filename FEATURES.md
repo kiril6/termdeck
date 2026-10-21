@@ -294,6 +294,10 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   landing* (shared per-repo store `td.checks.v1`, editable in the dialog) in the worktree and shows ✓/✗ plus the last
   15 lines of output, so you see pass/fail next to the diff before landing. Nothing is merged or changed. While it
   runs the button turns into *Cancel*: closing the request kills the whole process tree on the server.
+  The last finished result per worktree (`td.checkres.v1`, newest 30) is shown when the view is reopened: coloured
+  while the diff is the one it ran on, muted with *the changes differ now, run it again* once it isn't (a hash of the
+  diff and file list, so an edit inside an untracked file isn't noticed). A cancelled or refused run saves nothing;
+  there is no automatic re-run, since that would run branch code unattended.
   `POST /api/git/check` (behind `apiGuard`, termdeck worktrees only, one run per worktree, same `TD_CHECK_TIMEOUT`).
   **Review closely:** changed files that run code, carry secrets or pin what gets installed — lockfiles, package/dependency
   manifests, CI config, git hooks, `.env*` / keys / `.npmrc`, Dockerfile / Makefile — are listed in a block above the
