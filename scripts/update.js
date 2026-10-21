@@ -58,7 +58,7 @@ async function main(argv) {
     if (check) { console.log('  Run `termdeck update` to install it.\n'); process.exit(0); }
 
     const kind = installKind(ROOT, npmGlobalRoot());
-    if (kind === 'npx') throw new Abort('this copy runs from the temporary npx cache — the next `npx @kiril6/termdeck` already fetches the latest release');
+    if (kind === 'npx') throw new Abort('this copy runs from the temporary npx cache — stop it and start it again with `npx -y @kiril6/termdeck@latest` (plain `npx` may reuse an old cached copy)');
     if (kind === 'other') throw new Abort('this copy was not installed with `npm install -g` (a git clone, pnpm, yarn or a project install?) — update it the way you installed it, e.g. `git pull && npm install`');
 
     let svc = null;   // the start-at-login service, when there is one (macOS and Linux only)
