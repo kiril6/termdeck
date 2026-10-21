@@ -15,6 +15,15 @@ never writes the access token anywhere, refuses to overwrite a file it didn't cr
 from the temporary `npx` cache (install globally or clone first). A non-loopback `--host` is only used if you
 pass it, with a warning. macOS and Linux only; everything below is the manual route.
 
+### Updating termdeck
+
+After `npm update -g @kiril6/termdeck`, run the install again with the same port: it reloads the service (`launchctl bootout` + `bootstrap`, or `systemctl --user disable --now` + `enable --now`), so the new version starts. Then reload the app window.
+
+```bash
+termdeck autostart install --port 17300 --yes   # use the port you installed with, or it falls back to 3000
+```
+
+
 ---
 
 Run termdeck at login/boot so the dashboard is always there. Both templates need two edits:
