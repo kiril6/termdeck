@@ -2,6 +2,10 @@
 
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
+## 1.31.0
+- **Run your check from the review view** — *Review agent changes…* now has a *Run check…* button. It runs the same command as *Finish agent task*'s *Check before landing* (for example `npm test`, remembered per repo) in the agent's worktree and shows ✓ or ✗ plus the last lines of output next to the diff, so you see whether the work passes before you land it. Nothing is merged. While it runs the button becomes *Cancel*, which stops the command and everything it started. The command is only ever what you typed, never read from the repo, and it runs code from the branch.
+- **Risky files are flagged in the review** — a *Review closely* block above the file list names changed files that run code, carry secrets or pin what gets installed: lockfiles, `package.json` and other dependency manifests, CI config, git hooks, `.env*`, keys and `.npmrc`, Dockerfile and Makefile. It matches file paths only and blocks nothing; it points at where to look first.
+
 ## 1.30.0
 - **A warning when termdeck starts on a different port** — when port 3000 is busy, termdeck moves to the next free port. That is a different browser address, so the windows, projects and themes you saved on the old one don't show, and it looked like they were lost. termdeck now remembers the port it ran on last time. When it starts somewhere else (3000 busy, or back on 3000 after a run on 3001), the console and the app say where your workspace is and how to get it back: restart termdeck on that port (`PORT=3001`), or use ⌘K → *Export settings…* / *Import settings…*. Click the notice to jump to those commands. There's no notice on a first run or with a pinned `PORT`.
 
