@@ -76,6 +76,7 @@ jobs:
       - run: node scripts/check-hooks.js
       - run: node scripts/hooks.test.js
       - run: node scripts/notify.test.js
+      - run: node scripts/update.test.js
       - run: node scripts/check-rules.js
       - run: node scripts/json-store.test.js
       - run: node scripts/secret-race.test.js

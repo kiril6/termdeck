@@ -39,11 +39,12 @@ const run = (url, ...args) => new Promise((ok) => {   // async: the stub registr
   assert.strictEqual(r.code, 2);
   reg.close();
 
-  const g = path.join(path.sep, 'g', 'lib', 'node_modules');
+  const g = path.resolve(path.sep, 'g', 'lib', 'node_modules');
   assert.strictEqual(installKind(path.join(g, '@kiril6', 'termdeck'), g), 'npm');
-  assert.strictEqual(installKind(path.join(path.sep, 'proj', 'node_modules', '@kiril6', 'termdeck'), g), 'other');   // local install
-  assert.strictEqual(installKind(path.join(path.sep, 'repo'), g), 'other');
-  assert.strictEqual(installKind(path.join(path.sep, 'x', '_npx', 'ab', 'node_modules', '@kiril6', 'termdeck'), g), 'npx');
+  assert.strictEqual(installKind(path.resolve(path.sep, 'proj', 'node_modules', '@kiril6', 'termdeck'), g), 'other');   // local install
+  assert.strictEqual(installKind(path.resolve(path.sep, 'repo'), g), 'other');
+  assert.strictEqual(installKind(path.resolve(path.sep, 'x', '_npx', 'ab', 'node_modules', '@kiril6', 'termdeck'), g), 'npx');
   assert.strictEqual(installKind(path.join(g, '@kiril6', 'termdeck'), null), 'other');
+  if (process.platform === 'win32') assert.strictEqual(installKind(path.join(g, '@kiril6', 'termdeck'), g.toUpperCase()), 'npm');
   console.log('update test passed');
 })();

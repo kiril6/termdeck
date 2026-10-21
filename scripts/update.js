@@ -20,7 +20,8 @@ class Abort extends Error {}
 // npm = a global `npm install -g` (the only copy `npm install -g` can replace); npx = temporary cache; other = clone, pnpm, yarn, local install.
 function installKind(root, globalRoot) {
   if (/[\\/]_npx[\\/]/.test(root)) return 'npx';
-  return globalRoot && path.resolve(globalRoot, ...PKG.name.split('/')) === root ? 'npm' : 'other';
+  const norm = (p) => (WIN ? p.toLowerCase() : p);   // Windows paths: drive letter and folder case vary
+  return globalRoot && norm(path.resolve(globalRoot, ...PKG.name.split('/'))) === norm(path.resolve(root)) ? 'npm' : 'other';
 }
 
 function npmGlobalRoot() {
