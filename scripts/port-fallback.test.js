@@ -28,11 +28,20 @@ const get = (port, p, cookie) => new Promise((ok, fail) => {
   const start = (env) => {
     const s = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {
       env: { ...process.env, PORT: '', HOME: home, NO_TMUX: '1', NO_OPEN: '1', ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
-    s.out = ''; s.stdout.on('data', (d) => { s.out += d; }); s.stderr.on('data', (d) => { s.out += d; });
+    s.out = ''; s.last = Date.now(); const add = (d) => { s.out += d; s.last = Date.now(); }; s.stdout.on('data', add); s.stderr.on('data', add);
     servers.push(s); return s;
   };
-  // The banner prints the sign-in link (stdout is a pipe, so only the base URL) — read the port from it.
-  const portOf = async (s) => { for (let i = 0; i < 100; i++) { const m = /TermDeck → http:\/\/127\.0\.0\.1:(\d+)/.exec(s.out); if (m) return Number(m[1]); await sleep(100); } return null; };
+  // The banner prints the sign-in link (stdout is a pipe, so only the base URL) — read the port from it. The banner is
+  // several writes, so also wait until the output has been quiet for 300 ms: asserting on the rest of it right after the
+  // first line raced with the pipe (a loaded CI runner failed the "last run was on" check).
+  const portOf = async (s) => {
+    for (let i = 0; i < 100; i++) {
+      const m = /TermDeck → http:\/\/127\.0\.0\.1:(\d+)/.exec(s.out);
+      if (m) { while (Date.now() - s.last < 300) await sleep(50); return Number(m[1]); }
+      await sleep(100);
+    }
+    return null;
+  };
   // Sign in with the local token, as `termdeck open` does, to read /api/version.
   const version = async (port) => {
     const token = fs.readFileSync(path.join(home, '.termdeck', 'token'), 'utf8').trim();
