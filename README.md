@@ -206,13 +206,8 @@ Set via environment variable; `--port`, `--host` and `--no-open` also exist as f
 
 The running version is shown in the app's **? Help** panel; see [Releases](https://github.com/kiril6/termdeck/releases) for what's new.
 
-- **Global install:** `npm update -g @kiril6/termdeck`, then restart the server: the running one keeps serving the old version until you do.
-- **Installed as an app (PWA) or with autostart:** the app window only shows what the server serves, so an update is *new package → restart the server → reload the window* (`⌘R` / `Ctrl+R`):
-  ```bash
-  npm update -g @kiril6/termdeck
-  termdeck autostart install --port 17300 --yes   # the same port as before: it reloads the service on the new version
-  ```
-  Repeat the **same `--port`** you installed with: without it the default is 3000, which is a different address, so your saved windows and projects don't show (⌘K → *Export / Import settings* moves them). Shells keep running through the restart only if tmux is installed. On Windows, or without autostart, stop termdeck (`Ctrl+C`) and start it again with the same `--port`.
+- **Global install:** `termdeck update` installs the latest release with npm and, if you set up start-at-login, restarts that service in place (same port, nothing to retype). It asks first; `--check` only reports, `--dry-run` shows the commands, `--yes` skips the question. Then reload the app window (`⌘R` / `Ctrl+R`): an update is *new package → restart the server → reload the window*, because the window only shows what the server serves. Shells keep running through the restart only if tmux is installed.
+- **Without autostart (or on Windows):** `termdeck update` installs the package and tells you to stop termdeck (`Ctrl+C`) and start it again with the same `--port`: a different port is a different address, so your saved windows and projects don't show (⌘K → *Export / Import settings* moves them).
 - **npx** caches, so force a fresh copy: `npx -y @kiril6/termdeck@latest`
 - **Clone:** `git pull && node install.js && npm start`
 
