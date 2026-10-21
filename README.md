@@ -129,7 +129,7 @@ See also [Known limits](#known-limits). Found a vulnerability? Report it private
 - **Export / import settings** (palette): theme, font, snippets, SSH hosts and AI CLI presets in one JSON file, for another browser or a backup.
 - **Keyboard and screen readers:** move or resize a window from the keyboard (palette → *Move or resize window*); the palette, dialogs and toasts work with screen readers.
 - **Phone layout:** on a screen 600 px wide or less, every window fills the screen; switch between them from the dock.
-- **Install as a desktop app (PWA):** Chrome and Edge show an install icon; Safari uses *File → Add to Dock*. It opens in its own window without tabs or address bar. It needs the running server on one fixed address: after `npm i -g @kiril6/termdeck`, `termdeck autostart install --port 17300` runs it now and at every login on an uncommon port (dev servers often take 3000); `termdeck open` then opens it signed in.
+- **Install as a desktop app (PWA):** Chrome and Edge show an install icon; Safari uses *File → Add to Dock*. It opens in its own window without tabs or address bar. It needs the running server on one fixed address: after `npm i -g @kiril6/termdeck`, `termdeck autostart install --port 17300` runs it now and at every login on an uncommon port (dev servers often take 3000); `termdeck open` then opens it signed in. With `npx` or a project install it works the same while the server runs, but you start it yourself each time on the same port (`PORT=17300 npx -y @kiril6/termdeck@latest`): there is no start-at-login, and with the server down the window shows a browser error.
 
 ![Four terminals tiled with the file tree open, in the GitHub Light theme](https://raw.githubusercontent.com/kiril6/termdeck/master/docs/screenshots/workspace-light.png)
 
@@ -208,7 +208,8 @@ The running version is shown in the app's **? Help** panel; see [Releases](https
 
 - **Global install:** `termdeck update` installs the latest release with npm and, if you set up start-at-login, restarts that service in place (same port, nothing to retype). It asks first; `--check` only reports, `--dry-run` shows the commands, `--yes` skips the question. Then reload the app window (`⌘R` / `Ctrl+R`): an update is *new package → restart the server → reload the window*, because the window only shows what the server serves. Shells keep running through the restart only if tmux is installed.
 - **Without autostart (or on Windows):** `termdeck update` installs the package and tells you to stop termdeck (`Ctrl+C`) and start it again with the same `--port`: a different port is a different address, so your saved windows and projects don't show (⌘K → *Export / Import settings* moves them).
-- **npx** caches, so force a fresh copy: `npx -y @kiril6/termdeck@latest`
+- **npx** caches, so force a fresh copy: `npx -y @kiril6/termdeck@latest` (stop the running one first). `termdeck update` doesn't apply: there is no installed copy to replace.
+- **Installed in a project (`npm i @kiril6/termdeck`):** `npm update @kiril6/termdeck` in that project, then restart. `termdeck update` only updates the global install.
 - **Clone:** `git pull && node install.js && npm start`
 
 ### Platform notes
