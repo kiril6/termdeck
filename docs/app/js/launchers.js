@@ -221,6 +221,17 @@ function checkBar(dir,key){
   btn.addEventListener("click",()=>{ctl?ctl.abort():run();});
   bar.append(btn,out); return bar;
 }
+// Files whose change deserves a closer look before landing: they run code on install/CI/commit, carry secrets, or
+// pin what gets installed. Path patterns only (no content scan); the list is a hint, not a verdict.
+const RISKY_FILES=[
+  ["lockfile",/(^|\/)(package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|Cargo\.lock|poetry\.lock|Gemfile\.lock|go\.sum)$/],
+  ["dependencies/scripts",/(^|\/)(package\.json|requirements[^/]*\.txt|pyproject\.toml|Cargo\.toml|go\.mod|Gemfile)$/],
+  ["CI config",/(^|\/)(\.github\/workflows\/|\.gitlab-ci\.yml$|\.circleci\/|Jenkinsfile$)/],
+  ["git hooks",/(^|\/)(\.husky\/|\.githooks\/|\.git\/hooks\/)/],
+  ["secrets/env",/(^|\/)(\.env($|\.)|[^/]*\.(pem|key|p12)$|id_(rsa|ed25519)$|\.npmrc$|\.netrc$)/],
+  ["container/build",/(^|\/)(Dockerfile[^/]*|docker-compose[^/]*\.ya?ml|Makefile)$/],
+];
+const riskyFiles=(files)=>files.flatMap((f)=>RISKY_FILES.filter(([,re])=>re.test(f.path)).map(([label])=>({label,path:f.path})));
 // Read-only review: what has the agent changed since the branch was cut? Diffs the
 // working tree against the base commit, so committed AND uncommitted work both show.
 // No accept/discard here on purpose — you have a real shell in that worktree.
@@ -247,6 +258,8 @@ async function openAgentDiff(){
   const frag=document.createDocumentFragment();
   const add=(text,cls,data)=>{const n=el("span",cls);n.textContent=text+"\n";if(data)Object.assign(n.dataset,data);frag.append(n);};
   frag.append(checkBar(dir,j.main||dir));
+  const risky=riskyFiles(j.files||[]);
+  if(risky.length){add("Review closely \u2014 these files run code, carry secrets or pin dependencies:","d-hunk"); risky.forEach((r)=>add("  "+r.label.padEnd(21)+r.path,"d-hunk")); add("","");}
   (j.files||[]).forEach((f)=>add(({A:"added   ",M:"modified",D:"deleted ",R:"renamed ","?":"new     "}[f.status]||f.status+"       ")+"  "+f.path,"d-file"));
   add("","");
   // Track file + line numbers per hunk line (data-p/-l/-o) so a selection can be sent as `path:from-to`. Counting the

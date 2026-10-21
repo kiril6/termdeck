@@ -633,6 +633,31 @@ test.describe('live backend', () => {
     fs.rmSync(root, { recursive: true, force: true });
   });
 
+  test('review view: files that run code, carry secrets or pin dependencies are flagged', async ({ page }) => {
+    const root = fs.mkdtempSync(path.join(process.env.TD_E2E_HOME, 'risky-'));
+    const main = path.join(root, 'repo'), tree = path.join(root, 'repo-worktrees', 'task');
+    const git = (cwd, ...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd, stdio: 'pipe' });
+    fs.mkdirSync(main); fs.mkdirSync(path.dirname(tree));
+    git(main, 'init', '-q', '-b', 'main'); git(main, 'commit', '-q', '--allow-empty', '-m', 'init');
+    git(main, 'worktree', 'add', '-q', tree, '-b', 'task');
+    for (const f of ['package-lock.json', '.github/workflows/ci.yml', '.env.local', 'src/app.js', 'docs/env.md']) {
+      fs.mkdirSync(path.dirname(path.join(tree, f)), { recursive: true }); fs.writeFileSync(path.join(tree, f), 'x');
+    }
+    await boot(page, '/');
+    /* eslint-disable no-undef -- projects, activeProject, openAgentDiff are the app's page globals */
+    await page.evaluate((dir) => { const p = projects.get(activeProject); p.root = dir; p.base = 'HEAD'; openAgentDiff(); }, tree);
+    /* eslint-enable no-undef */
+    const flagged = page.locator('.fv-body .d-hunk');
+    await expect(flagged.first()).toContainText('Review closely');
+    const text = (await flagged.allTextContents()).join('');
+    expect(text).toMatch(/lockfile\s+package-lock\.json/);
+    expect(text).toMatch(/CI config\s+\.github\/workflows\/ci\.yml/);
+    expect(text).toMatch(/secrets\/env\s+\.env\.local/);
+    expect(text).not.toContain('app.js');                                   // ordinary source is not flagged
+    expect(text).not.toContain('env.md');
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
   test('agent queue: red → amber → working, badge follows', async ({ page, request }) => {
     const ids = [];
     page.on('websocket', (ws) => { const m = /[?&]id=([^&]+)/.exec(ws.url()); if (m) ids.push(decodeURIComponent(m[1])); });

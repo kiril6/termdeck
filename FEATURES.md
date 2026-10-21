@@ -295,6 +295,9 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   15 lines of output, so you see pass/fail next to the diff before landing. Nothing is merged or changed. While it
   runs the button turns into *Cancel*: closing the request kills the whole process tree on the server.
   `POST /api/git/check` (behind `apiGuard`, termdeck worktrees only, one run per worktree, same `TD_CHECK_TIMEOUT`).
+  **Review closely:** changed files that run code, carry secrets or pin what gets installed — lockfiles, package/dependency
+  manifests, CI config, git hooks, `.env*` / keys / `.npmrc`, Dockerfile / Makefile — are listed in a block above the
+  file summary. Path patterns only (no content scan, no blocking): a hint of where to look, not a verdict.
 - 🖥️ **Send to agent (#27)** — turn a selection into a prompt for another terminal, no copy-paste. **Three
   sources, one target picker:** a selection in the **file viewer** (a floating *Send to agent…* button appears
   next to it), a selection in the **Review agent changes** diff, or **any terminal's output** (right-click →
