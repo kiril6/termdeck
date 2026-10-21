@@ -52,6 +52,7 @@
     "scripts/td-hook.js",
     "scripts/uninstall.js",
     "scripts/update-check.js",
+    "scripts/update.js",
     "FEATURES.md",
     "CHANGELOG.md"
   ],

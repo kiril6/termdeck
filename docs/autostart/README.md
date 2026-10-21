@@ -17,10 +17,10 @@ pass it, with a warning. macOS and Linux only; everything below is the manual ro
 
 ### Updating termdeck
 
-After `npm update -g @kiril6/termdeck`, run the install again with the same port: it reloads the service (`launchctl bootout` + `bootstrap`, or `systemctl --user disable --now` + `enable --now`), so the new version starts. Then reload the app window.
+Run `termdeck update`. It installs the latest release with npm, then restarts the service in place (`launchctl kickstart -k`, or `systemctl --user restart`): the service file points at the package folder, so it keeps its port and host. Then reload the app window. (`npm update -g @kiril6/termdeck` followed by `termdeck autostart install --port <same port> --yes` does the same by hand.)
 
 ```bash
-termdeck autostart install --port 17300 --yes   # use the port you installed with, or it falls back to 3000
+termdeck update --yes
 ```
 
 
