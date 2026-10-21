@@ -193,8 +193,8 @@ async function newAgentTask(){
 // Run check (view only, nothing lands): same stored command as the Finish dialog's "Check before landing" (#119).
 function checkBar(dir,key){
   const bar=el("div"); bar.style.cssText="display:flex;gap:10px;align-items:flex-start;margin-bottom:6px;font-family:system-ui,sans-serif";
-  const btn=el("button","cm-btn"); btn.textContent="Run check\u2026";
-  const out=el("pre","d-meta"); out.setAttribute("role","status"); out.style.cssText="margin:0;flex:1;white-space:pre-wrap;font:12px ui-monospace,monospace";
+  const btn=el("button","btn"); btn.textContent="Run check\u2026"; btn.style.minWidth="104px"; btn.style.justifyContent="center";   // same size for "Cancel"
+  const out=el("pre","d-meta"); out.setAttribute("role","status"); out.style.cssText="margin:0;flex:1;white-space:pre-wrap;font:12px/1.5 var(--mono);max-height:13.5em;overflow:auto;scrollbar-width:thin;scrollbar-color:var(--line) transparent";   // long test output scrolls here, not the whole diff
   const show=(cls,head,output)=>{   // only the status line is coloured; the command's output stays muted
     const h=el("span",cls); h.textContent=head; out.className="d-meta"; out.replaceChildren(h);
     if(output) out.append("\n"+output);
