@@ -66,11 +66,14 @@ function toggleMax(s){
 function unmaxKeeping(s){const p=s.prevRect||{width:"580px",height:"380px"};s.win.classList.remove("max");s.maximized=false;s.win.style.width=p.width;s.win.style.height=p.height;refitActive(s);}
 // Focus a terminal on the next tick — unless focus moved somewhere else meanwhile (the palette or a dialog opened, a
 // tab name went into rename): a late timer must never pull keystrokes back into a shell. Seen when ⌘K follows page
-// load closely: the queued timer fired after the palette opened, closed it, and Enter went to the shell.
+// load closely: the queued timer fired after the palette opened, closed it, and Enter went to the shell. Focus can also
+// sit unchanged in a dialog that closed and reopened meanwhile (⌘K right after a palette command), so an open dialog
+// holding focus always wins.
 function focusTermSoon(t){
   const before=document.activeElement;
   setTimeout(()=>{
-    const ae=document.activeElement;
+    const ae=document.activeElement, dlg=ae?.closest?.('[aria-modal="true"]');
+    if(dlg&&dlg.getClientRects().length) return;
     if(ae&&ae!==before&&ae!==document.body&&!ae.classList.contains("xterm-helper-textarea")) return;
     try{t.term.focus();}catch{}
   },0);

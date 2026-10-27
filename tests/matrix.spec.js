@@ -523,15 +523,14 @@ test.describe('focus veil', () => {
     expect((await stats(page)).map((x) => x.draws)).toEqual(a.map((x) => x.draws));
   });
 
-  test('slow frames step the rain down and never back up (Chromium CPU throttling)', async ({ page, browserName }) => {
-    test.skip(browserName !== 'chromium', 'CDP CPU throttling is Chromium-only');
+  test('slow frames step the rain down and never back up', async ({ page }) => {
     await boot(page, '/?demo', { bg: true, veilStyle: 'rain' });
     for (let i = 0; i < 3; i++) await page.keyboard.press('ControlOrMeta+Alt+KeyT');
     await page.evaluate(() => sessions.forEach((s) => mxVeilNow(s, activeTab(s))));
-    const cdp = await page.context().newCDPSession(page);
-    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 40 });
+    // Slow draws on purpose (CPU throttling alone isn't slow enough on a fast machine): each draw busy-waits 5 ms.
+    await page.evaluate(() => { const draw = window.mxDraw; window.mxSlowDraw = draw; window.mxDraw = (r, dt) => { const t = performance.now(); while (performance.now() - t < 5); draw(r, dt); }; });
     await expect.poll(() => page.evaluate(() => +(document.documentElement.dataset.mxLevel || 0)), { timeout: 20000 }).toBeGreaterThan(0);
-    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+    await page.evaluate(() => { window.mxDraw = window.mxSlowDraw; });
     const lvl = await page.evaluate(() => +document.documentElement.dataset.mxLevel);
     await page.waitForTimeout(1000);
     expect(await page.evaluate(() => +document.documentElement.dataset.mxLevel)).toBeGreaterThanOrEqual(lvl);
@@ -589,7 +588,8 @@ test.describe('matrix rain background', () => {
     expect(after.speed.slice(0, before.speed.length)).toEqual(before.speed);                   // the same columns carry on
     const kept = after.drops.slice(0, before.drops.length).filter((y, i) => y >= before.drops[i]).length;
     expect(kept).toBeGreaterThan(before.drops.length * 0.8);                                    // still falling from where they were (a few may wrap)
-    expect(after.drops.slice(before.drops.length).every((y) => y >= 0)).toBe(true);           // new columns start on screen, not above it
+    const added = after.drops.slice(before.drops.length);                                       // new columns start on screen, not above it
+    expect(added.filter((y) => y < 0).length).toBeLessThan(Math.max(2, added.length * 0.15));    // (a few reach the bottom and wrap before this read)
     expect(after.lit).toBeGreaterThan(0);                                                       // the old frame was kept
   });
 
