@@ -337,6 +337,25 @@ test.describe('demo mode (no backend)', () => {
     expect(await page.evaluate(() => gBest())).toBe(3);
   });
 
+  test('resizing the window keeps the pets on the floor and on screen, at once (no float, no off-screen glide back)', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('td.pets.v1', 'on'));
+    await page.setViewportSize({ width: 1400, height: 800 });
+    await boot(page, '/?demo');
+    await expect(page.locator('#petfield .pet')).toHaveCount(3);
+    // every pet's box inside the field, its bottom within the 40px floor strip; measured two frames after the resize
+    const placed = () => page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(() => {
+      const f = document.getElementById('petfield').getBoundingClientRect();
+      ok([...document.querySelectorAll('#petfield .pet')].every((p) => {
+        const r = p.getBoundingClientRect();
+        return r.left >= f.left - 1 && r.right <= f.right + 1 && r.bottom <= f.bottom + 1 && f.bottom - r.bottom <= 40;
+      }));
+    }))));
+    for (const size of [{ width: 700, height: 450 }, { width: 1400, height: 800 }, { width: 500, height: 800 }]) {
+      await page.setViewportSize(size);
+      expect(await placed(), `${size.width}x${size.height}`).toBe(true);
+    }
+  });
+
   test('AltGr (Ctrl+Alt on Windows/Linux European layouts) is typing, never a shortcut', async ({ page }) => {
     await boot(page, '/?demo');
     const key = (init) => page.evaluate((i) => document.body.dispatchEvent(new KeyboardEvent('keydown', { ...i, ctrlKey: true, altKey: true, bubbles: true })), init);
