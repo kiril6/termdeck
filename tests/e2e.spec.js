@@ -311,6 +311,15 @@ test.describe('demo mode (no backend)', () => {
     await expect(page.locator('#pal-cats .pal-cat.on')).toHaveText('Agents');
     await expect(page.locator('#pal-input')).toBeFocused();
   });
+  test('AltGr (Ctrl+Alt on Windows/Linux European layouts) is typing, never a shortcut', async ({ page }) => {
+    await boot(page, '/?demo');
+    const key = (init) => page.evaluate((i) => document.body.dispatchEvent(new KeyboardEvent('keydown', { ...i, ctrlKey: true, altKey: true, bubbles: true })), init);
+    await key({ key: 'ţ', code: 'KeyT', modifierAltGraph: true });               // AltGr+T: a character, not "New terminal"
+    await page.waitForTimeout(200);
+    await expect(page.locator('.win')).toHaveCount(1);
+    await key({ key: 't', code: 'KeyT' });                                      // a real Ctrl+Alt+T still works
+    await expect(page.locator('.win')).toHaveCount(2);
+  });
 });
 
 test.describe('tree find (#167)', () => {
