@@ -80,5 +80,7 @@ for(const id of ["hint-tour","tour-link"]){
 // First visit only; skipped on narrow/touch screens where the anchors don't fit (replay still works).
 setTimeout(()=>{
   let done=false; try{done=localStorage.getItem(TOUR_KEY)==="1";}catch{}
-  if(!done&&innerWidth>=720&&!matchMedia("(pointer:coarse)").matches&&!document.querySelector(".palette.open,.sc-overlay.open")) takeTour();
+  if(done||innerWidth<720||matchMedia("(pointer:coarse)").matches||document.querySelector(".palette.open,.sc-overlay.open")) return;
+  try{localStorage.setItem(TOUR_KEY,"1");}catch{}   // seen once it shows: a reload or closed tab mid-tour doesn't bring it back
+  takeTour();
 },1200);
