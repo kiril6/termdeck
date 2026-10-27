@@ -210,6 +210,7 @@ function mxShieldSync(){
   const root=document.documentElement;
   root.classList.toggle("td-shield",mx.shield);
   root.classList.toggle("td-shield-titles",mx.shield&&mx.titles);
+  if(!(mx.shield&&mx.titles)) mxTipsRestore();
   root.dataset.shieldStyle=mxShieldStyle();
   shieldInd.hidden=!mx.shield;
   privBtn.classList.toggle("active",mx.shield); privBtn.setAttribute("aria-pressed",String(mx.shield));
@@ -227,6 +228,17 @@ function mxShieldSync(){
     });
     mxShieldBtn(s);
   });
+}
+// The blur can't reach native title tooltips, so while names are shielded a hover parks the title of a blurred name (the
+// CSS list in app.css) or a path holder in data-shield-title; it comes back when names show again, unless code set a newer one.
+const MX_TIP_SEL=".wt-name,.cname,.badge.cwd,.badge.cmd,.fv-name,.ov-name,.pname,.ptab,.sb-title,.crumb,.agent-row-path,.mx-pill-name";
+document.addEventListener("mouseover",(e)=>{
+  if(!document.documentElement.classList.contains("td-shield-titles")) return;
+  for(let n=e.target; n instanceof Element; n=n.parentElement)
+    if(n.hasAttribute("title")&&n.matches(MX_TIP_SEL)){n.dataset.shieldTitle=n.title; n.removeAttribute("title");}
+},true);
+function mxTipsRestore(){
+  document.querySelectorAll("[data-shield-title]").forEach((n)=>{if(!n.hasAttribute("title")) n.title=n.dataset.shieldTitle; delete n.dataset.shieldTitle;});
 }
 function mxShieldBtn(s){
   const a=activeTab(s); if(!s.bShield||!a) return;

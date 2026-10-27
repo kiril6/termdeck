@@ -588,7 +588,7 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   toasts stay readable; native notifications drop their body). Find-in-terminal is refused on a covered tab.
   Looks (*Privacy & effects…*): **a plain panel** (default, an empty `--panel` cover), **a strong blur** (16px +
   60% tint) or **Matrix rain** (panel + rain). Optionally it also blurs tab and window names, folders, the last
-  command and project names. **Top bar**: a *Privacy* split button next to *Theme* — click hides/shows all
+  command and project names, and hides their hover tooltips (full paths, *Last command*) until names show again. **Top bar**: a *Privacy* split button next to *Theme* — click hides/shows all
   terminals (lit while on); its caret menu has *Hide/Show all*, *this project*, *the focused tab*, *Cover the
   focused tab now* and *Privacy & effects…*. On a tab the global or project shield covers, *Shield this tab* (palette,
   menus, the tab's header button) **shows just that tab** while the rest stay covered, and again puts it back under;

@@ -178,6 +178,22 @@ test.describe('privacy shield', () => {
     await expect(page.locator('.win:visible .badge.cwd').first()).toHaveCSS('filter', /blur/);
   });
 
+  test('names shielded: hovering a blurred name or path shows no tooltip; it comes back with the shield off', async ({ page }) => {
+    await boot(page, '/?demo');
+    const name = page.locator('.win .wt-name').first();
+    const tip = await name.getAttribute('title');
+    expect(tip).toBeTruthy();
+    await page.evaluate(() => { mx.titles = true; setShield(true); });
+    await name.hover();
+    await expect(name).not.toHaveAttribute('title', /./);
+    await page.mouse.move(0, 0);
+    await page.evaluate(() => setShield(false));
+    await expect(name).toHaveAttribute('title', tip);
+    await page.evaluate(() => { mx.titles = false; setShield(true); });   // contents-only shield: names and their tooltips stay
+    await name.hover();
+    await expect(name).toHaveAttribute('title', tip);
+  });
+
   test('settings: exported with the others, and a second browser tab follows the shield', async ({ page, context }) => {
     await boot(page, '/?demo');
     expect(await page.evaluate(() => settingsKeys())).toContain(MX);
