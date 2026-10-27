@@ -191,6 +191,22 @@ test.describe('demo mode (no backend)', () => {
     expect(errors).toEqual([]);
   });
 
+  test('saved lists with broken entries (older build, hand-edited import): the bad ones are skipped, the palette still works', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.addInitScript(() => {
+      localStorage.setItem('td.snippets.v1', JSON.stringify([{ name: 'old', cmd: 'echo old' }, null, 'x', { id: 'sn1', label: 'deploy', cmd: 'echo ok' }]));
+      localStorage.setItem('td.ssh.v1', JSON.stringify({ not: 'a list' }));
+      localStorage.setItem('td.aicli.v1', JSON.stringify([{ label: 'x' }]));
+    });
+    await boot(page, '/?demo');
+    await openPalette(page);
+    await page.locator('#pal-input').fill('o');                         // matches every entry's text, good or bad
+    await expect(labels(page).filter({ hasText: 'deploy' })).toHaveCount(1);
+    await page.waitForTimeout(200);
+    expect(errors).toEqual([]);
+  });
+
   test('palette shows labels as text, never as markup (with and without a search)', async ({ page }) => {
     const label = '<img src=x onerror="window.__pwned=1">snip';
     await page.addInitScript((l) => localStorage.setItem('td.snippets.v1', JSON.stringify([{ id: 'sn1', label: l, cmd: 'echo hi' }])), label);

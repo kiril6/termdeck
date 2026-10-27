@@ -3,8 +3,13 @@
 "use strict";
 
 // ── Command snippets: saved commands, run from the palette into the focused terminal. ──
+// Saved lists come from localStorage, which an imported settings file or an older build may have filled: keep only
+// entries that have the string fields the palette reads, so one bad entry can't break the whole palette.
+function lsList(key,fields){
+  try{const a=JSON.parse(localStorage.getItem(key)||"[]"); return Array.isArray(a)?a.filter((x)=>x&&fields.every((f)=>typeof x[f]==="string")):[];}catch{return [];}
+}
 const SNIP_STORE="td.snippets.v1";
-let snippets=(()=>{try{return JSON.parse(localStorage.getItem(SNIP_STORE)||"[]");}catch{return [];}})();
+let snippets=lsList(SNIP_STORE,["label","cmd"]);
 function saveSnippets(){try{localStorage.setItem(SNIP_STORE,JSON.stringify(snippets));}catch{}}
 async function addSnippet(){
   const v=await inputModal("New snippet",[
@@ -29,7 +34,7 @@ function deleteSnippet(id){snippets=snippets.filter((x)=>x.id!==id);saveSnippets
 // Stored per-browser in localStorage. The command runs via the spawn-with-command path, so on
 // disconnect you drop back to the local shell (not killed). Managed from the command palette.
 const SSH_STORE="td.ssh.v1";
-let sshHosts=(()=>{try{return JSON.parse(localStorage.getItem(SSH_STORE)||"[]");}catch{return [];}})();
+let sshHosts=lsList(SSH_STORE,["label","target"]);
 function saveSshHosts(){try{localStorage.setItem(SSH_STORE,JSON.stringify(sshHosts));}catch{}}
 async function addSshHost(){
   const v=await inputModal("New SSH host",[
@@ -71,7 +76,7 @@ const AICLI_BUILTIN=[
 ];
 const AICLI_SLOTS=4;   // built-in agents shown before "More agents"; custom presets always show
 const AICLI_STORE="td.aicli.v1";
-let aiClis=(()=>{try{return JSON.parse(localStorage.getItem(AICLI_STORE)||"[]");}catch{return [];}})();
+let aiClis=lsList(AICLI_STORE,["label","cmd"]);
 function saveAiClis(){try{localStorage.setItem(AICLI_STORE,JSON.stringify(aiClis));}catch{}}
 async function addAiCli(){
   const v=await inputModal("New AI CLI preset",[
