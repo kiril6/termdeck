@@ -20,11 +20,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, browsers: chromium firefox webkit, all: '1', image: 'mcr.microsoft.com/playwright:v1.64.0-noble' }
-          - { os: macos-latest, browsers: chromium, all: '', image: '' }
+          - { os: ubuntu-latest, browsers: chromium firefox webkit, all: '1' }
+          - { os: macos-latest, browsers: chromium, all: '' }
     runs-on: ${{ matrix.os }}
     container:
-      image: ${{ matrix.image }}   # empty on macOS: runs on the host
+      # not a matrix key: one would rename the job, and the ruleset requires its name. Empty on macOS: runs on the host.
+      image: ${{ matrix.os == 'ubuntu-latest' && 'mcr.microsoft.com/playwright:v1.64.0-noble' || '' }}
       options: --user 1001         # the runner's user, so Firefox accepts the mounted HOME
     timeout-minutes: 40   # Linux runs the whole suite in 3 browsers, one worker: ~20 min and growing
     env:
