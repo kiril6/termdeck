@@ -320,6 +320,16 @@ test.describe('demo mode (no backend)', () => {
     await key({ key: 't', code: 'KeyT' });                                      // a real Ctrl+Alt+T still works
     await expect(page.locator('.win')).toHaveCount(2);
   });
+
+  test('⌘⌥ / Ctrl+Alt shortcuts work while a terminal has focus (Windows/Linux: xterm must not take them)', async ({ page }) => {
+    await boot(page, '/?demo');
+    await page.locator('.win .xterm').first().click({ force: true });
+    await expect(page.locator('.xterm-helper-textarea').first()).toBeFocused();
+    await page.keyboard.press('ControlOrMeta+Alt+KeyT');
+    await expect(page.locator('.win')).toHaveCount(2);
+    await page.keyboard.press('ControlOrMeta+Alt+KeyG');
+    await expect(page.locator('#game-overlay')).toHaveClass(/open/);
+  });
 });
 
 test.describe('tree find (#167)', () => {
