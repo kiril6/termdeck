@@ -582,6 +582,13 @@ button[title]>svg,[role=button][title]>svg{pointer-events:none;}   /* general ru
 .ptab .pdel:hover{background:#3a1a1c;color:#ff9b93;}
 .ptab .pdel:disabled{opacity:.3;cursor:not-allowed;pointer-events:auto;}
 .ptab .pdel:disabled:hover{background:transparent;color:var(--muted);}
+/* move-left arrow: sits in the tab's left padding, shown on hover; never on the first tab */
+.ptab{position:relative;}
+.ptab .pleft{position:absolute;left:0;top:0;bottom:0;width:13px;padding:0;border:0;border-radius:6px 0 0 0;background:transparent;
+  color:var(--muted);cursor:pointer;display:none;place-items:center;}
+.ptab .pleft svg{width:11px;height:11px;transform:scaleX(-1);fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;}
+.ptab:hover:not(:first-child) .pleft{display:grid;}
+.ptab .pleft:hover{color:var(--accent-text);background:var(--btn-bg);}
 .ptab .pdot{width:6px;height:6px;border-radius:50%;flex:0 0 auto;display:none;}
 .ptab.conflict .pdot{display:inline-block;background:#d9822b;box-shadow:0 0 6px #d9822b;}
 .ptab.waiting .pdot{display:inline-block;background:#e6a23c;box-shadow:0 0 6px #e6a23c;}
@@ -823,7 +830,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 
 /* ── ambient pixel pets ── */
 .petfield{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:3400;}
-.pet{position:absolute;left:0;top:0;will-change:transform;transition:transform var(--dur,3s) linear;}
+.pet{position:absolute;left:0;bottom:0;will-change:transform;transition:transform var(--dur,3s) linear;}
 .pet-face{transform:scaleX(var(--dir,1));transform-origin:center;}
 .pet-bob{transform:translateY(0);}
 .pet.walking .pet-bob{animation:pet-bob .34s steps(2,jump-none) infinite;}
