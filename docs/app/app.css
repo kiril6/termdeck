@@ -331,14 +331,15 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
 .ov-tile{--st:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;transition:border-color .15s,box-shadow .15s,transform .15s;}
 .ov-tile.approval{--st:#e5484d;}.ov-tile.waiting{--st:#e6a23c;}.ov-tile.working{--st:var(--accent);}.ov-tile.run{--st:#3fb950;}
 .ov-tile.approval,.ov-tile.waiting,.ov-tile.working,.ov-tile.run{border-color:color-mix(in srgb,var(--st) 55%,var(--line));}
-.ov-tile:hover,.ov-tile:focus-visible{border-color:var(--accent);box-shadow:0 10px 24px -12px rgba(0,0,0,.55);}
+.ov-tile:hover,.ov-tile:has(.ov-tile-h:focus-visible){border-color:var(--accent);box-shadow:0 10px 24px -12px rgba(0,0,0,.55);}
 .ov-tile:hover{transform:translateY(-1px);}
-.ov-tile-h{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);font-size:12px;}
+.ov-tile-h{display:flex;align-items:center;gap:8px;padding:8px 10px;border:0;border-bottom:1px solid var(--line);background:none;color:inherit;font:inherit;font-size:12px;text-align:left;width:100%;cursor:pointer;}
+.ov-tile-h:focus-visible{outline:none;}   /* the whole tile lights up instead (rule above) */
 .ov-tile-h .ov-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
 .ov-state{font-size:10.5px;color:var(--text);padding:1px 8px;border-radius:999px;border:1px solid color-mix(in srgb,var(--st) 45%,transparent);background:color-mix(in srgb,var(--st) 14%,transparent);white-space:nowrap;}
 .ov-tile.idle .ov-state,.ov-tile.exited .ov-state{color:var(--muted);}
 .ov-go{font-size:10.5px;color:var(--accent-text);white-space:nowrap;opacity:0;transition:opacity .12s;}
-.ov-tile:hover .ov-go,.ov-tile:focus-visible .ov-go{opacity:1;}
+.ov-tile:hover .ov-go,.ov-tile-h:focus-visible .ov-go{opacity:1;}
 .ov-dot{width:7px;height:7px;border-radius:50%;background:var(--st);flex:0 0 auto;}
 .ov-tile.idle .ov-dot,.ov-tile.exited .ov-dot{opacity:.6;}
 .ov-out{margin:0;padding:8px 10px;height:170px;overflow:hidden;font:11px/1.35 ui-monospace,Menlo,Consolas,monospace;color:var(--text);white-space:pre;opacity:.9;}

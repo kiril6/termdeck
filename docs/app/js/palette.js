@@ -40,18 +40,18 @@ function renderOverview(){
     const h=el("div","ov-proj"); h.textContent=projects.get(pid)?.name||pid||"project";
     const grid=el("div","ov-grid");
     items.forEach(({s,tab,st})=>{
-      const tile=el("div","ov-tile "+st); tile.tabIndex=0;
-      const hd=el("div","ov-tile-h"), dot=el("span","ov-dot"), nm=el("span","ov-name"), sl=el("span","ov-state");
+      // The header is the button, named by its own text: a whole-tile button with an aria-label fails WCAG 2.5.3
+      // (label in name), since the output preview shows text the label can't carry. A click anywhere still jumps.
+      const tile=el("div","ov-tile "+st);
+      const hd=el("button","ov-tile-h"), dot=el("span","ov-dot"), nm=el("span","ov-name"), sl=el("span","ov-state");
       nm.textContent=(s.name||"session")+" \u00b7 "+(tab.name||"tab");
       sl.textContent=st==="approval"?"needs approval":st==="run"?"running":st;
       const go=el("span","ov-go"); go.textContent="Open \u21b5"; go.setAttribute("aria-hidden","true");
-      hd.append(dot,nm,go,sl);
+      hd.type="button"; hd.append(dot,nm,go,sl);
       const pre=el("pre","ov-out"); if(tabShielded(s,tab)){pre.classList.add("mx-hid"); pre.textContent="Hidden by the privacy shield";} else pre.textContent=tabTail(tab,9);   // textContent only \u2014 output is untrusted; a shielded tab's tile stays empty
       tile.append(hd,pre);
-      tile.setAttribute("role","button"); tile.setAttribute("aria-label",nm.textContent+", "+sl.textContent+" \u2014 open");
       const jump=()=>{closeOverview(); revealWindow(s); switchTab(s,tab.id);};
       tile.addEventListener("click",jump);
-      tile.addEventListener("keydown",(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();jump();}});
       grid.append(tile);
     });
     ovBody.append(h,grid);
