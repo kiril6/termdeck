@@ -74,6 +74,8 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
 ## Projects
 - 🖥️ Group windows into project tabs; switch context instantly. Cycle projects with `⌘⇧]` / `⌘⇧[`.
 - 🖥️ **Logo easter eggs** — hover the *TermDeck* brand and its glow fades in, then breathes slowly (a 3.2 s swell) while the pointer stays, and fades out from wherever it was when the pointer leaves. **Click** it for one brighter neon pulse (the wordmark tints to the accent colour and settles back, 1.5 s). **Double-click** it and the two squares of the mark orbit each other twice (1.5 s, eased, staying upright) and settle back. Only the glow's opacity moves, never its blur, so it stays smooth; breathing and both animations are off under `prefers-reduced-motion`.
+- 🖥️ **Rename a project** by double-clicking its name (hover shows *Double-click to rename*) or **right-click the tab → Rename**; the same menu has **Move left / Move right** and **Delete project** (off while it is the only one).
+- 🖥️ **Reorder projects** — hover a project tab and click the **‹** arrow at its left edge to move it one place left (not shown on the first tab), or use the right-click menu. The order is saved with the layout.
 - 🖥️ **Limits:** 12 terminals per project, 10 project tabs (keeps one browser tab responsive).
 - 🖥️ Directory sidebar / tree (`⌘B`) — **real filesystem** listing via `/api/ls` (dirs first, dotfiles
   hidden by default), rooted at the **active project's** root and lazy-expanding dirs on click. Per-row actions:
