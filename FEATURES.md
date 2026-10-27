@@ -73,6 +73,7 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
 
 ## Projects
 - 🖥️ Group windows into project tabs; switch context instantly. Cycle projects with `⌘⇧]` / `⌘⇧[`.
+- 🖥️ **Logo easter eggs** — hover the *TermDeck* brand and its glow fades in, then breathes slowly (a 3.2 s swell) while the pointer stays, and fades out from wherever it was when the pointer leaves. **Click** it for one brighter neon pulse (the wordmark tints to the accent colour and settles back, 1.5 s). **Double-click** it and the two squares of the mark orbit each other twice (1.5 s, eased, staying upright) and settle back. Only the glow's opacity moves, never its blur, so it stays smooth; breathing and both animations are off under `prefers-reduced-motion`.
 - 🖥️ **Rename a project** by double-clicking its name (hover shows *Double-click to rename*) or **right-click the tab → Rename**; the same menu has **Move left / Move right** and **Delete project** (off while it is the only one).
 - 🖥️ **Reorder projects** — hover a project tab and click the **‹** arrow at its left edge to move it one place left (not shown on the first tab), or use the right-click menu. The order is saved with the layout.
 - 🖥️ **Limits:** 12 terminals per project, 10 project tabs (keeps one browser tab responsive).
@@ -507,6 +508,8 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   press (no lag). Arms on the focused terminal; when a matching shell's command finishes (same
   done-heuristic as command-done alerts) a green in-game banner names it — the game never
   auto-closes, you decide when to leave. Plays solo if no terminal is focused.
+  Each game keeps its **best score** in this browser (survives reloads): the corner reads *score N · best M*, and
+  beating it ends the round with *New best: N!*.
 - 🖥️ **Long-run nudge** — when any command runs past 20s, a ⏳ *"Still working…"* toast (+ OS
   notification) offers to play a game while you wait; click it to open the game armed on that tab.
   Fires **even while you're watching** the terminal (waiting is the point) — only suppressed if a

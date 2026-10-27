@@ -311,6 +311,44 @@ test.describe('demo mode (no backend)', () => {
     await expect(page.locator('#pal-cats .pal-cat.on')).toHaveText('Agents');
     await expect(page.locator('#pal-input')).toBeFocused();
   });
+  test('logo easter eggs: a click lights the brand like neon, a double-click spins the mark; both settle', async ({ page }) => {
+    await boot(page, '/?demo');
+    const brand = page.locator('.brand'), mark = page.locator('.brand .dot');
+    await brand.click();
+    await expect(brand).toHaveClass(/neon/);
+    await expect(brand).not.toHaveClass(/neon/, { timeout: 3000 });
+    await page.locator('.brand').dblclick();
+    await expect(mark).toHaveClass(/spin/);
+    expect(await mark.evaluate((m) => m.getAnimations({ subtree: true }).filter((a) => a.animationName === 'brand-orbit').length)).toBe(3);   // the pair orbits, each square counter-turns
+    await expect(mark).not.toHaveClass(/spin/, { timeout: 3000 });
+  });
+
+  test('mini-games remember the best score per game across reloads; a lower score never replaces it', async ({ page }) => {
+    /* global gState, gBest, COLS -- the app's page globals, used inside page.evaluate() */
+    await boot(page, '/?demo');
+    // Snake heading right into the wall with `score` points, then wait for its game over.
+    const crash = async (score) => {
+      await page.evaluate((n) => { gState.score = n; gState.body = [{ x: COLS - 1, y: 5 }]; gState.tick = gState.every; }, score);
+      await expect.poll(() => page.evaluate(() => gState.over)).toBe(true);
+    };
+    await page.keyboard.press('ControlOrMeta+Alt+KeyG');
+    await expect(page.locator('#game-overlay')).toHaveClass(/open/);
+    await page.locator('#game-pick').selectOption('snake');
+    await crash(3);
+    expect(await page.evaluate(() => ({ best: gBest(), newBest: gState.newBest }))).toEqual({ best: 3, newBest: true });
+    await page.keyboard.press('Space');                                  // restart
+    await crash(1);
+    expect(await page.evaluate(() => ({ best: gBest(), newBest: !!gState.newBest }))).toEqual({ best: 3, newBest: false });
+    await page.locator('#game-pick').selectOption('dino');              // each game keeps its own
+    expect(await page.evaluate(() => gBest())).toBe(0);
+
+    await page.reload();
+    await expect(page.locator('.win')).toHaveCount(1);
+    await page.keyboard.press('ControlOrMeta+Alt+KeyG');
+    await page.locator('#game-pick').selectOption('snake');
+    expect(await page.evaluate(() => gBest())).toBe(3);
+  });
+
   test('project tab right-click: Rename edits the name in place; Delete is off for the last project', async ({ page }) => {
     await boot(page, '/?demo');
     const tab = page.locator('.ptab').first();
