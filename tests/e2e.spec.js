@@ -311,6 +311,42 @@ test.describe('demo mode (no backend)', () => {
     await expect(page.locator('#pal-cats .pal-cat.on')).toHaveText('Agents');
     await expect(page.locator('#pal-input')).toBeFocused();
   });
+  test('project tab right-click: Rename edits the name in place; Delete is off for the last project', async ({ page }) => {
+    await boot(page, '/?demo');
+    const tab = page.locator('.ptab').first();
+    await expect(tab.locator('.pname')).toHaveAttribute('title', /Double-click to rename/);
+    await tab.click({ button: 'right' });
+    await expect(page.locator('.ctxmenu .ctx-item', { hasText: 'Delete project' })).toHaveClass(/disabled/);
+    await page.locator('.ctxmenu .ctx-item', { hasText: 'Rename' }).click();
+    await expect(tab.locator('.pname')).toBeFocused();
+    await page.keyboard.type('api');                                   // the whole old name was selected, so typing replaces it
+    await page.keyboard.press('Enter');
+    await expect(tab.locator('.pname')).toHaveText('api');
+    await expect(tab.locator('.pname')).toHaveAttribute('contenteditable', 'false');
+  });
+
+  test('project tabs: hover arrow moves a tab one left (not on the first tab); menu moves right; order survives reload', async ({ page }) => {
+    await boot(page, '/?demo');
+    await page.locator('#padd').click();
+    await page.locator('#padd').click();
+    const names = () => page.locator('.ptab .pname').allTextContents();
+    expect(await names()).toEqual(['default', 'project 1', 'project 2']);
+    const first = page.locator('.ptab').first();
+    await first.hover();
+    await expect(first.locator('.pleft')).toBeHidden();                // nowhere to go
+    const second = page.locator('.ptab').nth(1);                      // (headless Firefox on Linux never hovers further right in this bar)
+    await second.hover();
+    await second.locator('.pleft').click();
+    expect(await names()).toEqual(['project 1', 'default', 'project 2']);
+    await page.locator('.ptab').nth(1).click({ button: 'right' });
+    await page.locator('.ctxmenu .ctx-item', { hasText: 'Move right' }).click();
+    expect(await names()).toEqual(['project 1', 'project 2', 'default']);
+    await page.waitForTimeout(800);                                     // let the debounced save land
+    await page.reload();
+    await expect(page.locator('.ptab')).toHaveCount(3);
+    expect(await names()).toEqual(['project 1', 'project 2', 'default']);
+  });
+
   test('resizing the window keeps the pets on the floor and on screen, at once (no float, no off-screen glide back)', async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('td.pets.v1', 'on'));
     await page.setViewportSize({ width: 1400, height: 800 });
