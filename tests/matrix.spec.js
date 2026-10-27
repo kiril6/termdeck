@@ -179,19 +179,24 @@ test.describe('privacy shield', () => {
   });
 
   test('names shielded: hovering a blurred name or path shows no tooltip; it comes back with the shield off', async ({ page }) => {
+    /* global setCwdBadge */
     await boot(page, '/?demo');
-    const name = page.locator('.win .wt-name').first();
-    const tip = await name.getAttribute('title');
-    expect(tip).toBeTruthy();
+    const cwd = page.locator('.win .badge.cwd').first();
+    const setCwd = (p) => page.evaluate((p) => setCwdBadge([...sessions.values()][0], p), p);
+    await setCwd('/Users/ana/clients/acme-secret');
+    await expect(cwd).toHaveAttribute('title', '/Users/ana/clients/acme-secret');
     await page.evaluate(() => { mx.titles = true; setShield(true); });
-    await name.hover();
-    await expect(name).not.toHaveAttribute('title', /./);
+    await cwd.hover();
+    await expect(cwd).not.toHaveAttribute('title', /./);
+    await setCwd('/Users/ana/clients/acme-next');                        // the app updates it while hidden
+    await cwd.hover();
+    await expect(cwd).not.toHaveAttribute('title', /./);
     await page.mouse.move(0, 0);
     await page.evaluate(() => setShield(false));
-    await expect(name).toHaveAttribute('title', tip);
+    await expect(cwd).toHaveAttribute('title', '/Users/ana/clients/acme-next');   // the newest path comes back, not the parked one
     await page.evaluate(() => { mx.titles = false; setShield(true); });   // contents-only shield: names and their tooltips stay
-    await name.hover();
-    await expect(name).toHaveAttribute('title', tip);
+    await cwd.hover();
+    await expect(cwd).toHaveAttribute('title', '/Users/ana/clients/acme-next');
   });
 
   test('settings: exported with the others, and a second browser tab follows the shield', async ({ page, context }) => {

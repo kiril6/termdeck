@@ -235,11 +235,11 @@ function mxShieldSync(){
 // The blur can't reach native title tooltips, so while names are shielded a hover parks the title of a blurred name (the
 // CSS list in app.css) or a path holder in data-shield-title; it comes back when names show again, unless code set a newer one.
 const MX_TIP_SEL=".wt-name,.cname,.badge.cwd,.badge.cmd,.fv-name,.ov-name,.pname,.ptab,.sb-title,.crumb,.agent-row-path,.mx-pill-name";
-document.addEventListener("mouseover",(e)=>{
-  if(!document.documentElement.classList.contains("td-shield-titles")) return;
-  for(let n=e.target; n instanceof Element; n=n.parentElement)
-    if(n.hasAttribute("title")&&n.matches(MX_TIP_SEL)){n.dataset.shieldTitle=n.title; n.removeAttribute("title");}
-},true);
+function mxTipPark(n){
+  if(document.documentElement.classList.contains("td-shield-titles")&&n.hasAttribute("title")&&n.matches(MX_TIP_SEL)){n.dataset.shieldTitle=n.title; n.removeAttribute("title");}
+}
+document.addEventListener("mouseover",(e)=>{for(let n=e.target; n instanceof Element; n=n.parentElement) mxTipPark(n);},true);
+new MutationObserver((ms)=>ms.forEach((m)=>mxTipPark(m.target))).observe(document.body,{subtree:true,attributeFilter:["title"]});   // a title the app sets under a resting pointer
 function mxTipsRestore(){
   document.querySelectorAll("[data-shield-title]").forEach((n)=>{if(!n.hasAttribute("title")) n.title=n.dataset.shieldTitle; delete n.dataset.shieldTitle;});
 }
