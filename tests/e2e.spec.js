@@ -334,17 +334,17 @@ test.describe('demo mode (no backend)', () => {
     const first = page.locator('.ptab').first();
     await first.hover();
     await expect(first.locator('.pleft')).toBeHidden();                // nowhere to go
-    const last = page.locator('.ptab').nth(2);
-    await last.hover();
-    await last.locator('.pleft').click();
-    expect(await names()).toEqual(['default', 'project 2', 'project 1']);
-    await page.locator('.ptab').first().click({ button: 'right' });
+    const second = page.locator('.ptab').nth(1);                      // (headless Firefox on Linux never hovers further right in this bar)
+    await second.hover();
+    await second.locator('.pleft').click();
+    expect(await names()).toEqual(['project 1', 'default', 'project 2']);
+    await page.locator('.ptab').nth(1).click({ button: 'right' });
     await page.locator('.ctxmenu .ctx-item', { hasText: 'Move right' }).click();
-    expect(await names()).toEqual(['project 2', 'default', 'project 1']);
+    expect(await names()).toEqual(['project 1', 'project 2', 'default']);
     await page.waitForTimeout(800);                                     // let the debounced save land
     await page.reload();
     await expect(page.locator('.ptab')).toHaveCount(3);
-    expect(await names()).toEqual(['project 2', 'default', 'project 1']);
+    expect(await names()).toEqual(['project 1', 'project 2', 'default']);
   });
 });
 
