@@ -402,6 +402,7 @@ function addTab(s, opts){
 
   if(!s.isLog){
     term.onData((d)=>{
+      if(tab.muteReplies&&TERM_REPLY_RE.test(d)) return;   // xterm re-answering queries in a replayed buffer
       if(tab.conn?.send) tab.conn.send(d);
       tab.lastIn=Date.now();
       if(d.includes("\r")) markRunning(s,tab);

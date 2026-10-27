@@ -204,7 +204,8 @@ function openTabWS(s,tab){
     }else if(m.type==="approval"){   // the held request ended (clicked, answered in the terminal, timed out)
       if(tab.ask?.reqId===m.reqId){tab.ask=null; updateAgentOverview(); loadAudit();}
     }else if(m.type==="output"){
-      tab.term.write(m.data);
+      if(tab.replay){tab.muteReplies=true; tab.term.write(m.data,()=>{tab.muteReplies=false;});}   // see TERM_REPLY_RE
+      else tab.term.write(m.data);
       // On reattach the server replays the whole ring buffer in one chunk. Scanning all of it
       // would re-match an approval prompt you ALREADY answered and fire a false red. The tail is
       // the current screen, so that's the only part that reflects live state.
