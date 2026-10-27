@@ -73,6 +73,9 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
 
 ## Projects
 - 🖥️ Group windows into project tabs; switch context instantly. Cycle projects with `⌘⇧]` / `⌘⇧[`.
+- 🖥️ **Logo easter eggs** — hover the *TermDeck* brand and its glow fades in, then breathes slowly (a 3.2 s swell) while the pointer stays, and fades out from wherever it was when the pointer leaves. **Click** it for one brighter neon pulse (the wordmark tints to the accent colour and settles back, 1.5 s). **Double-click** it and the two squares of the mark orbit each other twice (1.5 s, eased, staying upright) and settle back. Only the glow's opacity moves, never its blur, so it stays smooth; breathing and both animations are off under `prefers-reduced-motion`.
+- 🖥️ **Rename a project** by double-clicking its name (hover shows *Double-click to rename*) or **right-click the tab → Rename**; the same menu has **Move left / Move right** and **Delete project** (off while it is the only one).
+- 🖥️ **Reorder projects** — hover a project tab and click the **‹** arrow at its left edge to move it one place left (not shown on the first tab), or use the right-click menu. The order is saved with the layout.
 - 🖥️ **Limits:** 12 terminals per project, 10 project tabs (keeps one browser tab responsive).
 - 🖥️ Directory sidebar / tree (`⌘B`) — **real filesystem** listing via `/api/ls` (dirs first, dotfiles
   hidden by default), rooted at the **active project's** root and lazy-expanding dirs on click. Per-row actions:
@@ -97,7 +100,7 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   Live mode only — the hosted demo has no files to read. Clicking a path in terminal output opens it the same way.
 - 🖥️ **Move to project (dock chip)** — the folder-arrow button on a dock chip moves that window to another project; it is **disabled (dimmed) while there is only one project** and enables as soon as a second exists.
 - 🖥️ **Last project can't be deleted** — the **×** on a project tab is dimmed and disabled (tooltip *Can't delete the only project*) while only one project exists, and enables once a second is added.
-- 🖥️ **First-run tour** — a 6-step spotlight walkthrough (⌘K palette → New agent task → agent queue → projects & dock → directory tree ⋯ menu → Help; the tree step opens the sidebar and closes it again on leaving) that auto-shows once on a first visit (not on narrow/touch screens) and never again once closed (`td.tourDone.v1` in `localStorage`). Replay: palette → *Take the tour*, the Help sheet, or the empty-desktop link. Esc closes, ←/→ step, focus stays in the card; no layout shift, no network, animation off under `prefers-reduced-motion`. Works in the hosted demo.
+- 🖥️ **First-run tour** — a 6-step spotlight walkthrough (⌘K palette → New agent task → agent queue → projects & dock → directory tree ⋯ menu → Help; the tree step opens the sidebar and closes it again on leaving) that auto-shows once on a first visit (not on narrow/touch screens) and never again: it counts as seen the moment it shows, so a reload or closed tab mid-tour doesn't bring it back (`td.tourDone.v1` in `localStorage`, per browser and address). Replay: palette → *Take the tour*, the Help sheet, or the empty-desktop link. Esc closes, ←/→ step, focus stays in the card; no layout shift, no network, animation off under `prefers-reduced-motion`. Works in the hosted demo.
 - 🖥️ **Short empty palette** — with nothing typed (category *All*) ⌘K lists only **Recent** (the last 5 palette commands you ran, `td.palRecent.v1` in `localStorage`), **Start** (New terminal · New agent task… · Open directory… · Open file… · New project), your snippets / SSH hosts, the top AI CLIs and open sessions, plus a *Type to search all N commands* footer. Typing searches **every** command (an `x` matches `×`, so `2x2` finds *Layout 2×2*); a category chip lists all of its commands.
 - 🖥️ **Palette search ranking** — typed searches order commands by relevance: a label **word starting** with the text first, then labels merely containing it, then description-only matches; ties go to recently run commands, with the fixed-grid layout presets after real commands (so `layout` lists *Save layout as…* / *Restore layout…* before *Layout 1×1…*), then list order.
 - 🖥️ **Palette categories** — a chip row under the ⌘K input (*All · Terminals · Agents · Sessions · Layout · Settings · Help · Fun*; *Terminals* also holds snippets and SSH hosts, *Agents* the agent tasks, CLI presets and the usage / agent-order resets, *Sessions* the Live overview, Search sessions and open sessions, *Layout* Tile windows, the fixed-grid presets, the directory-tree toggle and *Move or resize window*, *Settings* only real preferences — theme, terminal font, scrollback — *Help* keyboard shortcuts and the tour, *Fun* the game and pixel pets) narrows the list; click a chip or press **Tab / Shift+Tab** to cycle, and the search text still applies inside the chosen category. Resets to *All* each time the palette opens. A **×** in the input (or **Ctrl+U**) clears the typed text.
@@ -503,6 +506,8 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   press (no lag). Arms on the focused terminal; when a matching shell's command finishes (same
   done-heuristic as command-done alerts) a green in-game banner names it — the game never
   auto-closes, you decide when to leave. Plays solo if no terminal is focused.
+  Each game keeps its **best score** in this browser (survives reloads): the corner reads *score N · best M*, and
+  beating it ends the round with *New best: N!*.
 - 🖥️ **Long-run nudge** — when any command runs past 20s, a ⏳ *"Still working…"* toast (+ OS
   notification) offers to play a game while you wait; click it to open the game armed on that tab.
   Fires **even while you're watching** the terminal (waiting is the point) — only suppressed if a
@@ -567,7 +572,9 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   mouse. Pure CSS box-shadow sprites tinted from the active theme's `--accent`/`--muted`, so they
   recolor with the theme. Decorative only — `pointer-events:none`; they ride above window bodies
   but stay pinned to the bottom band so they never cover terminal text, and sit below the
-  toolbar/sidebar/overlays. Toggle the whole feature with **`⌘⌥P`** or palette → *Toggle pixel
+  toolbar/sidebar/overlays. Resizing or maximizing the window keeps them where they were: they stay on the floor
+  (anchored to the bottom edge) and keep their spread across the new width every frame, mid-walk too, so none floats,
+  piles up at the edge or slides back from off-screen. Toggle the whole feature with **`⌘⌥P`** or palette → *Toggle pixel
   pets* (paw icon); enabled by default, state saved to `localStorage` (`td.pets.v1`). Fully hidden
   under `prefers-reduced-motion`.
 - 🖥️ **Installable as a desktop app (PWA, #1)** — `public/manifest.webmanifest` (192/512px icons, `display: standalone`, relative `start_url`/`scope`) lets Chrome/Edge install termdeck (address-bar icon) and Safari add it to the Dock (*File → Add to Dock*), in its own window without tabs or address bar. No service worker: the app needs the live server anyway, so nothing is cached, so the window always shows what the running server serves. An update is *new package → restart the server → reload the window*: `termdeck update` does the first two (see its entry), a different port being a different address. The manifest link has `crossorigin="use-credentials"` because every request needs the `td_token` cookie, and browsers fetch manifests without credentials by default (otherwise `401`, not installable). The install is bound to the origin (`http://127.0.0.1:<port>`) and so is `localStorage`: pin a fixed port (an explicit `PORT` fails on a clash instead of picking another). The docs suggest **`PORT=17300`**: unassigned at IANA, no known product default, below every OS's ephemeral range (Linux starts at 32768). Not 3000: dev servers (Next.js, Express, Rails…) often take it, and an app installed on `:3000` would then open their page. The code default stays 3000, so plain runs don't move; an app already installed on `:3000` should keep `PORT=3000`. On a new origin, ⌘K → *Export settings…* / *Import settings…* and *Save layout as…* / *Restore layout…* bring the setup back. The installed app is only a window onto the running server: if the server is down it shows a browser error page, so use `termdeck autostart install --port 17300` (the same port) to start it at login. The hosted demo (`docs/app/`) carries the same manifest.
@@ -586,8 +593,13 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
 - 🖥️ **Browser-reserved combos avoided** — actions the browser/OS hard-owns (`⌘T` new-tab, `⌘W`
   close-tab, `⌘L` omnibox, `⌘⇧B`/`⌘⇧T`/`⌘⇧N` bookmarks/reopen/incognito, `⌘M` mac-minimize) are
   bound to `⌘⌥…` / `Ctrl+Alt+…` instead, matched by `e.code` so mac's Alt-mangled `e.key` (`⌥T`→`†`)
-  doesn't break them. Known gap: tab/project cycle (`⌘[` `⌘]` `⌘⇧[` `⌘⇧]`) still collides with mac
-  Chrome history/tab-nav — works on Windows/Linux.
+  doesn't break them. **AltGr is typing, not a shortcut**: on Windows/Linux European layouts AltGr arrives as
+  Ctrl+Alt (AltGr+7 is `{` on German, AltGr+X is `ź` on Polish), so the handler ignores keys with the `AltGraph`
+  modifier and those characters reach the terminal. The `Ctrl+Alt` shortcuts also work while a terminal has focus on
+  Windows/Linux (xterm used to take them as terminal input); other `Ctrl+Alt` keys still go to the shell. Known gaps: tab/project cycle (`⌘[` `⌘]` `⌘⇧[` `⌘⇧]`) still
+  collides with mac Chrome history/tab-nav — works on Windows/Linux; Firefox keeps `Ctrl+Shift+P`/`⌘⇧P` (private
+  window) for itself, so open the theme picker from the Theme button or the palette there; on Ubuntu/GNOME the
+  desktop takes `Ctrl+Alt+T` (system terminal) — use *+ New terminal* or the palette.
 
 ## Persistence & safety
 - 🖥️ Layout (windows, projects, themes) saved to `localStorage` (`td.state.v5`, `td.theme.v2`),

@@ -23,6 +23,31 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);overflow:hid
 .brand{display:flex;align-items:baseline;gap:8px;font-size:13px;letter-spacing:.22em;
   text-transform:uppercase;font-weight:600;}
 .brand .dot{color:var(--accent-text);}
+/* the ▚ mark as two squares (same size as the glyph); double-click the brand → they orbit twice, staying upright */
+.brand .dot svg{width:.6em;height:1.03em;vertical-align:-.25em;overflow:visible;fill:currentColor;}
+.brand .dot g{transform-box:view-box;transform-origin:50% 50%;}
+.brand .dot rect{transform-box:fill-box;transform-origin:center;}
+.brand .dot.spin g{animation:brand-orbit 1.5s cubic-bezier(.65,0,.35,1);}
+.brand .dot.spin rect{animation:brand-orbit 1.5s cubic-bezier(.65,0,.35,1) reverse;}
+@keyframes brand-orbit{to{transform:rotate(720deg);}}
+/* Brand glow. The blur stays fixed and only the glow's opacity moves (a growing blur radius renders in visible steps).
+   Three registered numbers drive it and add up: --hov fades 0↔1 with the pointer; --breath swings 0↔1 slowly while
+   hovered and pauses (holds) otherwise, so leaving mid-breath fades out from where it was; --pulse is the click: one
+   brighter neon swell (the wordmark tints to the accent) that settles back onto whatever the hover glow is doing. */
+@property --hov{syntax:"<number>";inherits:true;initial-value:0;}
+@property --breath{syntax:"<number>";inherits:true;initial-value:0;}
+@property --pulse{syntax:"<number>";inherits:true;initial-value:0;}
+.brand{--glow:var(--accent-text);transition:--hov .9s cubic-bezier(.45,0,.55,1);
+  animation:brand-breathe 3.2s ease-in-out infinite alternate paused;
+  color:color-mix(in srgb,var(--glow) calc(var(--pulse)*100%),var(--text));
+  text-shadow:0 0 8px color-mix(in srgb,var(--glow) min(100%,calc(var(--hov)*(16% + var(--breath)*18%) + var(--pulse)*55%)),transparent);}
+.brand .dot svg{filter:drop-shadow(0 0 5px color-mix(in srgb,var(--glow) min(100%,calc(var(--hov)*(40% + var(--breath)*32%) + var(--pulse)*60%)),transparent));}
+@keyframes brand-breathe{to{--breath:1;}}
+@keyframes brand-neon{28%{--pulse:1;animation-timing-function:cubic-bezier(.4,0,.2,1);}}
+.brand small{text-shadow:none;}
+.brand.neon{animation:brand-breathe 3.2s ease-in-out infinite alternate paused,brand-neon 1.5s cubic-bezier(.3,0,.2,1);}
+.brand:hover{--hov:1;animation-play-state:running;}
+@media (prefers-reduced-motion:reduce){.brand .dot.spin g,.brand .dot.spin rect,.brand,.brand.neon{animation:none;}}
 .brand small{letter-spacing:.12em;color:var(--muted);font-size:10px;}
 .bar .spacer{flex:1;}
 .status{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted);letter-spacing:.06em;
@@ -582,6 +607,13 @@ button[title]>svg,[role=button][title]>svg{pointer-events:none;}   /* general ru
 .ptab .pdel:hover{background:#3a1a1c;color:#ff9b93;}
 .ptab .pdel:disabled{opacity:.3;cursor:not-allowed;pointer-events:auto;}
 .ptab .pdel:disabled:hover{background:transparent;color:var(--muted);}
+/* move-left arrow: sits in the tab's left padding, shown on hover; never on the first tab */
+.ptab{position:relative;}
+.ptab .pleft{position:absolute;left:0;top:0;bottom:0;width:13px;padding:0;border:0;border-radius:6px 0 0 0;background:transparent;
+  color:var(--muted);cursor:pointer;display:none;place-items:center;}
+.ptab .pleft svg{width:11px;height:11px;transform:scaleX(-1);fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;}
+.ptab:hover:not(:first-child) .pleft{display:grid;}
+.ptab .pleft:hover{color:var(--accent-text);background:var(--btn-bg);}
 .ptab .pdot{width:6px;height:6px;border-radius:50%;flex:0 0 auto;display:none;}
 .ptab.conflict .pdot{display:inline-block;background:#d9822b;box-shadow:0 0 6px #d9822b;}
 .ptab.waiting .pdot{display:inline-block;background:#e6a23c;box-shadow:0 0 6px #e6a23c;}
@@ -823,7 +855,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 
 /* ── ambient pixel pets ── */
 .petfield{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:3400;}
-.pet{position:absolute;left:0;top:0;will-change:transform;transition:transform var(--dur,3s) linear;}
+.pet{position:absolute;left:0;bottom:0;will-change:transform;transition:transform var(--dur,3s) linear;}
 .pet-face{transform:scaleX(var(--dir,1));transform-origin:center;}
 .pet-bob{transform:translateY(0);}
 .pet.walking .pet-bob{animation:pet-bob .34s steps(2,jump-none) infinite;}

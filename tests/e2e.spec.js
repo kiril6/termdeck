@@ -311,6 +311,126 @@ test.describe('demo mode (no backend)', () => {
     await expect(page.locator('#pal-cats .pal-cat.on')).toHaveText('Agents');
     await expect(page.locator('#pal-input')).toBeFocused();
   });
+  test('first-run tour counts as seen as soon as it shows: leaving mid-tour does not bring it back', async ({ page }) => {
+    await page.goto('/?demo');
+    await expect(page.locator('.tour')).toBeVisible();
+    await page.reload();                                                // no Skip / Esc / Finish
+    await page.waitForTimeout(1600);
+    await expect(page.locator('.tour')).toHaveCount(0);
+  });
+
+  test('logo easter eggs: a click lights the brand like neon, a double-click spins the mark; both settle', async ({ page }) => {
+    await boot(page, '/?demo');
+    const brand = page.locator('.brand'), mark = page.locator('.brand .dot');
+    await brand.click();
+    await expect(brand).toHaveClass(/neon/);
+    await expect(brand).not.toHaveClass(/neon/, { timeout: 3000 });
+    await page.locator('.brand').dblclick();
+    await expect(mark).toHaveClass(/spin/);
+    expect(await mark.evaluate((m) => m.getAnimations({ subtree: true }).filter((a) => a.animationName === 'brand-orbit').length)).toBe(3);   // the pair orbits, each square counter-turns
+    await expect(mark).not.toHaveClass(/spin/, { timeout: 3000 });
+  });
+
+  test('mini-games remember the best score per game across reloads; a lower score never replaces it', async ({ page }) => {
+    /* global gState, gBest, COLS -- the app's page globals, used inside page.evaluate() */
+    await boot(page, '/?demo');
+    // Snake heading right into the wall with `score` points, then wait for its game over.
+    const crash = async (score) => {
+      await page.evaluate((n) => { gState.score = n; gState.body = [{ x: COLS - 1, y: 5 }]; gState.tick = gState.every; }, score);
+      await expect.poll(() => page.evaluate(() => gState.over)).toBe(true);
+    };
+    await page.keyboard.press('ControlOrMeta+Alt+KeyG');
+    await expect(page.locator('#game-overlay')).toHaveClass(/open/);
+    await page.locator('#game-pick').selectOption('snake');
+    await crash(3);
+    expect(await page.evaluate(() => ({ best: gBest(), newBest: gState.newBest }))).toEqual({ best: 3, newBest: true });
+    await page.keyboard.press('Space');                                  // restart
+    await crash(1);
+    expect(await page.evaluate(() => ({ best: gBest(), newBest: !!gState.newBest }))).toEqual({ best: 3, newBest: false });
+    await page.locator('#game-pick').selectOption('dino');              // each game keeps its own
+    expect(await page.evaluate(() => gBest())).toBe(0);
+
+    await page.reload();
+    await expect(page.locator('.win')).toHaveCount(1);
+    await page.keyboard.press('ControlOrMeta+Alt+KeyG');
+    await page.locator('#game-pick').selectOption('snake');
+    expect(await page.evaluate(() => gBest())).toBe(3);
+  });
+
+  test('project tab right-click: Rename edits the name in place; Delete is off for the last project', async ({ page }) => {
+    await boot(page, '/?demo');
+    const tab = page.locator('.ptab').first();
+    await expect(tab.locator('.pname')).toHaveAttribute('title', /Double-click to rename/);
+    await tab.click({ button: 'right' });
+    await expect(page.locator('.ctxmenu .ctx-item', { hasText: 'Delete project' })).toHaveClass(/disabled/);
+    await page.locator('.ctxmenu .ctx-item', { hasText: 'Rename' }).click();
+    await expect(tab.locator('.pname')).toBeFocused();
+    await page.keyboard.type('api');                                   // the whole old name was selected, so typing replaces it
+    await page.keyboard.press('Enter');
+    await expect(tab.locator('.pname')).toHaveText('api');
+    await expect(tab.locator('.pname')).toHaveAttribute('contenteditable', 'false');
+  });
+
+  test('project tabs: hover arrow moves a tab one left (not on the first tab); menu moves right; order survives reload', async ({ page }) => {
+    await boot(page, '/?demo');
+    await page.locator('#padd').click();
+    await page.locator('#padd').click();
+    const names = () => page.locator('.ptab .pname').allTextContents();
+    expect(await names()).toEqual(['default', 'project 1', 'project 2']);
+    const first = page.locator('.ptab').first();
+    await first.hover();
+    await expect(first.locator('.pleft')).toBeHidden();                // nowhere to go
+    const second = page.locator('.ptab').nth(1);                      // (headless Firefox on Linux never hovers further right in this bar)
+    await second.hover();
+    await second.locator('.pleft').click();
+    expect(await names()).toEqual(['project 1', 'default', 'project 2']);
+    await page.locator('.ptab').nth(1).click({ button: 'right' });
+    await page.locator('.ctxmenu .ctx-item', { hasText: 'Move right' }).click();
+    expect(await names()).toEqual(['project 1', 'project 2', 'default']);
+    await page.waitForTimeout(800);                                     // let the debounced save land
+    await page.reload();
+    await expect(page.locator('.ptab')).toHaveCount(3);
+    expect(await names()).toEqual(['project 1', 'project 2', 'default']);
+  });
+
+  test('resizing the window keeps the pets on the floor and on screen, at once (no float, no off-screen glide back)', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('td.pets.v1', 'on'));
+    await page.setViewportSize({ width: 1400, height: 800 });
+    await boot(page, '/?demo');
+    await expect(page.locator('#petfield .pet')).toHaveCount(3);
+    // every pet's box inside the field, its bottom within the 40px floor strip; measured two frames after the resize
+    const placed = () => page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(() => {
+      const f = document.getElementById('petfield').getBoundingClientRect();
+      ok([...document.querySelectorAll('#petfield .pet')].every((p) => {
+        const r = p.getBoundingClientRect();
+        return r.left >= f.left - 1 && r.right <= f.right + 1 && r.bottom <= f.bottom + 1 && f.bottom - r.bottom <= 40;
+      }));
+    }))));
+    for (const size of [{ width: 700, height: 450 }, { width: 1400, height: 800 }, { width: 500, height: 800 }]) {
+      await page.setViewportSize(size);
+      expect(await placed(), `${size.width}x${size.height}`).toBe(true);
+    }
+  });
+
+  test('AltGr (Ctrl+Alt on Windows/Linux European layouts) is typing, never a shortcut', async ({ page }) => {
+    await boot(page, '/?demo');
+    const key = (init) => page.evaluate((i) => document.body.dispatchEvent(new KeyboardEvent('keydown', { ...i, ctrlKey: true, altKey: true, bubbles: true })), init);
+    await key({ key: 'ţ', code: 'KeyT', modifierAltGraph: true });               // AltGr+T: a character, not "New terminal"
+    await page.waitForTimeout(200);
+    await expect(page.locator('.win')).toHaveCount(1);
+    await key({ key: 't', code: 'KeyT' });                                      // a real Ctrl+Alt+T still works
+    await expect(page.locator('.win')).toHaveCount(2);
+  });
+
+  test('⌘⌥ / Ctrl+Alt shortcuts work while a terminal has focus (Windows/Linux: xterm must not take them)', async ({ page }) => {
+    await boot(page, '/?demo');
+    await page.locator('.win .xterm').first().click({ force: true });
+    await expect(page.locator('.xterm-helper-textarea').first()).toBeFocused();
+    await page.keyboard.press('ControlOrMeta+Alt+KeyT');
+    await expect(page.locator('.win')).toHaveCount(2);
+    await page.keyboard.press('ControlOrMeta+Alt+KeyG');
+    await expect(page.locator('#game-overlay')).toHaveClass(/open/);
+  });
 });
 
 test.describe('tree find (#167)', () => {

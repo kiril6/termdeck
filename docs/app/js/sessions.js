@@ -22,16 +22,37 @@ function renderProjectTab(p){
   const nm=el("span","pname"); nm.textContent=p.name; nm.setAttribute("spellcheck","false"); nm.title="Double-click to rename";
   const cnt=el("span","pn"); cnt.textContent="0";
   const del=el("button","pdel"); del.innerHTML=ICON.x; del.title="Delete project";
-  tab.append(dot,nm,cnt,del);
+  const left=el("button","pleft"); left.innerHTML=ICON.caret; left.title="Move left"; left.tabIndex=-1;
+  tab.append(left,dot,nm,cnt,del);
   projTrack.append(tab); updateProjEdges();
-  tab.addEventListener("click",(e)=>{if(e.target===del||nm.isContentEditable)return; switchProject(p.id);});
-  nm.addEventListener("dblclick",(e)=>{e.stopPropagation(); nm.contentEditable="true"; nm.focus(); document.getSelection().selectAllChildren(nm);});
+  tab.addEventListener("click",(e)=>{if(e.target===del||e.target===left||nm.isContentEditable)return; switchProject(p.id);});
+  left.addEventListener("click",(e)=>{e.stopPropagation(); moveProject(p.id,-1);});
+  const rename=()=>{nm.contentEditable="true"; nm.focus(); document.getSelection().selectAllChildren(nm);};
+  nm.addEventListener("dblclick",(e)=>{e.stopPropagation(); rename();});
+  tab.addEventListener("contextmenu",(e)=>{
+    e.preventDefault(); if(nm.isContentEditable)return;
+    showCtxMenu(e.clientX,e.clientY,[
+      {label:"Rename",run:rename},
+      {label:"Move left",disabled:projectOrder[0]===p.id,run:()=>moveProject(p.id,-1)},
+      {label:"Move right",disabled:projectOrder.at(-1)===p.id,run:()=>moveProject(p.id,1)},
+      {sep:true},
+      {label:"Delete project",disabled:projectOrder.length<=1,run:()=>deleteProject(p.id)},
+    ]);
+  });
   const commit=()=>{nm.contentEditable="false"; p.name=nm.textContent.trim()||p.name; nm.textContent=p.name; updateAgentOverview(); scheduleSave();};
   nm.addEventListener("blur",commit);
   nm.addEventListener("keydown",(e)=>{if(e.key==="Enter"){e.preventDefault();nm.blur();} if(e.key==="Escape"){nm.textContent=p.name;nm.blur();} e.stopPropagation();});
   del.addEventListener("click",(e)=>{e.stopPropagation(); deleteProject(p.id);});
   p.tab=tab; p.nameEl=nm; p.countEl=cnt; p.dot=dot; p.delEl=del;
   updateProjectAttention(p.id);
+}
+// Swap a project tab with its neighbour (d = -1 left, +1 right); the saved order follows projectOrder.
+function moveProject(pid,d){
+  const i=projectOrder.indexOf(pid), j=i+d;
+  if(i<0||j<0||j>=projectOrder.length)return;
+  [projectOrder[i],projectOrder[j]]=[projectOrder[j],projectOrder[i]];
+  projectOrder.forEach((id)=>projTrack.append(projects.get(id).tab));
+  projects.get(pid).tab.scrollIntoView({inline:"nearest",block:"nearest"}); updateProjEdges(); scheduleSave();
 }
 async function deleteProject(pid){
   if(projectOrder.length<=1)return;
@@ -413,6 +434,7 @@ function addTab(s, opts){
     if(mod&&!ev.altKey&&ev.key==="0"){                                 // reset zoom
       if(ev.type==="keydown"){ ev.preventDefault(); zoomTab(s,tab,0); } return false;
     }
+    if(mod&&ev.altKey&&!ev.getModifierState?.("AltGraph")&&APP_ALT_KEYS.test(ev.code)) return false;   // app shortcut: let it reach the page (keyboard.js)
     // Alt/Option+Left/Right jumps a word, as before xterm 6 dropped this mapping (it now sends ESC[1;3D/C, unbound in most shells).
     if(ev.altKey&&!mod&&!ev.shiftKey&&(ev.key==="ArrowLeft"||ev.key==="ArrowRight")){
       if(ev.type==="keydown"){ ev.preventDefault(); const l=ev.key==="ArrowLeft"; term.input(MAC?(l?"\x1bb":"\x1bf"):(l?"\x1b[1;5D":"\x1b[1;5C"),true); } return false;

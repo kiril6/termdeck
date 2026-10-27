@@ -12,6 +12,7 @@ const FOCUSABLE='button:not([disabled]),a[href],summary,input:not([disabled]),se
 const shown=(n)=>!!n&&n.isConnected&&n.getClientRects().length>0;
 const focusables=(m)=>[...m.querySelectorAll(FOCUSABLE)].filter(shown);
 const modalReturn=new Map();   // open dialog → where focus goes back to when it closes
+const modalOpen=new Set();     // dialogs open right now; modalReturn can outlive a close by two ticks, so it can't say
 // The last element focused outside every dialog. Tracked as it happens, because a dialog often focuses its own input
 // before the observer below runs (the palette does); it also makes dialog → dialog return to where the first came from.
 let focusOutside=null;
@@ -38,16 +39,17 @@ function dialogClosed(m){
 const modalOf=(n)=>n.nodeType!==1?null:n.matches('[aria-modal="true"]')?n:n.querySelector('[aria-modal="true"]');
 const modalObs=new MutationObserver((recs)=>{
   for(const r of recs){
-    if(r.type==="attributes"){const m=r.target, open=shown(m); if(open&&!modalReturn.has(m)) dialogOpened(m); else if(!open&&modalReturn.has(m)) dialogClosed(m); continue;}
-    r.addedNodes.forEach((n)=>{const m=modalOf(n); if(m&&shown(m)) dialogOpened(m);});
-    r.removedNodes.forEach((n)=>{const m=modalOf(n); if(m&&modalReturn.has(m)) dialogClosed(m);});
+    // A dialog reopened before its close finished (⌘K → command → ⌘K again) still counts as opened: focus moves in again.
+    if(r.type==="attributes"){const m=r.target, open=shown(m); if(open&&!modalOpen.has(m)){modalOpen.add(m); dialogOpened(m);} else if(!open&&modalOpen.has(m)){modalOpen.delete(m); dialogClosed(m);} continue;}
+    r.addedNodes.forEach((n)=>{const m=modalOf(n); if(m&&shown(m)){modalOpen.add(m); dialogOpened(m);}});
+    r.removedNodes.forEach((n)=>{const m=modalOf(n); if(m&&modalOpen.has(m)){modalOpen.delete(m); dialogClosed(m);}});
   }
 });
 document.querySelectorAll('[aria-modal="true"]').forEach((m)=>modalObs.observe(m,{attributes:true,attributeFilter:["class"]}));
 modalObs.observe(document.body,{childList:true});
 document.addEventListener("keydown",(e)=>{
   if(e.key!=="Tab"||e.defaultPrevented) return;   // the palette (categories) and the tour handle Tab themselves
-  const m=[...modalReturn.keys()].filter(shown).pop(); if(!m) return;
+  const m=[...modalOpen].filter(shown).pop(); if(!m) return;
   // Always moved by hand: browsers differ on what Tab reaches (WebKit skips links), and focus must never leave the dialog.
   e.preventDefault();
   const f=focusables(m), i=f.indexOf(document.activeElement), n=f.length;
