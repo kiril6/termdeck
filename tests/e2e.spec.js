@@ -714,6 +714,19 @@ test.describe('live backend', () => {
     await expect(page.locator('.win .badge.cmd').first()).toHaveText('$ echo hey');
   });
 
+  test('a reload replays old terminal queries without answering them again (no stray "1;2c0;276;0c" typed into the shell)', async ({ page }) => {
+    await boot(page, '/');
+    await page.locator('.win .xterm').first().click({ force: true });
+    await page.keyboard.type("printf '\\033[c\\033[>c'; echo QUERIED\n");      // DA1 + DA2 queries land in the replay buffer
+    await expect(page.locator('.win .badge.cmd').first()).toContainText('QUERIED');
+    const sent = [];
+    page.on('websocket', (ws) => ws.on('framesent', (f) => sent.push(String(f.payload))));
+    await page.reload();
+    await expect(page.locator('.win .xterm')).toHaveCount(1);
+    await page.waitForTimeout(1500);                                        // reattach + replay written
+    expect(sent.filter((f) => /1;2c|>0;\d+;\d+c/.test(f))).toEqual([]);
+  });
+
   test('version shown; no toast on first visit; "Updated" toast once per version opens What\'s new (#88)', async ({ page, request }) => {
     const { version } = await (await request.get('/api/version')).json();
     await boot(page, '/');
