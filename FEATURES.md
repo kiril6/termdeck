@@ -100,10 +100,10 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   Live mode only — the hosted demo has no files to read. Clicking a path in terminal output opens it the same way.
 - 🖥️ **Move to project (dock chip)** — the folder-arrow button on a dock chip moves that window to another project; it is **disabled (dimmed) while there is only one project** and enables as soon as a second exists.
 - 🖥️ **Last project can't be deleted** — the **×** on a project tab is dimmed and disabled (tooltip *Can't delete the only project*) while only one project exists, and enables once a second is added.
-- 🖥️ **First-run tour** — a 6-step spotlight walkthrough (⌘K palette → New agent task → agent queue → projects & dock → directory tree ⋯ menu → Help; the tree step opens the sidebar and closes it again on leaving) that auto-shows once on a first visit (not on narrow/touch screens) and never again: it counts as seen the moment it shows, so a reload or closed tab mid-tour doesn't bring it back (`td.tourDone.v1` in `localStorage`, per browser and address). Replay: palette → *Take the tour*, the Help sheet, or the empty-desktop link. Esc closes, ←/→ step, focus stays in the card; no layout shift, no network, animation off under `prefers-reduced-motion`. Works in the hosted demo.
+- 🖥️ **First-run tour** — a 7-step spotlight walkthrough (⌘K palette → New agent task → agent queue → projects & dock → directory tree ⋯ menu → Privacy shield → Help; the tree step opens the sidebar and closes it again on leaving) that auto-shows once on a first visit (not on narrow/touch screens) and never again: it counts as seen the moment it shows, so a reload or closed tab mid-tour doesn't bring it back (`td.tourDone.v1` in `localStorage`, per browser and address). Replay: palette → *Take the tour*, the Help sheet, or the empty-desktop link. Esc closes, ←/→ step, focus stays in the card; no layout shift, no network, animation off under `prefers-reduced-motion`. Works in the hosted demo.
 - 🖥️ **Short empty palette** — with nothing typed (category *All*) ⌘K lists only **Recent** (the last 5 palette commands you ran, `td.palRecent.v1` in `localStorage`), **Start** (New terminal · New agent task… · Open directory… · Open file… · New project), your snippets / SSH hosts, the top AI CLIs and open sessions, plus a *Type to search all N commands* footer. Typing searches **every** command (an `x` matches `×`, so `2x2` finds *Layout 2×2*); a category chip lists all of its commands.
 - 🖥️ **Palette search ranking** — typed searches order commands by relevance: a label **word starting** with the text first, then labels merely containing it, then description-only matches; ties go to recently run commands, with the fixed-grid layout presets after real commands (so `layout` lists *Save layout as…* / *Restore layout…* before *Layout 1×1…*), then list order.
-- 🖥️ **Palette categories** — a chip row under the ⌘K input (*All · Terminals · Agents · Sessions · Layout · Settings · Help · Fun*; *Terminals* also holds snippets and SSH hosts, *Agents* the agent tasks, CLI presets and the usage / agent-order resets, *Sessions* the Live overview, Search sessions and open sessions, *Layout* Tile windows, the fixed-grid presets, the directory-tree toggle and *Move or resize window*, *Settings* only real preferences — theme, terminal font, scrollback — *Help* keyboard shortcuts and the tour, *Fun* the game and pixel pets) narrows the list; click a chip or press **Tab / Shift+Tab** to cycle, and the search text still applies inside the chosen category. Resets to *All* each time the palette opens. A **×** in the input (or **Ctrl+U**) clears the typed text.
+- 🖥️ **Palette categories** — a chip row under the ⌘K input (*All · Terminals · Agents · Sessions · Layout · Settings · Privacy · Help · Fun*; *Terminals* also holds snippets and SSH hosts, *Agents* the agent tasks, CLI presets and the usage / agent-order resets, *Sessions* the Live overview, Search sessions and open sessions, *Layout* Tile windows, the fixed-grid presets, the directory-tree toggle and *Move or resize window*, *Settings* only real preferences — theme, terminal font, scrollback — *Help* keyboard shortcuts and the tour, *Fun* the game and pixel pets) narrows the list; click a chip or press **Tab / Shift+Tab** to cycle, and the search text still applies inside the chosen category. Resets to *All* each time the palette opens. A **×** in the input (or **Ctrl+U**) clears the typed text.
 - 🖥️ **Palette shortcut hints** — every palette command that has a shortcut shows it, matching the real binding.
   Frequent actions get one (*Open file* `⌘⌥O`, *New agent task* `⌘⌥R`, *Review agent changes* `⌘⌥D`); one-off setup
   dialogs (*Add SSH host*, *Add AI CLI preset*, *Set scrollback*) deliberately stay palette-only. *Maximize / restore*
@@ -529,7 +529,9 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
 - 🖥️ Attention indicators on tabs/dock chips for background output.
 
 ## Appearance & layout
-- 🖥️ Themes — per-terminal or dashboard-wide, searchable picker (`⌘⇧P`). 24 built-in: 17 dark + 7 light (GitHub Light, Paper, Solarized Light, One Light, Catppuccin Latte, Rose Pine Dawn, Gruvbox Light).
+- 🖥️ Themes — per-terminal or dashboard-wide, searchable picker (`⌘⇧P`). 24 built-in: 17 dark + 7 light (GitHub Light, Paper, Solarized Light, One Light, Catppuccin Latte, Rose Pine Dawn, Gruvbox Light). **Matrix** keeps the neon `#00ff41` for the accent and cursor, but its text is a
+  softer green (`#3be278`, 12:1 on black) for long sessions, its dim/comment text clears 4.5:1, and red and yellow keep
+  their own hue (coral, lime-yellow) so errors, warnings and `git diff` still read; the other ANSI colours are green-family shades.
   Text on accent-filled surfaces (the primary dialog button, hovered menu rows) is picked per theme as near-black or white, whichever contrasts more with that theme's accent (≥4.7:1 across all 24), via the `--on-accent` variable.
   **Readable text on every theme (WCAG AA):** when a theme is applied, its `--text`, `--muted` and `--accent-text`
   (accent used as a text colour) are lifted in 5% steps toward the text colour / white / black until they reach 4.5:1
@@ -571,7 +573,9 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   slime, and a bird) walk a *floor strip* along the desktop bottom edge, each with its own wander/pause/groom
   AI. They are **not shown while you're working**: they appear only when the browser tab loses
   focus/visibility **or** the mouse sits idle ~45s, and vanish the moment you return or move the
-  mouse. Pure CSS box-shadow sprites tinted from the active theme's `--accent`/`--muted`, so they
+  mouse. The away/idle detection is shared with the walk-away privacy shield (`away` in `js/matrix.js`).
+  With the Matrix rain background on, *auto* pets stand aside while agents work or wait (the rain signals
+  them then); on idle they walk in front of the rain, which keeps falling. *Always on* always shows them. Pure CSS box-shadow sprites tinted from the active theme's `--accent`/`--muted`, so they
   recolor with the theme. Decorative only — `pointer-events:none`; they ride above window bodies
   but stay pinned to the bottom band so they never cover terminal text, and sit below the
   toolbar/sidebar/overlays. Resizing or maximizing the window keeps them where they were: they stay on the floor
@@ -579,6 +583,88 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   piles up at the edge or slides back from off-screen. Toggle the whole feature with **`⌘⌥P`** or palette → *Toggle pixel
   pets* (paw icon); enabled by default, state saved to `localStorage` (`td.pets.v1`). Fully hidden
   under `prefers-reduced-motion`.
+- 🖥️ **Privacy shield** (`⌘⌥X`, palette → *Privacy*) — covers what people watching your screen could read
+  (screen-share, streaming, a café): every terminal pane, the file viewer and *Review agent changes*, the
+  live-overview tiles, the directory tree, the agent queue's request/tool text, snippet commands and SSH targets
+  in the palette (labels only; the hidden text isn't searchable either), and toast message text (our own shield
+  toasts stay readable; native notifications drop their body). Find-in-terminal is refused on a covered tab.
+  Looks (*Privacy & effects…*): **a plain panel** (default, an empty `--panel` cover), **a strong blur** (16px +
+  60% tint) or **Matrix rain** (panel + rain). Optionally it also blurs tab and window names, folders, the last
+  command and project names, and hides their hover tooltips (full paths, *Last command*) until names show again. **Top bar**: a *Privacy* split button next to *Theme* — click hides/shows all
+  terminals (lit while on); its caret menu has *Hide/Show all*, *this project*, *the focused tab*, *Cover the
+  focused tab now* and *Privacy & effects…*. On a tab the global or project shield covers, *Shield this tab* (palette,
+  menus, the tab's header button) **shows just that tab** while the rest stay covered, and again puts it back under;
+  each says its real state (*On — hidden by the privacy shield*). That exception is never saved and ends whenever a
+  shield turns on or off, so the next `⌘⌥X` or walk-away hides everything again. On narrow screens a shield indicator in the top bar turns it off.
+  **Hold `⌥`** (alone) to peek — any other key ends the peek so `⌥`+arrow word jumps don't flash the screen;
+  long-press on touch. Typing still reaches a covered shell (password prompts while sharing), and a
+  *Needs approval* flag and toast still fire (agent name only). **Per tab**: the shield icon in the window
+  header or the pane's right-click menu locks one tab; **per project**: palette → *Shield this project*
+  opens every terminal in it covered. Tab and project locks persist with the layout (`td.state.v5`, saved
+  layouts too); the global shield and its options persist in `td.matrix.v1` (exported with the settings), are
+  followed by other open browser tabs, and are painted by the `<head>` script before the app loads, so a
+  reload mid-stream never shows a frame of output. `?shield` in the URL opens covered (a "streaming"
+  bookmark). **From the shell**: `printf '\e]7777;shield\a'` covers the pane it's printed in — a sequence
+  can only turn the shield **on**, never off (a `cat`'d file must not uncover you), at most once a second,
+  and it's ignored for 1.5s after a reattach replays old output. **Walk-away** (*Privacy & effects…*:
+  never · 2 · 5 · 10 min idle): covers everything after that long without mouse or keys (losing focus alone
+  never does); mouse movement isn't enough to lift it, a click is. A visual cover, **not security**: the
+  text is still in the DOM, the clipboard, search and the replay buffer. The pane's xterm screen goes
+  transparent (not hidden, so its input stays focusable).
+- 🖥️ **Working effect** (focus veil; palette → *Privacy & effects…*, off by default) — what a **working**
+  agent's window shows, chosen in plain words under *While an agent is working, its window shows*:
+  **Nothing** · **Matrix rain behind the text** · **Blur it** · **Cover it with Matrix rain** · **Cover it with a
+  plain panel**. It starts after 3s of *working* (hook events or the output heuristic) and stops as soon as the
+  agent waits, at least 1.5s after it started (and won't restart for 2s, so a quick working/waiting flip can't
+  flicker it); an **approval** prompt stops it at once. **Rain behind the text** covers nothing: the terminal's
+  own background goes transparent (xterm `allowTransparency`, honoured by the WebGL renderer, only on that tab
+  while it runs; a theme change keeps it clear and stopping restores the real background) and a faint, slow
+  rain (~1.4:1 against the terminal background, backed off per theme so the text keeps at least AA or 90% of
+  its own contrast; 24 fps, no bright head glyph) drifts under readable text — you keep typing and
+  clicking in it, and it doesn't count toward anything you must dismiss. It is skipped on High Contrast and at
+  the step-down's still-frame level. The three **covers** show a pill with only the session · tab name and how
+  long it has been working (no command or file text); hover the pane to peek; any key (not a lone modifier) or a
+  click ends a cover for this run and still reaches the shell (Esc interrupts as usual); the pill's eye button —
+  or *Turn off the working effect for this tab* in the pane menu — opts that tab out (saved with the tab).
+  *Cover this tab now* (palette or pane menu) covers any tab — a long build in a plain shell — until a key or
+  click (blur when the chosen effect is rain behind the text). Blur: 4px + 20% dim; rain cover: 72% dim + rain;
+  panel: 88% dim. A shielded tab gets no working effect (it's covered already).
+- 🖥️ **Privacy & effects… dialog** (palette → *Privacy*, desktop right-click menu) — one dialog of plain-language
+  dropdowns instead of toggles to cycle through: what a working agent's window shows, what's *Behind the windows*
+  (plain or Matrix rain), what *The privacy shield looks like* (plain panel, strong blur, Matrix rain), what *The
+  privacy shield hides* (contents, or contents plus names, folders and commands) and *Turn the privacy shield on
+  when I walk away* (never, 2, 5 or 10 min idle). Save applies it to every window and toasts a one-line summary;
+  Cancel changes nothing. The palette's *Privacy* tab keeps only the quick toggles: *Privacy shield* (`⌘⌥X`),
+  *Shield this tab*, *Shield this project*, *Matrix rain background* (each subtitle starts with its On/Off state),
+  *Cover this tab now*, and last *Privacy & effects…* (its subtitle is the current summary).
+- 🖥️ **Matrix rain** (palette → *Matrix rain background*, desktop right-click menu; off by default) —
+  falling katakana/digit columns behind the windows, never behind terminal text. It follows the agents:
+  idle drifts (4 rows/s), any agent working speeds up and brightens (10 rows/s), waiting/approval calms it
+  down (3 rows/s) so the alerts stand out; it fades out when windows cover the desktop (a maximized window, or
+  windows leaving fewer than 3 of 48 sample points of it visible — overlapping windows are not counted twice)
+  and while the pets show. Motion is time-based: each column falls at its own speed (60–100%) by the time since
+  its last draw, so a skipped frame never stutters or slows it, and the trail fades at a matching rate. Colours come from the theme: trail `--accent`, leading
+  glyph `--text` (dark on light themes), and each canvas fades toward transparent so the theme's own
+  background shows through (true black on AMOLED). Its opacity is computed per theme so the trail has the
+  same faint contrast against `--bg` everywhere (~1.25:1; rain behind text 1.4:1, rain cover 2.2:1, shield rain 2.5:1 on `--panel`).
+  **High Contrast** gets no rain at all (covers and the shield fall back to a panel, rain behind text is skipped). Picking the **Matrix**
+  theme offers the rain once in a toast; it is never switched on by itself. The **Theme** menu has the
+  switches too: in the global view *Matrix rain behind the windows* and *Matrix rain behind the text while an
+  agent works*; in a window's own theme view one switch for that window (with *Use default*), plus a link to
+  *Privacy & effects…*. Built to cost nothing when off
+  (no canvas, no loop) and little when on: 2D canvas only (xterm already spends the WebGL context budget),
+  drawn at DPR 1 from a pre-rendered glyph atlas, **one shared `requestAnimationFrame` loop** with fps caps
+  (background ≤15, the same while the window is out of focus; covers 30, rain behind text 24), at most **4 canvas draws per frame**
+  (round-robin, most overdue first), each pane with its own random seed, at most **4
+  animated panes** on screen (extra ones hold a still frame; the slots follow what is visible, so after a project
+  switch or a closed window the panes you can see take them over), 0 draws for hidden/minimized panes and a hidden tab
+  (the loop then re-checks twice a second instead of every frame). If frames keep taking >3ms for ~2s it
+  steps down once — half fps, then still frames (rain behind text stops), then no rain — and never back up that session.
+  Resizing the browser window or a pane (maximize, dragging an edge) never restarts the rain: the frame and the columns
+  that still fit carry on, new columns start spread over the height, and columns a shorter window cuts off carry on
+  at a random height instead of all restarting from the top together.
+  `prefers-reduced-motion`: still frames only. Katakana is checked against the installed fonts at startup and
+  falls back to digits and symbols where it would render as boxes.
 - 🖥️ **Installable as a desktop app (PWA, #1)** — `public/manifest.webmanifest` (192/512px icons, `display: standalone`, relative `start_url`/`scope`) lets Chrome/Edge install termdeck (address-bar icon) and Safari add it to the Dock (*File → Add to Dock*), in its own window without tabs or address bar. No service worker: the app needs the live server anyway, so nothing is cached, so the window always shows what the running server serves. An update is *new package → restart the server → reload the window*: `termdeck update` does the first two (see its entry), a different port being a different address. The manifest link has `crossorigin="use-credentials"` because every request needs the `td_token` cookie, and browsers fetch manifests without credentials by default (otherwise `401`, not installable). The install is bound to the origin (`http://127.0.0.1:<port>`) and so is `localStorage`: pin a fixed port (an explicit `PORT` fails on a clash instead of picking another). The docs suggest **`PORT=17300`**: unassigned at IANA, no known product default, below every OS's ephemeral range (Linux starts at 32768). Not 3000: dev servers (Next.js, Express, Rails…) often take it, and an app installed on `:3000` would then open their page. The code default stays 3000, so plain runs don't move; an app already installed on `:3000` should keep `PORT=3000`. On a new origin, ⌘K → *Export settings…* / *Import settings…* and *Save layout as…* / *Restore layout…* bring the setup back. The installed app is only a window onto the running server: if the server is down it shows a browser error page, so use `termdeck autostart install --port 17300` (the same port) to start it at login. The hosted demo (`docs/app/`) carries the same manifest.
 - 🖥️ **Help / About** — the **? Help** button (and `?`) opens an overlay: a one-paragraph "what is
   this" intro at the top, then the full keyboard-shortcut reference. The empty desktop also shows a

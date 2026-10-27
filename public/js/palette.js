@@ -46,7 +46,7 @@ function renderOverview(){
       sl.textContent=st==="approval"?"needs approval":st==="run"?"running":st;
       const go=el("span","ov-go"); go.textContent="Open \u21b5"; go.setAttribute("aria-hidden","true");
       hd.append(dot,nm,go,sl);
-      const pre=el("pre","ov-out"); pre.textContent=tabTail(tab,9);   // textContent only \u2014 output is untrusted
+      const pre=el("pre","ov-out"); if(tabShielded(s,tab)){pre.classList.add("mx-hid"); pre.textContent="Hidden by the privacy shield";} else pre.textContent=tabTail(tab,9);   // textContent only \u2014 output is untrusted; a shielded tab's tile stays empty
       tile.append(hd,pre);
       tile.setAttribute("role","button"); tile.setAttribute("aria-label",nm.textContent+", "+sl.textContent+" \u2014 open");
       const jump=()=>{closeOverview(); revealWindow(s); switchTab(s,tab.id);};
@@ -149,7 +149,7 @@ function buildPalette(q){
     cmdGroups.push(["Recent",rec],["Start",PAL_START.map(byLabel).filter((c)=>c&&!rec.includes(c))]);
   }else{
     const xq=q.replace(/\u00d7/g,"x"), hit=(t)=>t.toLowerCase().replace(/\u00d7/g,"x").includes(xq);   // "2x2" finds "Layout 2×2"
-    const found=PAL_CMDS.filter((c)=>inCat(c.cat)&&(!q||hit(c.label)||hit(c.sub)));
+    const found=PAL_CMDS.filter((c)=>inCat(c.cat)&&(!q||hit(c.label)||hit(c.sub)||(c.keys&&hit(c.keys))));   // keys: extra words people type for it, not shown
     if(q){   // rank: a label word starting with the query, then label contains it, then description only; ties → recently run first, layout presets last, then list order
       const wordStart=new RegExp("(^|[^a-z0-9])"+xq.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")), recent=palRecent();
       const score=(c)=>{const l=c.label.toLowerCase().replace(/\u00d7/g,"x"); return [wordStart.test(l)?0:hit(c.label)?1:2, recent.includes(c.label)?recent.indexOf(c.label):99, c.layout?1:0];};
@@ -174,7 +174,7 @@ function buildPalette(q){
     });
   }
   // snippets
-  const snips=snippets.filter((sn)=>inCat("Terminals")&&(!q||sn.label.toLowerCase().includes(q)||sn.cmd.toLowerCase().includes(q)));
+  const snips=snippets.filter((sn)=>inCat("Terminals")&&(!q||sn.label.toLowerCase().includes(q)||(!mx.shield&&sn.cmd.toLowerCase().includes(q))));   // shielded: labels only
   if(snips.length){
     const g=el("div","pal-group");g.textContent="Snippets";palList.append(g);
     snips.forEach((sn)=>{
@@ -182,7 +182,7 @@ function buildPalette(q){
       const ic=el("div","pi-icon");ic.innerHTML=ICON.snippet;
       const body=el("div","pi-body");
       const lb=el("div","pi-label");lb.innerHTML=hlMatch(sn.label,q);
-      const sb=el("div","pi-sub");sb.textContent=sn.cmd;
+      const sb=el("div","pi-sub");sb.textContent=mx.shield?"Command hidden by the privacy shield":sn.cmd;
       body.append(lb,sb);
       const edit=el("button","pi-del pi-edit");edit.innerHTML=ICON_EDIT;edit.title="Edit snippet";
       edit.addEventListener("click",async(e)=>{e.stopPropagation();await editSnippet(sn);palMatches=buildPalette(palInput.value);palInput.focus();});
@@ -194,7 +194,7 @@ function buildPalette(q){
     });
   }
   // ssh hosts
-  const hosts=sshHosts.filter((h)=>inCat("Terminals")&&(!q||h.label.toLowerCase().includes(q)||h.target.toLowerCase().includes(q)));
+  const hosts=sshHosts.filter((h)=>inCat("Terminals")&&(!q||h.label.toLowerCase().includes(q)||(!mx.shield&&h.target.toLowerCase().includes(q))));
   if(hosts.length){
     const g=el("div","pal-group");g.textContent="SSH";palList.append(g);
     hosts.forEach((h)=>{
@@ -202,7 +202,7 @@ function buildPalette(q){
       const ic=el("div","pi-icon");ic.innerHTML=ICON.terminal;
       const body=el("div","pi-body");
       const lb=el("div","pi-label");lb.innerHTML=hlMatch(h.label,q);
-      const sb=el("div","pi-sub");sb.textContent="ssh "+h.target;
+      const sb=el("div","pi-sub");sb.textContent=mx.shield?"Host hidden by the privacy shield":"ssh "+h.target;
       body.append(lb,sb);
       const edit=el("button","pi-del pi-edit");edit.innerHTML=ICON_EDIT;edit.title="Edit host";
       edit.addEventListener("click",async(e)=>{e.stopPropagation();await editSshHost(h);palMatches=buildPalette(palInput.value);palInput.focus();});

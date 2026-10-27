@@ -54,6 +54,7 @@ desktop.addEventListener("contextmenu",(e)=>{
     {label:"Toggle directory tree",key:kbd("⌘","B"),run:toggleSidebar},
     {label:"Change theme…",key:kbd("⌘","⇧","P"),run:()=>openThemePop(null,themeBtn)},
     {label:document.fullscreenElement?"Exit fullscreen":"Fullscreen",run:toggleFullscreen},
+    ...mxDesktopMenu(),
     {sep:true},
     {label:"Command palette…",key:kbd("⌘","K"),run:openPalette});
   showCtxMenu(e.clientX,e.clientY,it);

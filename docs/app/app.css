@@ -52,7 +52,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);overflow:hid
 .bar .spacer{flex:1;}
 .status{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted);letter-spacing:.06em;
   flex:0 0 auto;white-space:nowrap;}
-.status #conn-text{white-space:nowrap;}
+.status #conn-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+.bar .status{min-width:0;flex-shrink:1;}   /* a long status (demo) gives way before the buttons do */
 .led{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;flex:0 0 auto;}
 .led.live{background:var(--live);box-shadow:0 0 8px var(--live);}
 .led.dead{background:var(--dead);box-shadow:0 0 8px var(--dead);}
@@ -279,9 +280,9 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
 .pal-header .ph-clear svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;}
 .pal-header .ph-esc{font-size:10px;color:var(--muted);border:1px solid var(--line);
   border-radius:4px;padding:2px 7px;flex:0 0 auto;}
-.pal-cats{display:flex;gap:6px;padding:8px 16px;border-bottom:1px solid var(--line-soft);overflow-x:auto;scrollbar-width:none;}
+.pal-cats{display:flex;gap:5px;padding:8px 16px;border-bottom:1px solid var(--line-soft);overflow-x:auto;scrollbar-width:none;}
 .pal-cat{font:inherit;font-size:11px;color:var(--muted);background:transparent;border:1px solid var(--line);
-  border-radius:999px;padding:3px 11px;cursor:pointer;white-space:nowrap;}
+  border-radius:999px;padding:3px 8px;cursor:pointer;white-space:nowrap;}
 .pal-cat:hover{color:var(--text);border-color:var(--accent-dim);}
 .pal-cat.on{color:var(--accent-text);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);}
 .pal-list{max-height:400px;overflow-y:auto;padding:6px;scrollbar-width:thin;scrollbar-color:var(--line) transparent;}
@@ -553,6 +554,18 @@ button[title]>svg,[role=button][title]>svg{pointer-events:none;}   /* general ru
 
 /* ── theme picker ── */
 .theme-pop-inner{width:340px;}
+.tpop-fx{display:flex;flex-direction:column;gap:4px;margin:0 0 10px;padding-bottom:10px;border-bottom:1px solid var(--line-soft);}
+.tfx{display:flex;align-items:center;gap:10px;width:100%;min-height:28px;padding:4px 2px;border:0;background:none;color:var(--text);font:12px system-ui,sans-serif;text-align:left;cursor:pointer;border-radius:6px;}
+.tfx:hover{background:var(--btn-bg);}
+.tfx:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+.tfx-label{flex:1;}
+.tfx-knob{position:relative;flex:0 0 auto;width:28px;height:16px;border-radius:999px;background:var(--line);transition:background .15s;}
+.tfx-knob::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--muted);transition:transform .15s,background .15s;}
+.tfx[aria-checked="true"] .tfx-knob{background:color-mix(in srgb,var(--accent) 45%,transparent);}
+.tfx[aria-checked="true"] .tfx-knob::after{transform:translateX(12px);background:var(--accent);}
+.tfx-note{font-size:11px;color:var(--muted);padding:0 2px;}
+.tfx-link{border:0;background:none;padding:0;color:var(--accent-text);font:inherit;font-size:11px;cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
+.tfx-more{align-self:flex-start;padding:2px;}
 .tpop-search-wrap{position:relative;margin-bottom:10px;}
 .tpop-search{width:100%;font-family:var(--mono);font-size:12px;color:var(--text);
   background:var(--win-body);border:1px solid var(--line);border-radius:6px;
@@ -894,3 +907,47 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 .tree-find:focus-within{box-shadow:inset 2px 0 0 var(--accent);}
 .tree[hidden]{display:none;}
 .tn .tn-sub{margin-left:8px;font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;max-width:45%;}
+
+/* ═══ MATRIX RAIN · FOCUS VEIL · PRIVACY SHIELD (js/matrix.js) ═══ */
+.mx-bg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;opacity:0;transition:opacity .5s ease;}
+.mx-veil{position:absolute;inset:0;z-index:6;pointer-events:none;transition:opacity .25s ease;}
+.mx-veil canvas,.mx-srain{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+.win-pane .xterm-screen{transition:filter .2s ease;}
+.win-pane.mx-veil-blur .xterm-screen{filter:blur(4px);}
+.mx-veil-blur .mx-veil{background:color-mix(in srgb,var(--bg) 20%,transparent);}
+.mx-veil-rain .mx-veil{background:color-mix(in srgb,var(--bg) 72%,transparent);}   /* see-through: shapes, not text */
+.mx-veil-solid .mx-veil{background:color-mix(in srgb,var(--bg) 88%,transparent);}
+.win-pane.mx-veiled:not(.mx-veil-behind):hover .mx-veil{opacity:.15;}   /* peek through a cover */
+.mx-veil-behind .mx-veil{z-index:0;}                              /* rain behind the text: under the (transparent) terminal */
+.win-pane.mx-veil-behind .xterm{position:relative;z-index:1;}
+.win-pane.mx-veil-blur:hover .xterm-screen{filter:none;}
+.mx-pill{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:8px;max-width:calc(100% - 24px);
+  padding:5px 6px 5px 12px;border-radius:999px;background:var(--panel);border:1px solid var(--line);color:var(--text);
+  font:12px/1.2 var(--mono);box-shadow:0 6px 24px rgba(0,0,0,.35);pointer-events:auto;white-space:nowrap;}
+.mx-pill-name{overflow:hidden;text-overflow:ellipsis;}
+.mx-pill-time{color:var(--muted);font-variant-numeric:tabular-nums;}
+.mx-pill-off{display:grid;place-items:center;width:22px;height:22px;border:0;border-radius:50%;background:transparent;color:var(--muted);cursor:pointer;}
+.mx-pill-off:hover{background:var(--btn-bg);color:var(--text);}
+.mx-pill-off svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+/* Shield: a cover over the pane (also painted by the <head> script before the app loads, via html.td-shield). The xterm
+   screen goes transparent, not hidden: its input textarea must stay focusable so typing keeps reaching the shell.
+   .mx-through = one tab let through on purpose ("Shield this tab" on a tab the global or project shield covers). */
+html.td-shield .win-pane:not(.mx-through)::after,.win-pane.mx-lock::after{content:"Hidden by the privacy shield";position:absolute;inset:0;z-index:7;display:flex;
+  align-items:center;justify-content:center;background:var(--panel);color:var(--muted);font:12px system-ui,sans-serif;pointer-events:none;}
+html.td-shield .win-pane:not(.mx-through) .xterm-screen,.win-pane.mx-lock .xterm-screen{opacity:0;}
+html[data-shield-style="blur"].td-shield .win-pane:not(.mx-through) .xterm-screen,html[data-shield-style="blur"] .win-pane.mx-lock .xterm-screen{opacity:1;filter:blur(16px);}
+html[data-shield-style="blur"].td-shield .win-pane:not(.mx-through)::after,html[data-shield-style="blur"] .win-pane.mx-lock::after{background:color-mix(in srgb,var(--bg) 60%,transparent);}
+.mx-srain{z-index:8;}
+html.mx-peek .win-pane::after,html.mx-peek .mx-srain{display:none;}
+html.mx-peek .win-pane .xterm-screen{opacity:1!important;filter:none!important;}
+html.td-shield :is(#fv-body,#fv-path,#tree,#tree-results,.agent-row-ask,.agent-row-evt,.agent-audit,.ov-out:not(.mx-hid)){visibility:hidden;}
+html.td-shield .file-box{position:relative;}
+html.td-shield .file-box::after{content:"Hidden by the privacy shield";position:absolute;left:0;right:0;top:96px;text-align:center;color:var(--muted);font:12px system-ui,sans-serif;pointer-events:none;}
+.ov-out.mx-hid{display:flex;align-items:center;justify-content:center;color:var(--muted);font-family:system-ui,sans-serif;white-space:normal;}
+html.td-shield .sidebar::after{content:"Files hidden by the privacy shield";position:absolute;left:0;right:0;top:110px;text-align:center;color:var(--muted);font:12px system-ui,sans-serif;pointer-events:none;}
+html.td-shield .toast:not(.t-safe) .t-msg{filter:blur(5px);}
+html.td-shield-titles :is(.wt-name,.cname,.badge.cwd,.badge.cmd,.fv-name,.ov-name,.pname,.sb-title,.agent-row-path,.mx-pill-name){filter:blur(5px);}
+.shield-ind{display:none!important;color:var(--accent-text);}   /* wide screens: the Privacy button shows the state */
+@media (max-width:1260px){.shield-ind:not([hidden]){display:inline-flex!important;}}   /* toolbar collapsed into ⋯ */
+.wbtn.shield.on{color:var(--accent-text);}
+@media(prefers-reduced-motion:reduce){.mx-bg,.mx-veil,.win-pane .xterm-screen{transition:none;}}
