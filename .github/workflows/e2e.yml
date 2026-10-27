@@ -20,7 +20,7 @@ jobs:
           - { os: ubuntu-latest, browsers: chromium firefox webkit, all: '1' }
           - { os: macos-latest, browsers: chromium, all: '' }
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 40   # Linux runs the whole suite in 3 browsers, one worker: ~20 min and growing
     env:
       PW_ALL_BROWSERS: ${{ matrix.all }}
     steps:
