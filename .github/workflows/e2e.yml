@@ -13,16 +13,23 @@ permissions:
 jobs:
   browser:
     # Linux runs every test in Chromium, Firefox and WebKit (Safari's engine); macOS runs Chromium for the mac paths.
+    # Linux runs inside the official Playwright image: browsers and their system libraries come preinstalled, so the
+    # job skips `install --with-deps`, whose apt download once took 38 min on a slow Ubuntu mirror. Keep the image tag
+    # on the lockfile's Playwright version.
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, browsers: chromium firefox webkit, all: '1' }
-          - { os: macos-latest, browsers: chromium, all: '' }
+          - { os: ubuntu-latest, browsers: chromium firefox webkit, all: '1', image: 'mcr.microsoft.com/playwright:v1.64.0-noble' }
+          - { os: macos-latest, browsers: chromium, all: '', image: '' }
     runs-on: ${{ matrix.os }}
+    container:
+      image: ${{ matrix.image }}   # empty on macOS: runs on the host
+      options: --user 1001         # the runner's user, so Firefox accepts the mounted HOME
     timeout-minutes: 40   # Linux runs the whole suite in 3 browsers, one worker: ~20 min and growing
     env:
       PW_ALL_BROWSERS: ${{ matrix.all }}
+      SHELL: /bin/bash   # the container sets none; the terminals under test spawn $SHELL
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -32,7 +39,8 @@ jobs:
       - run: npm ci
       - name: node-pty loads
         run: node -e "try { require('node-pty') } catch { require('@homebridge/node-pty-prebuilt-multiarch') }"
-      - run: npx playwright install --with-deps ${{ matrix.browsers }}
+      # a no-op in the container while its tag matches the lockfile; after a Playwright bump it fetches just the browsers
+      - run: npx playwright install ${{ matrix.browsers }}
       - run: npm test
       - if: failure()   # trace + screenshot of each failed test (throwaway HOME and token, nothing real)
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
