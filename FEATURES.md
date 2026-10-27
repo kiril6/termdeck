@@ -618,6 +618,8 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   per-tab (lock, caches, usage, the tour). *Import settings…* takes only those known keys with string values, asks first
   (it warns that snippets and AI presets run commands), writes them over the same keys here, and reloads; terminals
   reconnect. A file from a newer format, invalid JSON or a non-settings file is refused with a toast.
+  Saved snippets, SSH hosts and AI CLI presets load only entries with the text fields they need (a name and a
+  command or target); others, from a hand-edited file or an older build, are skipped instead of breaking the palette.
 - 🖥️ **Single-instance guard** — a timestamped `localStorage` lock + heartbeat elects one active
   tab; extra dashboard tabs go passive behind an overlay so they can't clobber shared state. The active
   tab reloads only when another tab takes over; if it stalls past the lock's 5 s lifetime (busy main thread,
