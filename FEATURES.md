@@ -191,6 +191,8 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   (CI / piped / detached), so scripted runs never block.
 - 🔌 **Reattach model:** on WS disconnect the PTY is NOT killed — a 60s grace timer holds it;
   reconnecting with the same `id` replays the last 1 MB of output. Survives browser refresh.
+  Terminal queries inside the replayed output (device attributes, cursor/status reports, colour queries) are not
+  answered a second time, so a reload never types stray replies like `1;2c0;276;0c` into the shell.
   The WS id is `<sessionId>-<tabId>`, so **both** ids are persisted with the layout — a reload that
   minted fresh tab ids would connect under a new id and silently get a *brand new shell* (and, with
   tmux, leak the old `td_*` session) instead of reattaching.
