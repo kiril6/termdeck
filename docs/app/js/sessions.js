@@ -434,6 +434,7 @@ function addTab(s, opts){
     if(mod&&!ev.altKey&&ev.key==="0"){                                 // reset zoom
       if(ev.type==="keydown"){ ev.preventDefault(); zoomTab(s,tab,0); } return false;
     }
+    if(mod&&ev.altKey&&!ev.getModifierState?.("AltGraph")&&APP_ALT_KEYS.test(ev.code)) return false;   // app shortcut: let it reach the page (keyboard.js)
     // Alt/Option+Left/Right jumps a word, as before xterm 6 dropped this mapping (it now sends ESC[1;3D/C, unbound in most shells).
     if(ev.altKey&&!mod&&!ev.shiftKey&&(ev.key==="ArrowLeft"||ev.key==="ArrowRight")){
       if(ev.type==="keydown"){ ev.preventDefault(); const l=ev.key==="ArrowLeft"; term.input(MAC?(l?"\x1bb":"\x1bf"):(l?"\x1b[1;5D":"\x1b[1;5C"),true); } return false;
