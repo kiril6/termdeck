@@ -571,7 +571,9 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   them then); on idle they walk in front of the rain, which keeps falling. *Always on* always shows them. Pure CSS box-shadow sprites tinted from the active theme's `--accent`/`--muted`, so they
   recolor with the theme. Decorative only — `pointer-events:none`; they ride above window bodies
   but stay pinned to the bottom band so they never cover terminal text, and sit below the
-  toolbar/sidebar/overlays. Toggle the whole feature with **`⌘⌥P`** or palette → *Toggle pixel
+  toolbar/sidebar/overlays. Resizing or maximizing the window keeps them where they were: they stay on the floor
+  (anchored to the bottom edge) and keep their spread across the new width every frame, mid-walk too, so none floats,
+  piles up at the edge or slides back from off-screen. Toggle the whole feature with **`⌘⌥P`** or palette → *Toggle pixel
   pets* (paw icon); enabled by default, state saved to `localStorage` (`td.pets.v1`). Fully hidden
   under `prefers-reduced-motion`.
 - 🖥️ **Privacy shield** (`⌘⌥X`, palette → *Privacy*) — covers what people watching your screen could read

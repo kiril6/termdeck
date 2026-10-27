@@ -836,7 +836,7 @@ body.win-dragging,body.win-dragging *{cursor:grabbing!important;}
 
 /* ── ambient pixel pets ── */
 .petfield{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:3400;}
-.pet{position:absolute;left:0;top:0;will-change:transform;transition:transform var(--dur,3s) linear;}
+.pet{position:absolute;left:0;bottom:0;will-change:transform;transition:transform var(--dur,3s) linear;}
 .pet-face{transform:scaleX(var(--dir,1));transform-origin:center;}
 .pet-bob{transform:translateY(0);}
 .pet.walking .pet-bob{animation:pet-bob .34s steps(2,jump-none) infinite;}
