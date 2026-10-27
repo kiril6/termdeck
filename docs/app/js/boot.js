@@ -18,6 +18,18 @@ agentBtn.addEventListener("click",(e)=>{
   }
 });
 document.getElementById("sc-btn").addEventListener("click",()=>scOverlay.classList.toggle("open"));
+// Easter eggs on the brand: a click lights it like a neon sign (CSS .neon), a double-click makes the two squares of
+// the mark orbit twice (.spin). Either restarts if triggered again; the second click of a double-click doesn't re-light.
+{
+  const brand=document.querySelector(".brand"), mark=brand.querySelector(".dot");
+  const play=(node,cls)=>{node.classList.remove(cls); void node.offsetWidth; node.classList.add(cls);};
+  brand.addEventListener("click",(e)=>{if(e.detail<=1)play(brand,"neon");});
+  brand.addEventListener("dblclick",()=>play(mark,"spin"));
+  brand.addEventListener("animationend",(e)=>{
+    if(e.animationName==="brand-neon"&&e.target===brand)brand.classList.remove("neon");
+    if(e.animationName==="brand-orbit"&&e.target.tagName==="g")mark.classList.remove("spin");
+  });
+}
 // Right-click on the empty desktop: a launcher for the frequent actions (the palette has the rest). Rows are
 // context-aware — shown only when they can work — so the menu stays short. Windows keep their own menus.
 desktop.addEventListener("contextmenu",(e)=>{
