@@ -311,6 +311,14 @@ test.describe('demo mode (no backend)', () => {
     await expect(page.locator('#pal-cats .pal-cat.on')).toHaveText('Agents');
     await expect(page.locator('#pal-input')).toBeFocused();
   });
+  test('first-run tour counts as seen as soon as it shows: leaving mid-tour does not bring it back', async ({ page }) => {
+    await page.goto('/?demo');
+    await expect(page.locator('.tour')).toBeVisible();
+    await page.reload();                                                // no Skip / Esc / Finish
+    await page.waitForTimeout(1600);
+    await expect(page.locator('.tour')).toHaveCount(0);
+  });
+
   test('logo easter eggs: a click lights the brand like neon, a double-click spins the mark; both settle', async ({ page }) => {
     await boot(page, '/?demo');
     const brand = page.locator('.brand'), mark = page.locator('.brand .dot');
