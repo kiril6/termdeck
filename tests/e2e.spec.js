@@ -336,6 +336,26 @@ test.describe('demo mode (no backend)', () => {
     await page.locator('#game-pick').selectOption('snake');
     expect(await page.evaluate(() => gBest())).toBe(3);
   });
+
+  test('AltGr (Ctrl+Alt on Windows/Linux European layouts) is typing, never a shortcut', async ({ page }) => {
+    await boot(page, '/?demo');
+    const key = (init) => page.evaluate((i) => document.body.dispatchEvent(new KeyboardEvent('keydown', { ...i, ctrlKey: true, altKey: true, bubbles: true })), init);
+    await key({ key: 'ţ', code: 'KeyT', modifierAltGraph: true });               // AltGr+T: a character, not "New terminal"
+    await page.waitForTimeout(200);
+    await expect(page.locator('.win')).toHaveCount(1);
+    await key({ key: 't', code: 'KeyT' });                                      // a real Ctrl+Alt+T still works
+    await expect(page.locator('.win')).toHaveCount(2);
+  });
+
+  test('⌘⌥ / Ctrl+Alt shortcuts work while a terminal has focus (Windows/Linux: xterm must not take them)', async ({ page }) => {
+    await boot(page, '/?demo');
+    await page.locator('.win .xterm').first().click({ force: true });
+    await expect(page.locator('.xterm-helper-textarea').first()).toBeFocused();
+    await page.keyboard.press('ControlOrMeta+Alt+KeyT');
+    await expect(page.locator('.win')).toHaveCount(2);
+    await page.keyboard.press('ControlOrMeta+Alt+KeyG');
+    await expect(page.locator('#game-overlay')).toHaveClass(/open/);
+  });
 });
 
 test.describe('tree find (#167)', () => {

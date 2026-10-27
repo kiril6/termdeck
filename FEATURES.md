@@ -588,8 +588,13 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
 - 🖥️ **Browser-reserved combos avoided** — actions the browser/OS hard-owns (`⌘T` new-tab, `⌘W`
   close-tab, `⌘L` omnibox, `⌘⇧B`/`⌘⇧T`/`⌘⇧N` bookmarks/reopen/incognito, `⌘M` mac-minimize) are
   bound to `⌘⌥…` / `Ctrl+Alt+…` instead, matched by `e.code` so mac's Alt-mangled `e.key` (`⌥T`→`†`)
-  doesn't break them. Known gap: tab/project cycle (`⌘[` `⌘]` `⌘⇧[` `⌘⇧]`) still collides with mac
-  Chrome history/tab-nav — works on Windows/Linux.
+  doesn't break them. **AltGr is typing, not a shortcut**: on Windows/Linux European layouts AltGr arrives as
+  Ctrl+Alt (AltGr+7 is `{` on German, AltGr+X is `ź` on Polish), so the handler ignores keys with the `AltGraph`
+  modifier and those characters reach the terminal. The `Ctrl+Alt` shortcuts also work while a terminal has focus on
+  Windows/Linux (xterm used to take them as terminal input); other `Ctrl+Alt` keys still go to the shell. Known gaps: tab/project cycle (`⌘[` `⌘]` `⌘⇧[` `⌘⇧]`) still
+  collides with mac Chrome history/tab-nav — works on Windows/Linux; Firefox keeps `Ctrl+Shift+P`/`⌘⇧P` (private
+  window) for itself, so open the theme picker from the Theme button or the palette there; on Ubuntu/GNOME the
+  desktop takes `Ctrl+Alt+T` (system terminal) — use *+ New terminal* or the palette.
 
 ## Persistence & safety
 - 🖥️ Layout (windows, projects, themes) saved to `localStorage` (`td.state.v5`, `td.theme.v2`),
