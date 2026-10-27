@@ -53,8 +53,9 @@ const DINO={
     gctx.strokeStyle=c.mut;gctx.beginPath();gctx.moveTo(0,g.ground);gctx.lineTo(CW,g.ground);gctx.stroke();
     gctx.fillStyle=c.acc;gctx.fillRect(40,g.dino.y,20,22);
     gctx.fillStyle=c.fg;for(const o of g.obs)gctx.fillRect(o.x,g.ground-o.h,o.w,o.h);
-    gScoreBadge(Math.floor(g.score/10),c);
-    if(g.over)gOverText("Game over — Space to restart",c);}
+    gScoreBadge(DINO.points(),c);
+    if(g.over)gOverText(gOverMsg(),c);},
+  points(){return Math.floor(gState.score/10);}
 };
 
 /* ── snake ── */
@@ -80,20 +81,30 @@ const SNAKE={
     gctx.fillStyle=c.fg;gctx.fillRect(g.food.x*SNK+2,g.food.y*SNK+2,SNK-4,SNK-4);
     gctx.fillStyle=c.acc;for(const b of g.body)gctx.fillRect(b.x*SNK+1,b.y*SNK+1,SNK-2,SNK-2);
     gScoreBadge(g.score,c);
-    if(g.over)gOverText("Game over — Space to restart",c);}
+    if(g.over)gOverText(gOverMsg(),c);},
+  points(){return gState.score;}
 };
 function gSpawnFood(){const g=gState;let f;do{f={x:Math.floor(gRand()*COLS),y:Math.floor(gRand()*ROWS)};}
   while(g.body.some(b=>b.x===f.x&&b.y===f.y));g.food=f;}
 let gSeed=1;function gRand(){gSeed=(gSeed*1103515245+12345)&0x7fffffff;return gSeed/0x7fffffff;}  // no Math.random dep needed
-function gScoreBadge(n,c){gctx.save();gctx.font="11px monospace";gctx.textAlign="right";
-  gctx.lineJoin="round";gctx.lineWidth=3;gctx.strokeStyle=c.bg;gctx.strokeText("score "+n,CW-10,18);
-  gctx.fillStyle=c.fg;gctx.fillText("score "+n,CW-10,18);gctx.restore();}
+function gScoreBadge(n,c){const t="score "+n+" · best "+Math.max(n,gBest());
+  gctx.save();gctx.font="11px monospace";gctx.textAlign="right";
+  gctx.lineJoin="round";gctx.lineWidth=3;gctx.strokeStyle=c.bg;gctx.strokeText(t,CW-10,18);
+  gctx.fillStyle=c.fg;gctx.fillText(t,CW-10,18);gctx.restore();}
+// Best score per game, kept in this browser across reloads.
+const GAME_BEST_STORE="td.games.best.v1";
+function gBests(){try{return JSON.parse(localStorage.getItem(GAME_BEST_STORE))||{};}catch{return {};}}
+function gBest(){return +gBests()[gamePick.value]||0;}
+function gSaveBest(n){const b=gBests(); b[gamePick.value]=n; try{localStorage.setItem(GAME_BEST_STORE,JSON.stringify(b));}catch{}}
+function gOverMsg(){return gState.newBest?"New best: "+gCur.points()+"! — Space to restart":"Game over — Space to restart";}
 
 const GAMES={dino:DINO,snake:SNAKE};
 function gReset(){gCur.reset();gameBn.classList.remove("show");gDraw();}
 function gDraw(){gctx.clearRect(0,0,CW,CH);const c=gColors();gCur.draw(c);
   if(gState.paused)gOverText("paused — P to resume",c);}
-function gStep(){if(!gState.over&&!gState.paused)gCur.step();gDraw();}
+function gStep(){
+  if(!gState.over&&!gState.paused){gCur.step(); if(gState.over){const n=gCur.points(); if(n>gBest()){gState.newBest=true; gSaveBest(n);}}}
+  gDraw();}
 function gLoop(){gStep();gameRAF=requestAnimationFrame(gLoop);}
 function gKey(e){
   if(e.target===gameScope||e.target===gamePick)return;   // dropdowns handle their own keys

@@ -503,6 +503,8 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   press (no lag). Arms on the focused terminal; when a matching shell's command finishes (same
   done-heuristic as command-done alerts) a green in-game banner names it — the game never
   auto-closes, you decide when to leave. Plays solo if no terminal is focused.
+  Each game keeps its **best score** in this browser (survives reloads): the corner reads *score N · best M*, and
+  beating it ends the round with *New best: N!*.
 - 🖥️ **Long-run nudge** — when any command runs past 20s, a ⏳ *"Still working…"* toast (+ OS
   notification) offers to play a game while you wait; click it to open the game armed on that tab.
   Fires **even while you're watching** the terminal (waiting is the point) — only suppressed if a
