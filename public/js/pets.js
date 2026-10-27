@@ -94,22 +94,17 @@ function startPets(){
   });
 }
 /* ── screensaver logic: enabled by default but only shown when the user is away/idle ──
-   want = enabled && (tab hidden/blurred || mouse idle). Activity or refocus hides them. */
-const PET_IDLE_MS=45000;
-let petsShown=false, petAway=false, petIdle=false, petLastAct=Date.now();
-function petWant(){const m=petsMode(); return m==="on" || (m==="auto"&&(petAway||petIdle));}
+   want = enabled && (tab hidden/blurred || mouse idle), from the shared away state (matrix.js). Activity or refocus
+   hides them. "auto" also stands aside while the Matrix rain background signals the agents (working, or calm for a
+   waiting/approval alert); on idle they walk in front of the rain. "on" always shows. */
+let petsShown=false;
+function petWant(){const m=petsMode(); return m==="on" || (m==="auto"&&(away.out||away.idle)&&!mxAmbientBusy());}
 function petEval(){
   const want=petWant();
   if(want&&!petsShown){petsShown=true;startPets();}
   else if(!want&&petsShown){petsShown=false;stopPets();}
 }
-function petActivity(){petLastAct=Date.now(); if(petIdle){petIdle=false;petEval();}}
-["mousemove","mousedown","keydown","wheel","touchstart"].forEach(ev=>
-  window.addEventListener(ev,petActivity,{passive:true}));
-document.addEventListener("visibilitychange",()=>{petAway=document.hidden; if(!document.hidden)petActivity(); petEval();});
-window.addEventListener("blur",()=>{petAway=true;petEval();});
-window.addEventListener("focus",()=>{petAway=false;petActivity();petEval();});
-setInterval(()=>{const idle=Date.now()-petLastAct>PET_IDLE_MS; if(idle!==petIdle){petIdle=idle;petEval();}},2000);
+onAmbient(petEval);
 function togglePets(){                                      // cycles auto → on → off → auto
   const next={auto:"on",on:"off",off:"auto"}[petsMode()];
   try{localStorage.setItem(PETS_STORE,next);}catch{}
@@ -129,4 +124,4 @@ function petReflow(){
 }
 let petResizeT;
 window.addEventListener("resize",()=>{clearTimeout(petResizeT);petResizeT=setTimeout(()=>{if(petsShown)petReflow();},200);});
-petAway=document.hidden; petEval();
+petEval();

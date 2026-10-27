@@ -15,7 +15,7 @@
 <link rel="stylesheet" href="/vendor/@xterm/xterm/css/xterm.css"/>
 <link rel="stylesheet" href="app.css"/>
 <!-- Paint the last theme before the app scripts arrive (no dark flash on light themes); no transitions until they apply it. -->
-<script>document.documentElement.classList.add("td-boot");try{const v=JSON.parse(localStorage.getItem("td.themevars.v1")||"{}");for(const k in v)if(k.startsWith("--"))document.documentElement.style.setProperty(k,String(v[k]));}catch{}</script>
+<script>document.documentElement.classList.add("td-boot");try{const v=JSON.parse(localStorage.getItem("td.themevars.v1")||"{}");for(const k in v)if(k.startsWith("--"))document.documentElement.style.setProperty(k,String(v[k]));}catch{}try{const m=JSON.parse(localStorage.getItem("td.matrix.v1")||"{}");if(m.shield||/[?&]shield(\b|=|&|$)/.test(location.search))document.documentElement.classList.add("td-shield");if(typeof m.shieldStyle==="string")document.documentElement.dataset.shieldStyle=m.shieldStyle;}catch{}</script>
 </head>
 <body>
 
@@ -23,6 +23,7 @@
 <div class="bar" role="banner">
   <div class="brand" role="heading" aria-level="1"><span class="dot">▚</span> TermDeck <small id="mode">·</small></div>
   <div class="spacer"></div>
+  <button class="btn ico shield-ind" id="shield-ind" type="button" hidden title="Privacy shield is on — click to turn it off (⌘⌥X)" aria-label="Privacy shield is on, turn it off"></button>
   <div class="status" id="conn"><span class="led"></span><span id="conn-text">connecting…</span></div>
   <button class="kbdhint" id="pal-btn">⌘ K</button>
   <div class="bar-actions" id="bar-actions">
@@ -32,6 +33,7 @@
     <span class="split" id="layout-grp"><button class="btn" id="tile"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>Tile</button><button class="btn split-caret" id="layout-caret" title="Layouts" aria-label="Layouts" aria-haspopup="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></span>
     <button class="btn" id="bcast" title="Broadcast input to all terminals in this project (⌘⌥B)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg><span id="cast-label">Cast</span></button>
     <button class="btn" id="folder"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>Dir</button>
+    <span class="split" id="privacy-grp"><button class="btn ico" id="privacy-btn" type="button" data-label="Privacy" aria-pressed="false" aria-label="Privacy shield: hide all terminals" title="Hide all terminals (⌘⌥X)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg></button><button class="btn split-caret" id="privacy-caret" type="button" title="Privacy options" aria-label="Privacy options" aria-haspopup="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></span>
     <button class="btn" id="theme-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/><circle cx="6.5" cy="12.5" r=".9" fill="currentColor" stroke="none"/><circle cx="8.5" cy="7.5" r=".9" fill="currentColor" stroke="none"/><circle cx="13.5" cy="6.5" r=".9" fill="currentColor" stroke="none"/><circle cx="17.5" cy="10.5" r=".9" fill="currentColor" stroke="none"/></svg>Theme</button>
     <button class="btn" id="sc-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>Help</button>
   </div>
@@ -70,6 +72,7 @@
   <!-- Theme popover -->
   <div class="popover theme-pop-inner" id="theme-pop">
     <label id="theme-pop-label">Dashboard theme</label>
+    <div class="tpop-fx" id="theme-fx" role="group" aria-label="Effects"></div>
     <div class="tpop-search-wrap">
       <input class="tpop-search" id="theme-search" placeholder="Filter themes…" spellcheck="false"/>
       <button class="tpop-clear" id="theme-clear" title="Clear filter" style="display:none;"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
@@ -235,6 +238,8 @@
       <div class="sc-row"><span>Minimize focused</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>M</kbd></div></div>
       <div class="sc-row"><span>Maximize / restore focused</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>⇧</kbd><kbd>M</kbd></div></div>
       <div class="sc-row"><span>Save snippet</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>S</kbd></div></div>
+      <div class="sc-row"><span>Privacy shield</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>X</kbd></div></div>
+      <div class="sc-row"><span>Peek through the shield</span><div class="sc-keys"><span>hold</span><kbd>⌥</kbd></div></div>
       <div class="sc-row"><span>Toggle pixel pets</span><div class="sc-keys"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>P</kbd></div></div>
       <div class="sc-row"><span>Toggle fullscreen</span><div class="sc-keys" id="sc-fs"></div></div>
       <div class="sc-row"><span>This help screen</span><div class="sc-keys"><kbd>?</kbd></div></div>
@@ -278,6 +283,7 @@
 <script src="js/glue.js"></script>
 <script src="js/persistence.js"></script>
 <script src="js/dialogs.js"></script>
+<script src="js/matrix.js"></script>
 <script src="js/boot.js"></script>
 <script src="js/games.js"></script>
 <script src="js/pets.js"></script>
