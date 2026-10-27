@@ -172,6 +172,11 @@ function agentWaiting(s,tab){
 // louder, STICKY toast (ms=0) distinct from the plain idle "waiting", and flags the tab/chip
 // red at once — no 8s wait. Cheap per-chunk regex across CLIs. NEVER auto-answers: surface + jump only.
 const REPLAY_SCAN=2000;   // bytes of a replayed buffer treated as "current screen"
+// xterm's automatic answers to terminal queries: device attributes (ESC[c → ESC[?1;2c, ESC[>c → ESC[>0;276;0c), status
+// and cursor reports, mode reports, window reports, OSC colour and DCS replies. A replayed buffer still holds the old
+// queries; answering them again would type the answers into the shell (the stray "1;2c0;276;0c" after a reload).
+// Keys never look like this: arrows/function keys end in A-D, H, F, ~ or P-S.
+const TERM_REPLY_RE=/^\x1b(?:\[[?>=]?[\d;]*(?:\$y|[cRnt])|\][^\x07\x1b]*(?:\x07|\x1b\\)|P[^\x1b]*\x1b\\)$/;
 const APPROVAL_RE=/allow this (tool|command|action|edit)|do you want to (proceed|allow|continue|run|make this|create|edit)|approve this|grant (access|permission)|\b(y\s*\/\s*n|yes\s*\/\s*no|\[y\/n\])\b|press\s+y\s+to|❯\s*1\.?\s*yes/i;
 function agentApproval(s,tab){
   if(tab.approval||tab.exited||tab.status!=="live")return;   // fire only on the transition into "blocked" — repaints of the prompt are ignored
