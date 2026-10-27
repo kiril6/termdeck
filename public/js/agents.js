@@ -102,6 +102,7 @@ function updateAgentOverview(){
     sess.tabs.forEach((t)=>t.wt.classList.toggle("working",isWorking(t)));
     sess.chip.classList.toggle("working",sess.tabs.some(isWorking));
   });
+  matrixSync(queue);   // focus veils + background rain speed
 
   agentBadge.className="agent-badge"+(hasAppr?" approval":(hasWait?" waiting":(queue.length?" working":"")));
 
@@ -193,7 +194,7 @@ function openTabWS(s,tab){
   ws.onmessage=(ev)=>{
     let m; try{m=JSON.parse(ev.data);}catch{return;}
     if(m.type==="attach"){
-      if(m.resumed){tab.term.reset(); tab.replay=true;}   // next output chunk is the replayed ring buffer, not live output
+      if(m.resumed){tab.term.reset(); tab.replay=true; tab.replayAt=Date.now();}   // replayAt: the OSC shield ignores re-sent sequences   // next output chunk is the replayed ring buffer, not live output
       if(m.cwd){tab.cwd=m.cwd; if(s.activeTabId===tab.id) setCwdBadge(s,m.cwd);}
       if(m.shell){tab.shellName=m.shell; if(s.activeTabId===tab.id) s.badgeShell.textContent=m.shell;}
     }else if(m.type==="agent"){
