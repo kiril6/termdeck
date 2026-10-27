@@ -510,7 +510,7 @@ test.describe('focus veil', () => {
     await page.evaluate(() => sessions.forEach((s) => mxVeilNow(s, activeTab(s))));
     const veils = (await stats(page)).filter((r) => r.kind === 'veil');
     expect(veils).toHaveLength(6);
-    expect(veils.filter((r) => r.static)).toHaveLength(2);
+    await expect.poll(async () => (await stats(page)).filter((r) => r.kind === 'veil' && r.held).length).toBe(2);
     expect(new Set(veils.map((r) => r.seed)).size).toBe(6);
 
     const r = await page.evaluate(() => new Promise((ok) => {
@@ -526,6 +526,23 @@ test.describe('focus veil', () => {
     const before = (await stats(page)).reduce((a, x) => a + x.draws, 0);
     await page.waitForTimeout(700);
     expect((await stats(page)).reduce((a, x) => a + x.draws, 0)).toBe(before);
+  });
+
+  test('rain shield: the animated slots go to the panes on screen, not the first ones opened', async ({ page }) => {
+    await boot(page, '/?demo', { shieldStyle: 'rain', shield: true, asked: true });
+    for (let i = 0; i < 4; i++) await page.keyboard.press('ControlOrMeta+Alt+KeyT');   // 5 in the first project
+    await expect(page.locator('.win')).toHaveCount(5);
+    await page.evaluate(() => addProject('other'));
+    for (let i = 0; i < 3; i++) await page.keyboard.press('ControlOrMeta+Alt+KeyT');   // 3 on screen in the second
+    await expect(page.locator('.win:visible')).toHaveCount(3);
+    const onScreen = () => page.evaluate(() => [...document.querySelectorAll('.win:not([style*="display: none"]) .mx-srain')]
+      .filter((c) => c.offsetParent).map((c) => c.dataset.seed));
+    const drawsOf = async (seeds) => (await stats(page)).filter((r) => seeds.includes(String(r.seed))).map((r) => r.draws);
+    const seeds = await onScreen();
+    expect(seeds).toHaveLength(3);
+    const a = await drawsOf(seeds); await page.waitForTimeout(600); const z = await drawsOf(seeds);
+    expect(z.every((n, i) => n > a[i])).toBe(true);                     // every pane you can see is falling
+    expect((await stats(page)).filter((r) => r.kind === 'shield' && r.static)).toHaveLength(0);
   });
 
   test('reduced motion: rain is a still frame and the loop stays quiet', async ({ page }) => {

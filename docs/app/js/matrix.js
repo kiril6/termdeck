@@ -90,11 +90,10 @@ function mxAtlasGet(){
 }
 function mxRain(cv,kind){
   const seed=(Math.random()*2147483647)|0;
-  const r={cv,kind,seed,rnd:mxPrng(seed),g:cv.getContext("2d"),w:0,h:0,drops:[],speed:[],prev:[],last:0,draws:0,static:false,paused:false,alpha:1};
+  const r={cv,kind,seed,rnd:mxPrng(seed),g:cv.getContext("2d"),w:0,h:0,drops:[],speed:[],prev:[],last:0,draws:0,static:false,held:false,paused:false,alpha:1};
   cv.setAttribute("aria-hidden","true"); cv.dataset.seed=seed;
   mxRains.add(r); mxOf.set(cv,r); mxRO.observe(cv); mxPaint(r);
-  const live=[...mxRains].filter((x)=>x.kind!=="bg"&&!x.static).length;
-  if(MX_REDUCED.matches||mxLevel>=2||(kind!=="bg"&&live>MX_LIVE_MAX)) r.static=true;   // extra panes get a still frame
+  if(MX_REDUCED.matches||mxLevel>=2) r.static=true;
   mxResize(r); mxKick();
   return r;
 }
@@ -116,7 +115,7 @@ function mxResize(r){
     r.drops[i]=had?r.rnd()*rows:-r.rnd()*rows; r.prev[i]=-1;
     r.speed[i]=.6+r.rnd()*.4;   // each column its own pace (same range on every pane), so they don't step in unison
   }
-  if(r.static) mxStatic(r);
+  if(r.static||r.held) mxStill(r);
 }
 // How fast the rain falls, in character rows per second; the frame rate only decides how smoothly that shows.
 function mxCps(r){return r.kind==="bg"?MX_SPEED[mxState]:r.kind==="behind"?7:14;}
@@ -138,7 +137,8 @@ function mxDraw(r,dt){
   }
   r.draws++;
 }
-function mxStatic(r){r.static=true; if(!r.w) return; r.g.clearRect(0,0,r.w,r.h); for(let i=0;i<60;i++) mxDraw(r,1/15);}
+function mxStatic(r){r.static=true; mxStill(r);}
+function mxStill(r){if(!r.w) return; r.g.clearRect(0,0,r.w,r.h); for(let i=0;i<60;i++) mxDraw(r,1/15);}
 function mxFps(r){
   const f=r.kind==="bg"?15:r.kind==="behind"?24:30;   // same when the window is out of focus: a hidden tab already draws nothing
   return mxLevel>=1?f/2:f;
@@ -149,13 +149,16 @@ function mxKick(){
 }
 function mxLoop(now){
   mxRaf=0; if(document.hidden) return;
-  const t0=performance.now(), due=[]; let visible=false, waiting=false;
+  const t0=performance.now(), due=[]; let visible=false, waiting=false, shown=0;
   for(const r of mxRains){
     if(!r.cv.isConnected){mxDrop(r); continue;}
     if(r.static||r.paused) continue;
     waiting=true;
     if(r.cv.offsetParent===null) continue;   // minimized, other project, inactive tab: 0 draws
-    visible=true;
+    // the first MX_LIVE_MAX panes on screen animate, the rest hold a still frame; counted each frame, so a project
+    // switch or a closed window hands the slots to the panes you can see
+    if(r.kind!=="bg"&&++shown>MX_LIVE_MAX){if(!r.held){r.held=true; mxStill(r);} continue;}
+    r.held=false; visible=true;
     if(now-r.last>=1000/mxFps(r)) due.push(r);
   }
   due.sort((a,b)=>a.last-b.last);
@@ -179,7 +182,7 @@ function mxDegrade(){
   if(mxLevel>=3){mxShieldSync(); mxVeilRestyle(); mxBgSync();}
 }
 MX_REDUCED.addEventListener("change",()=>{if(MX_REDUCED.matches) mxRains.forEach((r)=>mxStatic(r));});
-window.mxStats=()=>{return [...mxRains].map((r)=>({kind:r.kind,seed:r.seed,draws:r.draws,static:r.static,paused:r.paused,alpha:r.alpha}));};   // read-only, for the browser tests (a window property, not an app global)
+window.mxStats=()=>{return [...mxRains].map((r)=>({kind:r.kind,seed:r.seed,draws:r.draws,static:r.static,held:r.held,paused:r.paused,alpha:r.alpha}));};   // read-only, for the browser tests (a window property, not an app global)
 
 /* ════════════════════════════════════════════════
    PRIVACY SHIELD — a visual cover, not security: the text stays in the DOM, the clipboard, search and the buffer

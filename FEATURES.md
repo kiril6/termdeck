@@ -656,7 +656,8 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   drawn at DPR 1 from a pre-rendered glyph atlas, **one shared `requestAnimationFrame` loop** with fps caps
   (background ≤15, the same while the window is out of focus; covers 30, rain behind text 24), at most **4 canvas draws per frame**
   (round-robin, most overdue first), each pane with its own random seed, at most **4
-  animated panes** (extra ones get a still frame), 0 draws for hidden/minimized panes and a hidden tab
+  animated panes** on screen (extra ones hold a still frame; the slots follow what is visible, so after a project
+  switch or a closed window the panes you can see take them over), 0 draws for hidden/minimized panes and a hidden tab
   (the loop then re-checks twice a second instead of every frame). If frames keep taking >3ms for ~2s it
   steps down once — half fps, then still frames (rain behind text stops), then no rain — and never back up that session.
   Resizing the browser window or a pane (maximize, dragging an edge) never restarts the rain: the frame and the columns
