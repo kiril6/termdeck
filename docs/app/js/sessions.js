@@ -132,7 +132,7 @@ function moveSessionToProject(s,pid){
   syncWebgl();
   if(b){hint.style.display="none"; focusWindow(s);}
   else if(focusedId===s.id) focusedId=null;
-  updateProjCounts(); updateProjectAttention(oldPid); updateProjectAttention(pid); updateAgentOverview(); scheduleSave();
+  updateProjCounts(); updateProjectAttention(oldPid); updateProjectAttention(pid); updateAgentOverview(); mxShieldSync(); scheduleSave();
   toast(ICON.moveTo,"Moved","\""+s.name+"\" → "+projects.get(pid).name,4000,
     ()=>{if(s.project!==activeProject)switchProject(s.project);revealWindow(s);});
 }
@@ -172,13 +172,15 @@ function createSession(desc, isLog){
   const bMin=wbtn("Minimize");
   const bMax=wbtn("Expand");
   const bClose=wbtn("Close"); bClose.classList.add("close");
+  const bShield=wbtn("Privacy shield for this tab"); bShield.classList.add("shield"); bShield.innerHTML=ICON.shield; bShield.setAttribute("aria-pressed","false");
+  bShield.onclick=(e)=>{e.stopPropagation(); const sx=sessions.get(id); if(sx) toggleTabShield(sx,activeTab(sx));};
   bTheme.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/><circle cx="6.5" cy="12.5" r=".9" fill="currentColor" stroke="none"/><circle cx="8.5" cy="7.5" r=".9" fill="currentColor" stroke="none"/><circle cx="13.5" cy="6.5" r=".9" fill="currentColor" stroke="none"/><circle cx="17.5" cy="10.5" r=".9" fill="currentColor" stroke="none"/></svg>'; // Lucide palette, replaces the emoji
   // Remaining controls → inline Lucide icons (monochrome, currentColor), replacing the old glyphs.
   bRestart.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.74L21 8"/><path d="M21 3v5h-5"/></svg>';
   bMin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>';
   bMax.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>';
   bClose.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
-  ctrls.append(bRestart,bTheme,bMin,bMax,bClose);
+  ctrls.append(bShield,bRestart,bTheme,bMin,bMax,bClose);
   head.append(grip,winTabs,wtabAdd,ctrls);  // grip = drag affordance; per-tab dots + sidebar chip cover status
 
   // panes container + footer
@@ -235,8 +237,8 @@ function createSession(desc, isLog){
 
   const s={
     id,project,name,isLog:!!isLog,cwd:desc.cwd||curCwd()||"",
-    win,head,led,winTabs,wtabsTrack,wtabAdd,panes,foot,badgeShell,badgeCwd,badgeCmd,badgePort,uptimeEl,startedAt,chip,cled,cname,cmove,
-    themeId:desc.themeId&&THEMES[desc.themeId]?desc.themeId:null,
+    win,head,led,winTabs,wtabsTrack,wtabAdd,bShield,panes,foot,badgeShell,badgeCwd,badgeCmd,badgePort,uptimeEl,startedAt,chip,cled,cname,cmove,
+    themeId:desc.themeId&&THEMES[desc.themeId]?desc.themeId:null,fx:typeof desc.fx==="boolean"?desc.fx:null,   // fx: this window's own Matrix-rain choice (null = follow the default)
     tabs:[],activeTabId:null,
     status:"pending",minimized:false,maximized:false,prevRect:desc.prevRect||null,glue:desc.glue||null,
     closedByUser:false,
@@ -254,7 +256,7 @@ function createSession(desc, isLog){
   else{hint.style.display="none"; focusWindow(s);}
 
   // spawn tabs — restore saved ones (names + cwd + agent tag), else one fresh tab
-  if(desc.tabs?.length) desc.tabs.forEach((t)=>addTab(s,{id:t.id,name:t.name,cwd:t.cwd,agent:t.agent,shell:t.shell,cmd:t.resume,resume:t.resume,rtpl:t.rtpl}));
+  if(desc.tabs?.length) desc.tabs.forEach((t)=>addTab(s,{id:t.id,name:t.name,cwd:t.cwd,agent:t.agent,shell:t.shell,cmd:t.resume,resume:t.resume,rtpl:t.rtpl,shield:t.shield,noVeil:t.noVeil}));
   else addTab(s,{cmd:desc.cmd,resume:desc.resume,rtpl:desc.rtpl,agent:desc.agent,shell:desc.shell});   // desc.cmd = one-shot startup command (Dir popover / SSH / AI CLI); not persisted, so it won't re-fire on reload. agent=arm idle "waiting" watch.
 
   if(desc.minimized) minimize(s);
@@ -290,6 +292,7 @@ function buildFindBar(){
   return b;
 }
 function openFind(s,tab){
+  if(tabShielded(s,tab)){toast(ICON.shield,"Find is off","The privacy shield covers this tab — turn it off first",3000).classList.add("t-safe"); return;}   // matches would show through the cover
   if(!findBar) findBar=buildFindBar();
   if(findDisp){try{findDisp.dispose();}catch{} findDisp=null;}
   findTarget=tab;
@@ -386,10 +389,11 @@ function addTab(s, opts){
   const tab={id:tid,pane,term,fit,search,ser,wt,wtDot,wtName,name:wtName.textContent,
     conn:null,status:"pending",exited:false,closedByUser:false,
     reconnecting:false,retries:0,reconnectTimer:null,
-    cwd:opts.cwd||s.cwd||"",shellName:"",cmd:opts.cmd||"",shell:opts.shell||"",resume:opts.resume||"",rtpl:opts.rtpl||"",agent:!!opts.agent,waiting:false};
+    cwd:opts.cwd||s.cwd||"",shellName:"",cmd:opts.cmd||"",shell:opts.shell||"",resume:opts.resume||"",rtpl:opts.rtpl||"",agent:!!opts.agent,waiting:false,shield:!!opts.shield,noVeil:!!opts.noVeil};
   s.tabs.push(tab);
   if(tab.agent) updateAgentOverview();
   if(LIVE) registerPathLinks(term,tab);
+  mxWireTab(s,tab); mxShieldSync();   // privacy shield cover + focus veil + the OSC shield sequence
 
   wt.addEventListener("click",(e)=>{if(e.target===wtX||wtName.isContentEditable)return; switchTab(s,tid);});
   wtX.addEventListener("click",(e)=>{e.stopPropagation(); requestCloseTab(s,tid);});
@@ -457,7 +461,8 @@ function addTab(s, opts){
       {label:"Select all",run:()=>term.selectAll()},
       {label:"Clear",run:()=>term.clear()},
       {sep:true},
-      {label:"Save output…",run:()=>saveTabOutput(s,tab)});
+      {label:"Save output…",run:()=>saveTabOutput(s,tab)},
+      ...mxPaneMenu(s,tab));
     showCtxMenu(e.clientX,e.clientY,items);
   });
 
@@ -500,7 +505,7 @@ function switchTab(s,tid){
     t.wt.classList.toggle("active",on);
     if(on){t.wt.scrollIntoView({inline:"nearest",block:"nearest"}); focusTermSoon(t);}   // (also spares a tab name being renamed: dblclick fires after this)
   });
-  updTabEdges(s.wtabsTrack);
+  updTabEdges(s.wtabsTrack); mxShieldBtn(s);
   const tab=s.tabs.find((t)=>t.id===tid);
   if(tab){
     clearTabAttn(s,tab);

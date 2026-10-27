@@ -149,6 +149,12 @@ See also [Known limits](#known-limits). Found a vulnerability? Report it private
 - Notifications when a background command finishes or an agent needs you — in-app, and native when the window isn't focused.
 - A first-run tour, and a game to play while a long command runs (Dino or Snake, each remembers its best score).
 
+**Privacy & effects**
+- **Privacy shield** (`⌘⌥X`, or the top bar's *Privacy* button) — for screen sharing and streaming: covers every terminal, file view and the file tree with a plain panel, a strong blur or Matrix rain, and can blur window names and commands too. Shield one tab or a whole project instead; a script can cover its own pane with `printf '\e]7777;shield\a'`. Optional walk-away shield after 2, 5 or 10 idle minutes. It's a visual cover, not security.
+- **Working effect** (off by default) — Matrix rain behind the text, a blur or a cover over a terminal while its agent works; *Cover this tab now* hides any tab until you press a key.
+- **Matrix rain background** (off by default) — falling characters behind the windows that speed up while agents work and calm down when one waits for you. Pixel pets come out on it when you're idle.
+- Everything in plain words in one dialog: palette → *Privacy & effects…*.
+
 **Every feature, in detail: [FEATURES.md](FEATURES.md).**
 
 ---
@@ -264,6 +270,7 @@ On Windows/Linux, `⌘` = `Ctrl` and `⌥` = `Alt`. Press `?` in the app for the
 | Jump to the Nth window of the project | `⌥1`–`⌥9` (`⌘⌥1`–`9` also inside a terminal) |
 | Broadcast input to all shells | `⌘⌥B` |
 | Play game (Dino / Snake) | `⌘⌥G` |
+| Privacy shield on / off | `⌘⌥X` |
 | Open directory | `⌘⇧O` |
 | Open file | `⌘⌥O` |
 | New agent task | `⌘⌥R` |

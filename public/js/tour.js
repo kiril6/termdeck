@@ -12,6 +12,7 @@ const TOUR_STEPS=[
   {sel:"#agent-btn",title:"Sessions",body:"Every agent across all projects in one queue: see which is working, waiting or blocked, and jump straight to it. Switch to Grid for a live view of every session."},
   {sel:"#projects",title:"Projects & dock",body:"Group shells into projects with these tabs. Minimized windows wait in the dock at the bottom."},
   {sel:"#sb-more-btn",tree:true,title:"Directory tree",body:"Open it with "+kbd("⌘","B")+". The ⋯ menu holds Follow focused terminal (the tree reveals the focused window's live folder), Show hidden files, Back to project root and Pin as project root. ↑ goes up a level; drag the tree's right edge to resize."},
+  {sel:"#privacy-grp",title:"Privacy shield",body:"Sharing your screen? This button or "+kbd("⌘","⌥","X")+" covers every terminal and file view; hold "+kbd("⌥")+" to peek. Palette → Privacy & effects… sets what a working agent’s window shows, from Matrix rain behind the text to a full cover."},
   {sel:"#sc-btn",title:"Help",body:"All shortcuts live here. Replay this tour any time from the palette (Take the tour)."},
 ];
 let tourEl=null;
