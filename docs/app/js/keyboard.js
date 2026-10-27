@@ -5,7 +5,13 @@
 /* ════════════════════════════════════════════════
    GLOBAL KEYBOARD HANDLER
    ════════════════════════════════════════════════ */
+// Every ⌘⌥ / Ctrl+Alt shortcut below, by e.code. A focused terminal hands these to the page (sessions.js): on Windows
+// and Linux xterm would otherwise take Ctrl+Alt+key as terminal input and stop the event.
+const APP_ALT_KEYS=/^(Key[TLBGPSORDWMA]|Digit[1-9])$/;
 document.addEventListener("keydown",(e)=>{
+  // AltGr (Windows/Linux European layouts) arrives as Ctrl+Alt: AltGr+7 is "{" on German, AltGr+X is "ź" on Polish.
+  // It is typing, never one of our ⌘⌥/Ctrl+Alt combos.
+  if(e.getModifierState?.("AltGraph")) return;
   const mod=e.metaKey||e.ctrlKey;
   // don't steal from xterm — except our ⌘⌥/Ctrl+Alt app combos, which must work while a terminal is focused
   if(e.target.closest(".xterm-helper-textarea, .xterm textarea")&&!(mod&&e.altKey))return;
