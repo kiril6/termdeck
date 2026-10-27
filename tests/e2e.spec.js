@@ -319,6 +319,18 @@ test.describe('demo mode (no backend)', () => {
     await expect(page.locator('.tour')).toHaveCount(0);
   });
 
+  test('logo easter eggs: a click lights the brand like neon, a double-click spins the mark; both settle', async ({ page }) => {
+    await boot(page, '/?demo');
+    const brand = page.locator('.brand'), mark = page.locator('.brand .dot');
+    await brand.click();
+    await expect(brand).toHaveClass(/neon/);
+    await expect(brand).not.toHaveClass(/neon/, { timeout: 3000 });
+    await page.locator('.brand').dblclick();
+    await expect(mark).toHaveClass(/spin/);
+    expect(await mark.evaluate((m) => m.getAnimations({ subtree: true }).filter((a) => a.animationName === 'brand-orbit').length)).toBe(3);   // the pair orbits, each square counter-turns
+    await expect(mark).not.toHaveClass(/spin/, { timeout: 3000 });
+  });
+
   test('mini-games remember the best score per game across reloads; a lower score never replaces it', async ({ page }) => {
     /* global gState, gBest, COLS -- the app's page globals, used inside page.evaluate() */
     await boot(page, '/?demo');
