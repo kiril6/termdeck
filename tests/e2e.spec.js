@@ -311,6 +311,13 @@ test.describe('demo mode (no backend)', () => {
     await expect(page.locator('#pal-cats .pal-cat.on')).toHaveText('Agents');
     await expect(page.locator('#pal-input')).toBeFocused();
   });
+  test('first-run tour counts as seen as soon as it shows: leaving mid-tour does not bring it back', async ({ page }) => {
+    await page.goto('/?demo');
+    await expect(page.locator('.tour')).toBeVisible();
+    await page.reload();                                                // no Skip / Esc / Finish
+    await page.waitForTimeout(1600);
+    await expect(page.locator('.tour')).toHaveCount(0);
+  });
 });
 
 test.describe('tree find (#167)', () => {
