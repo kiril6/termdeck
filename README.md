@@ -147,7 +147,7 @@ See also [Known limits](#known-limits). Found a vulnerability? Report it private
 - Command palette (`⌘K`), snippets, broadcast input to every shell in a project, safe multi-line paste.
 - **Phone alerts:** set `TD_NOTIFY_URL` (e.g. an [ntfy](https://ntfy.sh) topic) and get a push when an agent is blocked on an approval — tap it to open that terminal. [Setup](docs/remote-access.md#phone-notifications).
 - Notifications when a background command finishes or an agent needs you — in-app, and native when the window isn't focused.
-- A first-run tour, and a game to play while a long command runs.
+- A first-run tour, and a game to play while a long command runs (Dino or Snake, each remembers its best score).
 
 **Privacy & effects**
 - **Privacy shield** (`⌘⌥X`, or the top bar's *Privacy* button) — for screen sharing and streaming: covers every terminal, file view and the file tree with a plain panel, a strong blur or Matrix rain, and can blur window names and commands too. Shield one tab or a whole project instead; a script can cover its own pane with `printf '\e]7777;shield\a'`. Optional walk-away shield after 2, 5 or 10 idle minutes. It's a visual cover, not security.
