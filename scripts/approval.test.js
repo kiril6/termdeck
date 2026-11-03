@@ -98,6 +98,70 @@ const fixture = (agent, name) => fs.readFileSync(path.join(__dirname, 'fixtures'
     assert.strictEqual(fs.statSync(path.join(logDir, 'approvals.1.jsonl')).size, 10 * 1024 * 1024 + 1, 'old log kept as approvals.1.jsonl');
     if (process.platform !== 'win32') assert.strictEqual(fs.statSync(path.join(logDir, 'approvals.jsonl')).mode & 0o777, 0o600);
 
+    // #280: a question is answered through updatedInput.answers, a plan approved by echoing its tool_input (both verified on a
+    // real Claude Code 2.1.296 session). The audit log records the chosen option, never typed text.
+    const q = { questions: [{ question: 'Pick a color', header: 'Color', multiSelect: false, options: [{ label: 'Red', description: 'r' }, { label: 'Blue', description: 'b' }] },
+                            { question: 'Extras?', header: 'X', multiSelect: true, options: [{ label: 'A' }, { label: 'B' }, { label: 'C' }] }] };
+    const askPayload = (tool, tool_input) => JSON.stringify({ hook_event_name: 'PermissionRequest', session_id: 's1', cwd: home, tool_name: tool, tool_input });
+    const seen0 = browser.msgs.length;
+    h = hook('claude', askPayload('AskUserQuestion', q));
+    let reqId = await nextRequest();
+    const ev = browser.msgs.slice(seen0).find((m) => m.type === 'agent' && m.event.reqId).event;
+    assert.strictEqual(ev.ask.kind, 'question');
+    assert.strictEqual(ev.detail, 'Pick a color');
+    click(reqId, 'allow');                                                       // a plain Approve must not answer a question
+    await sleep(300);
+    browser.ws.send(JSON.stringify({ type: 'approve', reqId, decision: 'answer', picks: [{ i: [5] }, { i: [0] }] }));   // bad index: refused
+    browser.ws.send(JSON.stringify({ type: 'approve', reqId, decision: 'answer', picks: [{ i: [0, 1] }, { i: [0] }] })); // two picks on a single-select: refused
+    await sleep(300);
+    browser.ws.send(JSON.stringify({ type: 'approve', reqId, decision: 'answer', picks: [{ i: [1] }, { i: [0, 2], text: 'secret note' }] }));
+    r = await h;
+    assert.deepStrictEqual(JSON.parse(r.out).hookSpecificOutput.decision,
+      { behavior: 'allow', updatedInput: { ...q, answers: { 'Pick a color': 'Blue', 'Extras?': 'A, C, secret note' } } });
+
+    const plan = { plan: '# Plan\n\n1. do it', planFilePath: '/x/plan.md' };
+    h = hook('claude', askPayload('ExitPlanMode', plan));
+    click(await nextRequest(), 'allow');
+    assert.deepStrictEqual(JSON.parse((await h).out).hookSpecificOutput.decision, { behavior: 'allow', updatedInput: plan });
+    h = hook('claude', askPayload('ExitPlanMode', plan));
+    click(await nextRequest(), 'deny');
+    assert.strictEqual(JSON.parse((await h).out).hookSpecificOutput.decision.behavior, 'deny');
+
+    // A question whose text is too long to be an exact answer key is not turned into a card: it stays a plain Approve / Deny.
+    const long = { questions: [{ question: 'q'.repeat(501), options: [{ label: 'A' }] }] };
+    const seen1 = browser.msgs.length;
+    h = hook('claude', askPayload('AskUserQuestion', long));
+    reqId = await nextRequest();
+    assert.strictEqual(browser.msgs.slice(seen1).find((m) => m.type === 'agent' && m.event.reqId).event.ask, undefined);
+    click(reqId, 'deny'); await h;
+
+    const all = fs.readFileSync(path.join(logDir, 'approvals.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)).slice(5);
+    assert.deepStrictEqual(all.map((l) => [l.tool, l.decision, l.answer]),
+      [['AskUserQuestion', 'allow', ['Blue', 'A, C, (typed answer)']], ['ExitPlanMode', 'allow', undefined], ['ExitPlanMode', 'deny', undefined], ['AskUserQuestion', 'deny', undefined]]);
+    assert.ok(!JSON.stringify(all).includes('secret note'), 'typed answer is not in the audit log');
+
+    // An allow-rule never answers a question or a plan: even with a rule that matches the command, a request that carries an ask is held for a click.
+    const post = (p, body, headers = {}) => fetch(url + p, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: url, Cookie: 'td_token=' + browser.secret, ...headers }, body: JSON.stringify(body) });
+    const bash = JSON.stringify({ hook_event_name: 'PermissionRequest', session_id: 's1', cwd: home, tool_name: 'Bash', tool_input: { command: 'npm test' } });
+    h = hook('claude', bash); click(await nextRequest(), 'allow'); await h;           // a shown command: a rule can be made from it
+    const reqIds = browser.msgs.filter((m) => m.type === 'agent' && m.event.reqId).map((m) => m.event.reqId);
+    assert.strictEqual((await post('/api/approval-rules', { reqId: reqIds[reqIds.length - 1], mode: 'exact' })).status, 200, 'rule created');
+    r = await hook('claude', bash);
+    assert.strictEqual(JSON.parse(r.out).hookSpecificOutput.decision.behavior, 'allow', 'control: the rule answers the plain command on its own');
+    for (const [tool, ask] of [['AskUserQuestion', { questions: [{ question: 'Run it?', options: [{ label: 'Yes' }, { label: 'No' }] }] }], ['ExitPlanMode', { plan: '# p' }]]) {
+      const seen = browser.msgs.length;
+      let body = null;
+      const held = post('/api/agent-events', { id, type: 'permission_request', agent: 'claude', tool, wait: true, command: 'npm test', cwd: home, ask }, { 'X-TD-Hook-Auth': auth }).then(async (x) => { body = await x.json(); });
+      await sleep(500);
+      assert.strictEqual(body, null, tool + ' is held for a click, the rule did not answer');
+      const rid = browser.msgs.slice(seen).find((m) => m.type === 'agent' && m.event.reqId).event.reqId;
+      if (tool === 'ExitPlanMode') click(rid, 'allow'); else browser.ws.send(JSON.stringify({ type: 'approve', reqId: rid, decision: 'answer', picks: [{ i: [0] }] }));
+      await held;
+      assert.strictEqual(body.decision, 'allow');
+    }
+    const tail = fs.readFileSync(path.join(logDir, 'approvals.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)).slice(-2);
+    assert.deepStrictEqual(tail.map((l) => [l.tool, l.source]), [['AskUserQuestion', 'click'], ['ExitPlanMode', 'click']], 'both were decided by a click, not a rule');
+
     browser.ws.send(JSON.stringify({ type: 'kill' })); browser.ws.close();
     console.log('approval.test: ok');
     done(0);

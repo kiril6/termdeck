@@ -19,6 +19,36 @@ const isWindows = process.platform === 'win32';
 // ignored. They only ever flow to that terminal's own browser socket — nothing here writes to a PTY.
 const AGENT_EVT_TYPES = new Set(['prompt_submit', 'tool_start', 'tool_end', 'permission_request', 'stop', 'error']);
 const cap = (v, n) => typeof v === 'string' && v ? v.slice(0, n) : undefined;
+// #280: what the queue shows for a question or a plan, rebuilt field by field from the hook's payload. A question's text and
+// option labels are the answer keys/values Claude Code matches on, so an over-long one rejects the whole ask (the row then
+// stays a plain Approve / Deny) instead of being cut. Free text is capped; it never goes into the audit log.
+const fit = (v, n) => (typeof v === 'string' && v && v.length <= n ? v : undefined);
+function cleanAsk(a, tool) {
+  if (!a || typeof a !== 'object') return undefined;
+  if (tool === 'ExitPlanMode') return typeof a.plan === 'string' && a.plan ? { kind: 'plan', plan: a.plan.slice(0, 15000) } : undefined;
+  if (tool !== 'AskUserQuestion' || !Array.isArray(a.questions) || !a.questions.length || a.questions.length > 4) return undefined;
+  const questions = a.questions.map((q) => ({
+    question: fit(q?.question, 500), header: cap(q?.header, 40) || '', multiSelect: q?.multiSelect === true,
+    options: Array.isArray(q?.options) && q.options.length <= 8 ? q.options.map((o) => ({ label: fit(o?.label, 200), description: cap(o?.description, 300) || '' })) : [],
+  }));
+  return questions.every((q) => q.question && q.options.length && q.options.every((o) => o.label)) ? { kind: 'question', questions } : undefined;
+}
+// picks: one { i: [option index], text? } per question, from the browser. Returns the { question: answer } map the CLI
+// takes in updatedInput.answers (several picks joined with ", "), plus what the audit log records — never the free text.
+function answersFrom(ask, picks) {
+  if (ask?.kind !== 'question' || !Array.isArray(picks) || picks.length !== ask.questions.length) return null;
+  const answers = {}, chosen = [];
+  for (let n = 0; n < picks.length; n++) {
+    const q = ask.questions[n], idx = Array.isArray(picks[n]?.i) ? picks[n].i : [];
+    const text = typeof picks[n]?.text === 'string' ? picks[n].text.trim().slice(0, 500) : '';
+    if (!idx.every((i) => Number.isInteger(i) && i >= 0 && i < q.options.length) || new Set(idx).size !== idx.length) return null;
+    if (idx.length + (text ? 1 : 0) === 0 || (!q.multiSelect && idx.length + (text ? 1 : 0) > 1)) return null;
+    const labels = idx.map((i) => q.options[i].label);
+    answers[q.question] = (text ? [...labels, text] : labels).join(', ');
+    chosen.push((text ? [...labels, '(typed answer)'] : labels).join(', '));
+  }
+  return { answers, chosen };
+}
 const execP = (cmd, args) => new Promise((resolve) => execFile(cmd, args, { timeout: 3000 }, (_e, out) => resolve(out || '')));
 // Approve / Deny from the queue (#44).
 // The hook helper's request stays open; a click arrives over that terminal's own WebSocket (same
@@ -54,11 +84,11 @@ module.exports = function agentApi({ apiGuard, hasAuthCookie, secret, live, logD
       fs.appendFileSync(f, JSON.stringify(entry) + '\n', { mode: 0o600 });
     } catch {}
   }
-  function settleApproval(id, decision, source) {   // decision: 'allow' | 'deny' | null (= no decision, CLI asks as usual)
+  function settleApproval(id, decision, source, answered) {   // decision: 'allow' | 'deny' | null (= no decision, CLI asks as usual); answered: { answers, chosen } for a question (#280)
     const p = pendingApprovals.get(id); if (!p) return false;
     pendingApprovals.delete(id); clearTimeout(p.timer);
-    recordApproval({ ts: Date.now(), id, agent: p.ev.agent, tool: p.ev.tool, detail: p.ev.detail, files: p.ev.files, cwd: p.ev.cwd, decision, source });
-    if (!p.res.writableEnded) { if (decision) p.res.json({ decision }); else p.res.status(204).end(); }
+    recordApproval({ ts: Date.now(), id, agent: p.ev.agent, tool: p.ev.tool, detail: p.ev.detail, files: p.ev.files, cwd: p.ev.cwd, decision, source, ...(answered ? { answer: answered.chosen } : {}) });
+    if (!p.res.writableEnded) { if (decision) p.res.json({ decision, ...(answered ? { answers: answered.answers } : {}) }); else p.res.status(204).end(); }
     const s = live.get(id); if (s?.ws) send(s.ws, { type: 'approval', reqId: p.reqId, done: true, decision, source });
     return true;
   }
@@ -121,7 +151,10 @@ module.exports = function agentApi({ apiGuard, hasAuthCookie, secret, live, logD
     // Any event other than the request itself means the agent moved on (you answered in the terminal).
     if (trusted && b.type !== 'permission_request') settleApproval(b.id, null, 'terminal');
     // #44 phase 2: an opt-in allow-rule answers on its own — visibly (audit entry + toast), never for a deny-list command.
-    const cmd = trusted && b.type === 'permission_request' && b.wait === true && typeof b.command === 'string' ? b.command.slice(0, 4000) : null;
+    // #280: a question or plan is only ever answered by a click — it never takes the rule path below.
+    const ask = trusted && b.type === 'permission_request' && b.wait === true ? cleanAsk(b.ask, ev.tool) : undefined;
+    if (ask) { ev.ask = ask; ev.detail = (ask.kind === 'question' ? ask.questions[0].question : ask.plan.replace(/^[#\s]+/, '').split('\n')[0]).slice(0, 200); }
+    const cmd = trusted && !ask && b.type === 'permission_request' && b.wait === true && typeof b.command === 'string' ? b.command.slice(0, 4000) : null;
     if (cmd !== null) {
       const full = { agent: ev.agent, tool: ev.tool, command: cmd, cwd: cap(b.cwd, 500) };
       const risk = rules.riskReason(cmd);
@@ -193,5 +226,8 @@ module.exports = function agentApi({ apiGuard, hasAuthCookie, secret, live, logD
     updateRules((store) => { store.enabled = req.body?.enabled === true; return true; });
     res.json(rulesFile.load());
   });
-  return { router: api, approvals: { pending: pendingApprovals, settle: settleApproval } };
+  return { router: api, approvals: { pending: pendingApprovals, settle: settleApproval, answer(id, picks) {   // a click on a question card
+    const p = pendingApprovals.get(id), a = p && answersFrom(p.ev.ask, picks);
+    return !!a && settleApproval(id, 'allow', 'click', a);
+  } } };
 };

@@ -44,6 +44,12 @@ function toEvent(h, agent) {
   // wait: ask the server to hold this request open for a human decision. Only a real PermissionRequest
   // (Claude Code / Codex) can take a decision back — a Gemini Notification can't.
   const ev = { id: TD_ID, agent, type, tool: h.tool_name, detail, files, wait: h.hook_event_name === 'PermissionRequest' };
+  // #280: a question or a plan is not a yes/no permission. Hand the server what it needs to show it (it validates and caps);
+  // the answer comes back as data and is merged into the CLI's own tool_input below, never typed into the terminal.
+  if (ev.wait && agent === 'claude') {
+    if (h.tool_name === 'AskUserQuestion' && Array.isArray(input.questions)) ev.ask = { questions: input.questions.slice(0, 5) };
+    else if (h.tool_name === 'ExitPlanMode' && typeof input.plan === 'string') ev.ask = { plan: input.plan.slice(0, 15000) };
+  }
   if (typeof h.session_id === 'string') ev.session = h.session_id.slice(0, 64);   // the CLI's own session id: lets termdeck resume exactly this conversation
   // The full command + cwd let the server match opt-in allow-rules (#44 phase 2). Bash only — never a patch body.
   if (ev.wait && h.tool_name === 'Bash' && typeof input.command === 'string') { ev.command = input.command.slice(0, 4000); if (typeof h.cwd === 'string') ev.cwd = h.cwd.slice(0, 500); }
@@ -90,11 +96,11 @@ function usageFrom(h, agent) {
   } catch { return null; }
 }
 
-let raw = '';
+let raw = '', hookInput = {};   // hookInput: the CLI's own tool_input, echoed back inside updatedInput for questions and plans
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', (c) => { if (raw.length < 1 << 20) raw += c; });
 process.stdin.on('end', () => {
-  let ev; try { const h = JSON.parse(raw); ev = toEvent(h, process.argv[2] || 'agent'); if (ev && ev.type === 'stop') Object.assign(ev, usageFrom(h, ev.agent)); } catch { ev = null; }
+  let ev; try { const h = JSON.parse(raw); if (h.tool_input && typeof h.tool_input === 'object') hookInput = h.tool_input; ev = toEvent(h, process.argv[2] || 'agent'); if (ev && ev.type === 'stop') Object.assign(ev, usageFrom(h, ev.agent)); } catch { ev = null; }
   if (!ev) process.exit(0);
   const body = JSON.stringify(ev);
   if (ev.wait) { clearTimeout(ceiling); setTimeout(() => process.exit(0), WAIT_MS).unref(); }
@@ -105,12 +111,16 @@ process.stdin.on('end', () => {
                  ...(TD_HOOK_AUTH ? { 'X-TD-Hook-Auth': TD_HOOK_AUTH } : {}) },
     }, (res) => {
       let out = '';
-      res.setEncoding('utf8').on('data', (c) => { if (out.length < 1024) out += c; });
+      res.setEncoding('utf8').on('data', (c) => { if (out.length < 16384) out += c; });
       res.on('end', () => {
         if (ev.wait && res.statusCode === 200) {
-          let d; try { d = JSON.parse(out).decision; } catch {}
+          let d, answers; try { const j = JSON.parse(out); d = j.decision; answers = j.answers; } catch {}
           if (d === 'allow' || d === 'deny') {
-            const decision = d === 'allow' ? { behavior: 'allow' } : { behavior: 'deny', ...(ev.agent === 'codex' || ev.agent === 'copilot' ? { message: 'Denied from termdeck' } : {}) };
+            // Claude Code: a question is answered through updatedInput.answers; a plan is approved by echoing its tool_input (verified on 2.1.296).
+            const updatedInput = d !== 'allow' || ev.agent !== 'claude' ? undefined
+              : ev.tool === 'AskUserQuestion' && answers && typeof answers === 'object' ? { ...hookInput, answers }
+              : ev.tool === 'ExitPlanMode' ? hookInput : undefined;
+            const decision = d === 'allow' ? { behavior: 'allow', ...(updatedInput ? { updatedInput } : {}) } : { behavior: 'deny', ...(ev.agent === 'codex' || ev.agent === 'copilot' ? { message: 'Denied from termdeck' } : ev.tool === 'ExitPlanMode' ? { message: 'Plan not approved in termdeck: keep planning.' } : {}) };
             // Copilot CLI only honours the decision at the top level; the Claude-style wrapper is silently ignored (verified on 1.0.93).
             process.stdout.write(JSON.stringify(ev.agent === 'copilot' ? decision : { hookSpecificOutput: { hookEventName: 'PermissionRequest', decision } }));
           }
