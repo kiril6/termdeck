@@ -2,6 +2,10 @@
 
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
+## 1.33.0
+- **Answer agent questions and approve plans from the queue** — when Claude Code asks you a question (`AskUserQuestion`) or proposes a plan (`ExitPlanMode`), the agent queue shows a card instead of a plain Approve/Deny. A question card steps through the questions one at a time, with options as buttons (checkboxes when several may be picked), an *Other…* field for a typed answer, keys **1–9** to pick and **Enter** to continue, and *Skip*. A plan row has *Review plan* (opens it in the Markdown viewer), *Approve* and *Keep planning* (the agent stays in plan mode). Needs the termdeck hooks installed (`termdeck hooks install`); Codex, Copilot and Gemini are unchanged. A plain Approve or an allow-rule never answers a question or a plan, and the audit log records the chosen option, never typed text.
+- **Clickable links** — OSC 8 hyperlinks printed by tools (`ls --hyperlink`, `gcc`, `gh` and others) open in a new tab on click. Only `http`, `https` and `mailto` links are followed.
+
 ## 1.32.0
 - **Privacy shield** — for screen sharing and streaming. `⌘⌥X` (or the top bar's *Privacy* button) covers every terminal, file view and the file tree with a plain panel, a strong blur or Matrix rain, and can blur window names, paths and commands too, tooltips included. Shield one tab or a whole project instead, or let it switch on after 2, 5 or 10 idle minutes. A script can cover its own pane with `printf '\e]7777;shield\a'`. It's a visual cover, not security.
 - **Working effect** (off by default) — Matrix rain behind the text, a blur or a cover over a terminal while its agent works. *Cover this tab now* hides any tab, a long build in a plain shell for example, until you press a key.
