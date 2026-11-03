@@ -825,6 +825,49 @@ test.describe('live backend', () => {
     fs.rmSync(root, { recursive: true, force: true });
   });
 
+  test('agent queue: a question is answered from its card, a plan is reviewed and approved (#280)', async ({ page }) => {
+    const ids = [];
+    page.on('websocket', (ws) => { const m = /[?&]id=([^&]+)/.exec(ws.url()); if (m) ids.push(decodeURIComponent(m[1])); });
+    await boot(page, '/');
+    await expect.poll(() => ids.length).toBe(1);
+    const id = ids[0];
+    // page.request carries the sign-in cookie, so the request is held for a click like a real hook's
+    const hold = (tool, ask) => page.request.post('/api/agent-events', { data: { id, type: 'permission_request', agent: 'claude', tool, wait: true, ask } });
+    await page.request.post('/api/agent-events', { data: { id, type: 'tool_start', agent: 'claude', tool: 'Read' } });   // tags the terminal as an agent
+    await page.locator('#agent-btn').click();
+
+    const questions = [
+      { question: 'Pick a color', header: 'Color', multiSelect: false, options: [{ label: 'Red' }, { label: 'Blue' }] },
+      { question: 'Extras?', header: 'X', multiSelect: true, options: [{ label: '<b>A</b>' }, { label: 'B' }, { label: 'C' }] },
+    ];
+    const held = hold('AskUserQuestion', { questions });
+    const card = page.locator('.agent-q');
+    await expect(card.locator('.agent-q-text')).toHaveText('Pick a color');
+    await expect(page.locator('.agent-row-btns .agent-btn.allow', { hasText: 'Approve' })).toHaveCount(0);   // no plain Approve on a question
+    const next = card.getByRole('button', { name: 'Next' });
+    await expect(next).toBeDisabled();
+    await card.focus(); await page.keyboard.press('2');                       // key 2 = Blue
+    await expect(next).toBeEnabled();
+    await next.click();
+    await expect(card.locator('.agent-q-text')).toHaveText('Extras?');
+    await expect(card.locator('.agent-opt').first().locator('span')).toHaveText('<b>A</b>');   // shown as text, not parsed
+    await card.locator('.agent-opt').nth(0).click(); await card.locator('.agent-opt').nth(2).click();
+    await card.locator('.agent-q-other').fill('typed');
+    await card.getByRole('button', { name: 'Send answer' }).click();
+    const r = await held;
+    expect(r.status()).toBe(200);
+    expect(await r.json()).toEqual({ decision: 'allow', answers: { 'Pick a color': 'Blue', 'Extras?': '<b>A</b>, C, typed' } });
+
+    const plan = hold('ExitPlanMode', { plan: '# My plan\n\n1. do <script>x</script>' });
+    await page.locator('.agent-row-btns .agent-btn', { hasText: 'Review plan' }).click();
+    await expect(page.locator('#fv-body h1')).toHaveText('My plan');
+    expect(await page.locator('#fv-body script').count()).toBe(0);
+    await page.keyboard.press('Escape');
+    if (!(await page.locator('.agent-row').first().isVisible())) await page.locator('#agent-btn').click();   // the viewer may have closed the queue
+    await page.locator('.agent-row-btns .agent-btn.allow', { hasText: 'Approve' }).click();
+    expect(await (await plan).json()).toEqual({ decision: 'allow' });
+  });
+
   test('agent queue: red → amber → working, badge follows', async ({ page, request }) => {
     const ids = [];
     page.on('websocket', (ws) => { const m = /[?&]id=([^&]+)/.exec(ws.url()); if (m) ids.push(decodeURIComponent(m[1])); });
