@@ -59,6 +59,28 @@ test.describe('demo mode (no backend)', () => {
     expect(r).toEqual({ version: '11', x: 2 });
   });
 
+  test('OSC 8 hyperlinks: web links open in a new tab, other schemes are ignored', async ({ page }) => {
+    await trackTerms(page);
+    await boot(page, '/?demo');
+    await page.evaluate(() => new Promise((ok) => window.__terms[0].write(
+      '\r\n\x1b]8;;https://example.com/ok\x1b\\WEBLINK\x1b]8;;\x1b\\ \x1b]8;;file:///etc/passwd\x1b\\FILELINK\x1b]8;;\x1b\\', ok)));
+    // the renderer is canvas/WebGL, so click by cell: the links are on the cursor row
+    const link = async (col) => {
+      const b = await page.evaluate((c) => {
+        const t = window.__terms[0], r = t.element.querySelector('.xterm-screen').getBoundingClientRect();
+        return { x: r.x + (c + 0.5) * r.width / t.cols, y: r.y + (t.buffer.active.cursorY + 0.5) * r.height / t.rows };
+      }, col);
+      return { click: async () => { await page.mouse.move(b.x, b.y); await page.waitForTimeout(100); await page.mouse.click(b.x, b.y); } };
+    };
+    const popup = page.waitForEvent('popup');
+    await (await link(2)).click();
+    expect((await popup).url()).toBe('https://example.com/ok');
+    let opened = false; page.on('popup', () => { opened = true; });
+    await (await link(9)).click();
+    await page.waitForTimeout(300);
+    expect(opened).toBe(false);
+  });
+
   test('xterm 6 scrollbar: thin, under the resize grips, wheel scrolls; resize snaps flush to the last row', async ({ page }) => {
     await trackTerms(page);
     await boot(page, '/?demo');
