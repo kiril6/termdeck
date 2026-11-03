@@ -110,7 +110,7 @@ function agentEvent(s,tab,ev){
   if(ev.type==="stop"||ev.type==="error") agentWaiting(s,tab);
   else if(ev.type==="permission_request"){
     // reqId = the hook is held open for a click (#44): the queue row offers Approve / Deny. No reqId = display-only.
-    tab.ask=ev.reqId?{reqId:ev.reqId,text:[ev.tool,ev.files?.[0]||ev.detail].filter(Boolean).join(" "),cmd:ev.detail||"",risk:ev.risk||"",cwd:ev.cwd||"",canRule:ev.tool==="Bash"&&!ev.risk&&!!ev.cwd&&!!ev.detail}:null;
+    tab.ask=ev.reqId?{reqId:ev.reqId,text:[ev.tool,ev.files?.[0]||ev.detail].filter(Boolean).join(" "),cmd:ev.detail||"",risk:ev.risk||"",cwd:ev.cwd||"",canRule:ev.tool==="Bash"&&!ev.risk&&!!ev.cwd&&!!ev.detail,ask:ev.ask||null}:null;
     agentApproval(s,tab);
   }
   else setWaiting(s,tab,false);   // prompt/tool activity = working (also clears a red approval once you answered)

@@ -27,6 +27,59 @@ function getAgentQueue(){
   return list;
 }
 
+// #280: a question from the agent, answered from the queue. The half-made answer lives on tab.ask.ui so a re-render keeps it.
+// Every string is the agent's own text: textContent only. One question at a time (Back / Next); keys 1-9 pick an option.
+function questionCard(tab){
+  const a=tab.ask, qs=a.ask.questions, ui=a.ui||(a.ui={n:0,sel:qs.map(()=>new Set()),text:qs.map(()=>"")});
+  const q=qs[ui.n], sel=ui.sel[ui.n], box=el("div","agent-q"); box.tabIndex=0;
+  const hd=el("div","agent-q-head"); hd.textContent=(qs.length>1?(ui.n+1)+" / "+qs.length+" \u00b7 ":"")+(q.header?q.header+" \u00b7 ":"")+(q.multiSelect?"pick any":"pick one");
+  const qt=el("div","agent-q-text"); qt.textContent=q.question;
+  const opts=el("div","agent-q-opts"), btns=[];
+  const answered=()=>sel.size+(ui.text[ui.n].trim()?1:0)>0;
+  const next=el("button","agent-btn allow"); next.type="button"; next.textContent=ui.n<qs.length-1?"Next":"Send answer";
+  const other=el("input","agent-q-other"); other.type="text"; other.maxLength=500; other.placeholder="Other\u2026"; other.value=ui.text[ui.n]; other.setAttribute("aria-label","Other answer");
+  const sync=()=>{btns.forEach((b,i)=>b.setAttribute("aria-pressed",sel.has(i))); next.disabled=!answered();};
+  const toggle=(i)=>{
+    if(sel.has(i)) sel.delete(i);
+    else{ if(!q.multiSelect){sel.clear(); ui.text[ui.n]=other.value="";} sel.add(i); }   // single choice: an option and a typed answer exclude each other
+    sync();
+  };
+  q.options.forEach((o,i)=>{
+    const b=el("button","agent-btn agent-opt"); b.type="button"; b.title=o.description||"";
+    const k=el("kbd"); k.textContent=String(i+1); const l=el("span"); l.textContent=o.label; b.append(k,l);
+    b.addEventListener("click",(e)=>{e.stopPropagation(); toggle(i);});
+    btns.push(b); opts.append(b);
+  });
+  other.addEventListener("input",()=>{ui.text[ui.n]=other.value; if(!q.multiSelect&&other.value.trim()) sel.clear(); sync();});
+  other.addEventListener("click",(e)=>e.stopPropagation());
+  const go=()=>{
+    if(!answered()) return;
+    if(ui.n<qs.length-1){ui.n++; updateAgentOverview(); return;}
+    const picks=qs.map((_,n)=>({i:[...ui.sel[n]].sort((x,y)=>x-y),text:ui.text[n].trim()}));
+    if(tab.conn?.answer) tab.conn.answer(a.reqId,picks);
+  };
+  next.addEventListener("click",(e)=>{e.stopPropagation(); go();});
+  const row=el("div","agent-row-btns");
+  if(ui.n>0){const back=el("button","agent-btn"); back.type="button"; back.textContent="Back"; back.addEventListener("click",(e)=>{e.stopPropagation(); ui.n--; updateAgentOverview();}); row.append(back);}
+  const deny=el("button","agent-btn deny"); deny.type="button"; deny.textContent="Skip"; deny.title="Decline to answer here (the agent is told no)";
+  deny.addEventListener("click",(e)=>{e.stopPropagation(); if(tab.conn?.approve) tab.conn.approve(a.reqId,"deny");});
+  row.append(next,deny);
+  box.addEventListener("keydown",(e)=>{
+    if(e.target===other){ if(e.key==="Enter"){e.preventDefault(); go();} return; }
+    if(/^[1-9]$/.test(e.key)&&+e.key<=q.options.length){e.preventDefault(); toggle(+e.key-1);}
+    else if(e.key==="Enter"&&answered()){e.preventDefault(); go();}
+  });
+  box.append(hd,qt,opts,other,row); sync();
+  return box;
+}
+// #280: the plan the agent wants approved, read-only in the file viewer (mdToHtml escapes everything first).
+function showPlan(text){
+  closeModals("file");
+  fvName.textContent="Plan"; fvPath.textContent=""; fvText=null; fvTable=false; fvRendered=false; fvTog.hidden=true;
+  fvBody.className="fv-body md"; fvBody.innerHTML=mdToHtml(text);
+  fileOverlay.classList.add("open"); fileOverlay.focus();
+}
+
 function renderAgentList(queue){
   if(!agentList) return;
   if(!queue) queue=getAgentQueue();
@@ -63,20 +116,26 @@ function renderAgentList(queue){
     info.append(path,st);
     if(state==="approval"&&tab.ask){   // exact request + one-click answer; textContent only — the command is untrusted
       const q=el("div","agent-row-ask"); q.textContent=tab.ask.text; q.title=tab.ask.text;
-      const bt=el("div","agent-row-btns");
-      for(const [d,label] of [["allow","Approve"],["deny","Deny"]]){
-        const b=el("button","agent-btn "+d); b.textContent=label; b.type="button";
-        b.addEventListener("click",(e)=>{e.stopPropagation(); const a=tab.ask; if(!a||!tab.conn?.approve)return; tab.conn.approve(a.reqId,d);});
-        bt.append(b);
+      const kind=tab.ask.ask?.kind, bt=el("div","agent-row-btns");
+      const decide=(d)=>{const a=tab.ask; if(!a||!tab.conn?.approve)return; tab.conn.approve(a.reqId,d);};
+      if(kind==="question"){   // #280: the agent asked something: answer it here (a plain Approve would give it no answer)
+        info.append(questionCard(tab));   // the card shows the question itself
+      }else{
+        const btns=kind==="plan"?[["","Review plan"],["allow","Approve"],["deny","Keep planning"]]:[["allow","Approve"],["deny","Deny"]];
+        for(const [d,label] of btns){
+          const b=el("button","agent-btn "+d); b.textContent=label; b.type="button";
+          b.addEventListener("click",(e)=>{e.stopPropagation(); if(d) decide(d); else showPlan(tab.ask.ask.plan);});
+          bt.append(b);
+        }
       }
       if(tab.ask.canRule){
         const al=el("button","agent-btn"); al.textContent="Always allow\u2026"; al.type="button"; al.title="Create an opt-in rule for this command in this repo";
         al.addEventListener("click",(e)=>{e.stopPropagation(); alwaysAllow(tab);});
         bt.append(al);
       }
-      info.append(q);
+      if(kind!=="question") info.append(q);
       if(tab.ask.risk){const rk=el("div","agent-risk"); rk.textContent="\u26a0 "+tab.ask.risk+" \u2014 always needs your click"; info.append(rk);}
-      info.append(bt);
+      if(kind!=="question") info.append(bt);
     }
     const ov=overlapByProject.get(s.project);
     if(ov){const w=el("div","agent-row-warn"); w.textContent="\u26a0 "+overlapText(ov); w.title=w.textContent; info.append(w);}   // textContent: file names are untrusted
@@ -267,6 +326,7 @@ function openTabWS(s,tab){
     resize:(c,r)=>ws.readyState===1&&ws.send(JSON.stringify({type:"resize",cols:c,rows:r})),
     kill:()=>ws.readyState===1&&ws.send(JSON.stringify({type:"kill"})),
     approve:(reqId,decision)=>ws.readyState===1&&ws.send(JSON.stringify({type:"approve",reqId,decision})),
+    answer:(reqId,picks)=>ws.readyState===1&&ws.send(JSON.stringify({type:"approve",reqId,decision:"answer",picks})),
     close:()=>ws.close(),
   };
 }

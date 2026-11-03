@@ -219,6 +219,16 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
 .agent-btn{font:inherit;font-size:11px;padding:3px 10px;border-radius:5px;border:1px solid var(--line);background:var(--btn-bg);color:inherit;cursor:pointer;}
 .agent-btn.allow{border-color:#2e9d5b;color:#43c077;}
 .agent-btn.deny{border-color:#e5484d;color:#ff9b93;}
+.agent-btn:disabled{opacity:.45;cursor:default;filter:none;}
+.agent-q{margin-top:5px;outline:none;}
+.agent-q:focus-visible{outline:1px solid var(--accent);outline-offset:2px;border-radius:5px;}
+.agent-q-head{font-size:10px;color:var(--muted);letter-spacing:.04em;}
+.agent-q-text{font-size:12px;margin:2px 0 5px;white-space:normal;overflow-wrap:anywhere;}
+.agent-q-opts{display:flex;flex-direction:column;gap:4px;}
+.agent-opt{display:flex;align-items:center;gap:6px;text-align:left;white-space:normal;overflow-wrap:anywhere;}
+.agent-opt kbd{font:inherit;font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:3px;padding:0 4px;}
+.agent-opt[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,var(--btn-bg));}
+.agent-q-other{font:inherit;font-size:11px;width:100%;box-sizing:border-box;margin-top:4px;padding:3px 6px;border-radius:5px;border:1px solid var(--line);background:var(--btn-bg);color:inherit;}
 .agent-btn:hover{filter:brightness(1.25);}
 .agent-risk{font-size:10.5px;color:#d9822b;margin-top:3px;}
 .agent-rule-x{font:inherit;font-size:11px;background:none;border:0;color:var(--muted);cursor:pointer;padding:0 4px;}

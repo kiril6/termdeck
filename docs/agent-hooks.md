@@ -24,6 +24,21 @@ helper prints that decision. No click means no output and the CLI asks as usual 
 terminal, or when no browser is attached). termdeck never answers a prompt unless you click — or you opted in to a scoped
 allow-rule (*Always allow…* on an approval row; off by default; never for deny-listed commands; every firing is logged and toasted).
 
+### Questions and plans (Claude Code)
+
+Claude Code sends two things through the same `PermissionRequest` hook that are not yes/no permissions: `AskUserQuestion`
+(a question with options) and `ExitPlanMode` (a plan to approve). termdeck shows them as cards in the agent queue instead of
+Approve / Deny:
+
+- **A question** is answered by merging `answers` (`{ "<question text>": "<option label>" }`, several picks joined with `", "`, a typed
+  answer as plain text) into the CLI's own `tool_input` and returning it as `updatedInput`. A plain Approve never answers a question.
+- **A plan** is approved by returning its own `tool_input` as `updatedInput` (the agent then continues in *accept edits* mode), or
+  denied with a message so the agent stays in plan mode.
+- Same rules as Approve / Deny: nothing is typed into the terminal, no click means no decision, and an allow-rule never answers
+  a question or a plan. The audit log records the chosen option, never typed text. Codex, Copilot and Gemini: not supported.
+
+Verified on Claude Code 2.1.296 (single and multi-select questions, plan approve, plan deny).
+
 ## Verified against the real CLIs
 
 Payloads were captured from real sessions and are replayed through the helper in CI
