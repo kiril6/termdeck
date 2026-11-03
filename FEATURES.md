@@ -57,7 +57,8 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   hints as the palette, nothing destructive, no submenus; snippets, SSH hosts and AI CLI presets stay in the palette.
 - 🖥️ **Find in terminal** (`⌘F` when focused) — scrollback search with match highlighting and a
   result counter (xterm search addon). The current match is selected, so it shows in the theme's selection colour. `⌘F` with no terminal focused filters sessions instead.
-- 🖥️ **Clickable links** — URLs in output open in a new tab (xterm web-links addon).
+- 🖥️ **Clickable links** — URLs in output open in a new tab (xterm web-links addon). **OSC 8 hyperlinks**
+  (`ls --hyperlink`, `gcc`, `rg`, `delta`…) work too: the real URL shows on hover, only `http(s)` and `mailto` open (other schemes are ignored).
 - 🖥️ **Save output** — right-click → *Save output…* downloads the scrollback as a `.log`
   (xterm serialize addon).
 - 🖥️ **GPU rendering** — WebGL renderer for every terminal on screen (up to 12 at once; browsers allow ~16 per page). Hidden terminals (other projects, minimized windows, background tabs) give theirs up when a shown one needs it, the one shown longest ago first. If the GPU drops a context (sleep/wake, driver reset), that terminal draws with the DOM renderer and gets WebGL back when shown again or a few seconds later.

@@ -354,6 +354,13 @@ function registerPathLinks(term,tab){
   }});
 }
 
+// OSC 8 hyperlinks (`ESC ]8;;url ST text`): the shown text can differ from the target, so the URL is shown on hover and only web/mail schemes open.
+const OSC8_LINKS={
+  activate(e,url){ if(/^(https?|mailto):/i.test(url)) window.open(url,"_blank","noopener"); },
+  hover(e,url){ if(e.target&&e.target.closest) e.target.closest(".xterm").title=url; },
+  leave(e){ if(e.target&&e.target.closest) e.target.closest(".xterm").removeAttribute("title"); },
+};
+
 function addTab(s, opts){
   opts=opts||{};
   const tid=opts.id||newId("t"+(++tabSeq));   // reuse the saved id on restore: the WS id is s.id+"-"+tab.id, so a fresh id here means a fresh shell
@@ -368,6 +375,7 @@ function addTab(s, opts){
     theme:THEMES[themeId].xterm,allowProposedApi:true,scrollback:getScrollback(),
     overviewRuler:{width:10},   // xterm 6 sizes its scrollbar from this (default 14): keeps the thin 10px bar
     disableStdin:!!s.isLog,
+    linkHandler:OSC8_LINKS,
   });
   const fit=new window.FitAddon.FitAddon();
   const search=new window.SearchAddon.SearchAddon();
