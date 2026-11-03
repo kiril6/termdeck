@@ -413,7 +413,8 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   **Checked against real Claude Code 2.1.195** (allow → "Allowed by PermissionRequest hook", deny →
   "Denied by …"; the normal dialog still shows while the hook is held, and answering it in the terminal
   releases the hold). Codex uses the same JSON per its docs but blocks on the hook *before* its prompt, so typing
-  in that terminal releases the hold — not yet verified against a real Codex. **No click = no decision**: after
+  in that terminal releases the hold — all events incl. approval checked against real Codex 0.160.0
+  ([docs/agent-hooks.md](docs/agent-hooks.md)). **No click = no decision**: after
   120s (`TD_APPROVAL_HOLD_MS`), when you type in the terminal, when no browser is attached, or on any other agent
   event, the helper prints nothing and the CLI asks as usual. Only that terminal's own socket can answer
   (same guards as input); the command is shown via `textContent`. **Audit log:** every held request is
