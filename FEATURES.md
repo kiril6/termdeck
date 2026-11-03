@@ -423,6 +423,13 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   *replaced*) — listed under the queue (*Recent approvals*), served at `GET /api/approvals`, and appended to
   `TD_LOG_DIR/approvals.jsonl` (0600) when set; past 10 MB it becomes `approvals.1.jsonl` (replacing the previous one), so the audit log stays under ~20 MB. Without hooks, or on Gemini (no decision channel), rows stay
   jump-only.
+  **Questions and plans (#280, server side; the cards come next)** — Claude Code's `AskUserQuestion` and `ExitPlanMode` arrive on
+  the same hook. The helper now passes the question (up to 4, each with up to 8 options) or the plan to the server, which rebuilds it
+  field by field (a question or option label too long to be an exact answer is not shown as a card) and shows its text as the row's
+  detail. A question is answered over the terminal's WebSocket with `{decision:'answer', picks}` (option indexes, optional typed text); the
+  helper merges the answers into the CLI's own `tool_input` as `updatedInput.answers`, and a plan is approved by echoing its `tool_input`
+  (verified on Claude Code 2.1.296; approving a plan moves the agent to *accept edits*). A plain Approve never answers a question, an
+  allow-rule never answers a question or a plan, and the audit log records the chosen option, never typed text. Codex, Copilot and Gemini: unchanged.
 - 🖥️🔌 **Token totals (#85)** — what the agent itself reported, never estimated, labelled *as reported by the agent*.
   On `stop` the hook helper reads the CLI's transcript (**Claude Code, Codex**; Gemini shows nothing) and sends the
   conversation total; the browser keeps it **per tab** and shows it on the **queue row** (`361k tok`), the **queue

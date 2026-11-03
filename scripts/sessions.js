@@ -388,7 +388,11 @@ function createSessions({ pty, live, approvals, secret, home, logDir, safeDir })
       }
       else if (m.type === 'approve' && !s.isLog) {
         const p = approvals.pending.get(id);
-        if (p && p.reqId === m.reqId && (m.decision === 'allow' || m.decision === 'deny')) approvals.settle(id, m.decision, 'click');
+        if (p && p.reqId === m.reqId) {
+          if (m.decision === 'deny') approvals.settle(id, 'deny', 'click');
+          else if (m.decision === 'allow' && p.ev.ask?.kind !== 'question') approvals.settle(id, 'allow', 'click');   // a question needs its answer: 'answer' below
+          else if (m.decision === 'answer') approvals.answer(id, m.picks);
+        }
       }
       else if (m.type === 'resize') { try { s.term.resize(clampInt(m.cols,80,MAX_COLS), clampInt(m.rows,24,MAX_ROWS)); } catch {} }
       else if (m.type === 'kill')   {

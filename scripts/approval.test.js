@@ -98,6 +98,48 @@ const fixture = (agent, name) => fs.readFileSync(path.join(__dirname, 'fixtures'
     assert.strictEqual(fs.statSync(path.join(logDir, 'approvals.1.jsonl')).size, 10 * 1024 * 1024 + 1, 'old log kept as approvals.1.jsonl');
     if (process.platform !== 'win32') assert.strictEqual(fs.statSync(path.join(logDir, 'approvals.jsonl')).mode & 0o777, 0o600);
 
+    // #280: a question is answered through updatedInput.answers, a plan approved by echoing its tool_input (both verified on a
+    // real Claude Code 2.1.296 session). The audit log records the chosen option, never typed text.
+    const q = { questions: [{ question: 'Pick a color', header: 'Color', multiSelect: false, options: [{ label: 'Red', description: 'r' }, { label: 'Blue', description: 'b' }] },
+                            { question: 'Extras?', header: 'X', multiSelect: true, options: [{ label: 'A' }, { label: 'B' }, { label: 'C' }] }] };
+    const askPayload = (tool, tool_input) => JSON.stringify({ hook_event_name: 'PermissionRequest', session_id: 's1', cwd: home, tool_name: tool, tool_input });
+    const seen0 = browser.msgs.length;
+    h = hook('claude', askPayload('AskUserQuestion', q));
+    let reqId = await nextRequest();
+    const ev = browser.msgs.slice(seen0).find((m) => m.type === 'agent' && m.event.reqId).event;
+    assert.strictEqual(ev.ask.kind, 'question');
+    assert.strictEqual(ev.detail, 'Pick a color');
+    click(reqId, 'allow');                                                       // a plain Approve must not answer a question
+    await sleep(300);
+    browser.ws.send(JSON.stringify({ type: 'approve', reqId, decision: 'answer', picks: [{ i: [5] }, { i: [0] }] }));   // bad index: refused
+    browser.ws.send(JSON.stringify({ type: 'approve', reqId, decision: 'answer', picks: [{ i: [0, 1] }, { i: [0] }] })); // two picks on a single-select: refused
+    await sleep(300);
+    browser.ws.send(JSON.stringify({ type: 'approve', reqId, decision: 'answer', picks: [{ i: [1] }, { i: [0, 2], text: 'secret note' }] }));
+    r = await h;
+    assert.deepStrictEqual(JSON.parse(r.out).hookSpecificOutput.decision,
+      { behavior: 'allow', updatedInput: { ...q, answers: { 'Pick a color': 'Blue', 'Extras?': 'A, C, secret note' } } });
+
+    const plan = { plan: '# Plan\n\n1. do it', planFilePath: '/x/plan.md' };
+    h = hook('claude', askPayload('ExitPlanMode', plan));
+    click(await nextRequest(), 'allow');
+    assert.deepStrictEqual(JSON.parse((await h).out).hookSpecificOutput.decision, { behavior: 'allow', updatedInput: plan });
+    h = hook('claude', askPayload('ExitPlanMode', plan));
+    click(await nextRequest(), 'deny');
+    assert.strictEqual(JSON.parse((await h).out).hookSpecificOutput.decision.behavior, 'deny');
+
+    // A question whose text is too long to be an exact answer key is not turned into a card: it stays a plain Approve / Deny.
+    const long = { questions: [{ question: 'q'.repeat(501), options: [{ label: 'A' }] }] };
+    const seen1 = browser.msgs.length;
+    h = hook('claude', askPayload('AskUserQuestion', long));
+    reqId = await nextRequest();
+    assert.strictEqual(browser.msgs.slice(seen1).find((m) => m.type === 'agent' && m.event.reqId).event.ask, undefined);
+    click(reqId, 'deny'); await h;
+
+    const all = fs.readFileSync(path.join(logDir, 'approvals.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)).slice(5);
+    assert.deepStrictEqual(all.map((l) => [l.tool, l.decision, l.answer]),
+      [['AskUserQuestion', 'allow', ['Blue', 'A, C, (typed answer)']], ['ExitPlanMode', 'allow', undefined], ['ExitPlanMode', 'deny', undefined], ['AskUserQuestion', 'deny', undefined]]);
+    assert.ok(!JSON.stringify(all).includes('secret note'), 'typed answer is not in the audit log');
+
     browser.ws.send(JSON.stringify({ type: 'kill' })); browser.ws.close();
     console.log('approval.test: ok');
     done(0);
