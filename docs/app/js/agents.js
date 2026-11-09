@@ -293,7 +293,7 @@ function openTabWS(s,tab){
           markAttn(s,tab);
           // Only announce completion of a command we actually saw start (Enter \u2192 markRunning).
           // A bare prompt redraw \u2014 e.g. every shell reflowing when you tile \u2014 is not a "done".
-          if(dur!=null) toast(ICON.check,"Done","\""+s.name+"\" finished in "+fmtDur(dur),3000,()=>revealWindow(s));
+          if(dur!=null) notifyToast("done",ICON.check,"Done","\""+s.name+"\" finished in "+fmtDur(dur),3000,()=>revealWindow(s));
         }
       }else if(!watching){
         markAttn(s,tab);

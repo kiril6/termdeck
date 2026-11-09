@@ -540,6 +540,14 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   switch) are ignored, so zsh and bash 5.1+ prompts are recognised — before, the prompt was often missed,
   so no *Done* toast came and the long-run nudge fired for commands that had already finished.
 - 🖥️ Attention indicators on tabs/dock chips for background output.
+- 🖥️ **Snooze notifications (#284)** — palette: *Snooze notifications 30 min / 1 h / until I turn them on*, *Resume
+  notifications*. While snoozed there are no *Done*, *Waiting on you*, *Needs approval* or *Still working* toasts, no native
+  notifications, and no phone webhook posts (#84: the browser tells the server the end time; if it can't, the webhook just
+  notifies as before). The agent queue, attention dots and LEDs keep working, and an approval is still held and listed. A struck
+  bell with the time left shows in the header — click it to resume. The end time is kept in `localStorage`, so a reload keeps
+  the snooze and it ends on time; the end shows one toast counting what you missed (*"While snoozed: 2 finished, 1 need
+  approval"*; the count is lost on a reload). Not part of exported settings. The webhook follows the browser's snooze (no
+  separate switch); a server restart forgets it until the page next loads.
 
 ## Appearance & layout
 - 🖥️ Themes — per-terminal or dashboard-wide, searchable picker (`⌘⇧P`). 24 built-in: 17 dark + 7 light (GitHub Light, Paper, Solarized Light, One Light, Catppuccin Latte, Rose Pine Dawn, Gruvbox Light). **Matrix** keeps the neon `#00ff41` for the accent and cursor, but its text is a

@@ -962,3 +962,6 @@ html.td-shield-titles :is(.wt-name,.cname,.badge.cwd,.badge.cmd,.fv-name,.ov-nam
 @media (max-width:1260px){.shield-ind:not([hidden]){display:inline-flex!important;}}   /* toolbar collapsed into ⋯ */
 .wbtn.shield.on{color:var(--accent-text);}
 @media(prefers-reduced-motion:reduce){.mx-bg,.mx-veil,.win-pane .xterm-screen{transition:none;}}
+
+#snooze-btn[hidden]{display:none}
+#snooze-btn{color:var(--warn,#e0a030)}

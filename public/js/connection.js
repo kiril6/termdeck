@@ -40,7 +40,7 @@ function maybeNudge(s,tab){
   const r=running.get(s.id+tab.id); if(!r||r.nudged)return; r.nudged=true;
   if(gameOv.classList.contains("open"))return;   // already playing — no offer needed
   // Note: fire even while you're watching the tab — waiting on a slow command IS the moment to offer a game.
-  toast(ICON.hourglass,"Still working…","\""+s.name+"\" running "+Math.round(NUDGE_MS/1000)+"s — play a game? "+kbd("⌘","⌥","G"),6000,
+  notifyToast("running",ICON.hourglass,"Still working…","\""+s.name+"\" running "+Math.round(NUDGE_MS/1000)+"s — play a game? "+kbd("⌘","⌥","G"),6000,
     ()=>{revealWindow(s);switchTab(s,tab.id);openGame();});   // toast() mirrors to an OS notification itself
 }
 function fmtDur(ms){const s=Math.round(ms/1000);return s<60?s+"s":s<3600?Math.floor(s/60)+"m"+String(s%60).padStart(2,"0")+"s":Math.floor(s/3600)+"h"+String(Math.floor(s%3600/60)).padStart(2,"0")+"m";}
@@ -166,7 +166,7 @@ function agentWaiting(s,tab){
   const watching=focusedId===s.id&&s.activeTabId===tab.id&&!s.minimized&&s.project===activeProject&&document.hasFocus();
   setWaiting(s,tab,true,tab.approval);   // dock/tab pulse marks the queue even while you watch; preserve a red approval flag, never downgrade it
   if(watching)return;              // looking right at it → the pulse is enough, skip the toast
-  toast(ICON.bot,"Waiting on you","\""+s.name+"\" is waiting for input",6000,()=>{revealWindow(s);switchTab(s,tab.id);});
+  notifyToast("waiting",ICON.bot,"Waiting on you","\""+s.name+"\" is waiting for input",6000,()=>{revealWindow(s);switchTab(s,tab.id);});
 }
 // #3 approval-prompt routing: a tool-approval prompt blocks ALL progress, so it fires a
 // louder, STICKY toast (ms=0) distinct from the plain idle "waiting", and flags the tab/chip
@@ -183,7 +183,7 @@ function agentApproval(s,tab){
   setWaiting(s,tab,true,true);
   const watching=focusedId===s.id&&s.activeTabId===tab.id&&!s.minimized&&s.project===activeProject&&document.hasFocus();
   if(watching)return;
-  toast('<span class="t-appr">'+ICON.bot+"</span>","Needs approval","\""+s.name+"\" is blocked on a permission prompt",0,()=>{revealWindow(s);switchTab(s,tab.id);});
+  notifyToast("approval",'<span class="t-appr">'+ICON.bot+"</span>","Needs approval","\""+s.name+"\" is blocked on a permission prompt",0,()=>{revealWindow(s);switchTab(s,tab.id);});
 }
 function setWaiting(s,tab,on,approval){
   const ap=on&&!!approval;
