@@ -1325,4 +1325,29 @@ test.describe('live backend', () => {
     expect((await post({ name: 'x', data: full.data }, { Origin: 'http://evil.example' })).status()).toBe(403);
     expect((await post({ name: 'x', data: full.data }, { 'Sec-Fetch-Site': 'cross-site' })).status()).toBe(403);
   });
+  test('snooze: the server takes an end time for the webhook, nothing else', async ({ request }) => {
+    expect((await request.post('/api/snooze', { data: { until: 'soon' } })).status()).toBe(400);
+    expect((await request.post('/api/snooze', { data: { until: -1 } })).status()).toBe(400);
+    expect((await request.post('/api/snooze', { data: { until: 0 } })).status()).toBe(204);
+    expect((await request.post('/api/snooze', { data: { until: 0 }, headers: { Origin: 'http://evil.example' } })).status()).toBe(403);
+  });
+
+  test('snooze: agent toasts are held back, the header shows the time left, the end shows a summary', async ({ page }) => {
+    await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
+    await boot(page, '/?demo');
+    const toasts = () => page.locator('.toast').allTextContents();
+    await page.evaluate(() => window.snoozeFor(30));
+    await page.evaluate(() => { window.notifyToast('done', 'x', 'Done', 'a finished'); window.notifyToast('approval', 'x', 'Needs approval', 'a blocked', 0); });
+    expect((await toasts()).join()).not.toContain('Needs approval');
+    await expect(page.locator('#snooze-btn')).toBeVisible();
+    await expect(page.locator('#snooze-btn .sn-left')).toHaveText('30m');
+    await page.reload(); await boot(page, '/?demo');                      // a reload keeps it
+    await expect(page.locator('#snooze-btn')).toBeVisible();
+    await page.evaluate(() => window.notifyToast('done', 'x', 'Done', 'b finished'));
+    await page.clock.fastForward(31 * 60000);                             // ends on time
+    await expect(page.locator('#snooze-btn')).toBeHidden();
+    await expect(page.locator('.toast')).toContainText(['Notifications back on']);
+    await page.evaluate(() => window.notifyToast('done', 'x', 'Done', 'c finished'));
+    await expect(page.locator('.toast', { hasText: 'c finished' })).toHaveCount(1);   // notifications are back
+  });
 });

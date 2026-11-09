@@ -73,6 +73,7 @@ module.exports = function agentApi({ apiGuard, hasAuthCookie, secret, live, logD
     try { return n.createNotifier(n.configFrom(process.env)); }
     catch (e) { console.error(`  TD_NOTIFY_URL ignored: ${e.message}`); return () => {}; }
   })();
+  let snoozeUntil = 0;   // #284: the browser's notification snooze, so the webhook pauses too; lost on restart = notifies as before
   const pendingApprovals = new Map();   // terminal id -> { reqId, res, ev, timer }
   const approvalAudit = [];             // newest last, capped; also appended to TD_LOG_DIR/approvals.jsonl when set
   function recordApproval(entry) {
@@ -185,9 +186,14 @@ module.exports = function agentApi({ apiGuard, hasAuthCookie, secret, live, logD
       res.on('close', () => { if (pendingApprovals.get(b.id) === p) settleApproval(b.id, null, 'terminal'); });   // helper gone: the CLI was answered or died
     }
     s.agentEvt = ev;                                                // replayed to a reattaching browser
-    notify(b.id, ev, { project: path.basename(s.cwd || '') || 'termdeck', link: `${req.get('x-forwarded-proto') || req.protocol}://${req.get('host')}/#t=${encodeURIComponent(b.id)}` });
+    if (Date.now() >= snoozeUntil) notify(b.id, ev, { project: path.basename(s.cwd || '') || 'termdeck', link: `${req.get('x-forwarded-proto') || req.protocol}://${req.get('host')}/#t=${encodeURIComponent(b.id)}` });
     if (s.ws) send(s.ws, { type: 'agent', event: ev });
     if (!held) res.status(204).end();
+  });
+  api.post('/api/snooze', apiGuard, (req, res) => {
+    const u = req.body?.until;
+    if (!Number.isFinite(u) || u < 0) return res.status(400).json({ error: 'until must be a time in ms' });
+    snoozeUntil = u; res.status(204).end();
   });
   api.get('/api/approvals', apiGuard, (req, res) => res.json(approvalAudit.slice(-50).reverse()));
 
