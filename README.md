@@ -123,7 +123,7 @@ See also [Known limits](#known-limits). Found a vulnerability? Report it private
 - **Layouts:** click *Tile* to auto-tile, or its **▾** for a fixed grid (1×1, 2×1, 1×2, 2×2, 3×2), *Restore minimized* and Fullscreen (also in the palette's *Layout* tab) — extra windows are minimized, not closed. `⌥1`–`9` jumps to the Nth window.
 - **Live overview:** the toolbar *Sessions* button → *Grid* (or palette → *Live overview*) shows a read-only tile per session across all projects with its latest output and state, most urgent first (needs approval, waiting, working, idle); an *All | Active* filter hides idle sessions; click a tile to jump to it.
 - **Projects** group windows; each remembers its folder. A **file tree** (`⌘B`, drag its edge to resize) with a *Find files…* box (`/`) that searches names across the whole project root, and a built-in file viewer (text, Markdown, CSV tables, images, PDF, audio and video); its ⋯ menu has **Follow focused terminal**, which reveals the focused window's live folder in the tree.
-- **Live working directory, last command and dev-server port** in every window's footer (a globe icon opens the port when running locally; right-click for Copy URL / Stop server), clickable links and `file:line` paths, search the terminal's history, GPU-accelerated rendering.
+- **Live working directory, last command and dev-server port** in every window's footer (a globe icon opens the port when running locally; right-click for Copy URL / Stop server), clickable links (plain URLs and OSC 8 hyperlinks, which open in a new tab) and `file:line` paths, search the terminal's history, GPU-accelerated rendering.
 - **Version, What's new and update check:** the version shows in the footer and Help; Help → *What's new* lists the changelog offline, a one-time toast appears after an upgrade, and *Check for updates* asks npm only when you click.
 - 24 themes (17 dark, 7 light), per terminal or for the whole dashboard, all with readable text (WCAG AA contrast).
 - **Export / import settings** (palette): theme, font, snippets, SSH hosts and AI CLI presets in one JSON file, for another browser or a backup.
@@ -146,7 +146,7 @@ See also [Known limits](#known-limits). Found a vulnerability? Report it private
 **Productivity**
 - Command palette (`⌘K`), snippets, broadcast input to every shell in a project, safe multi-line paste.
 - **Phone alerts:** set `TD_NOTIFY_URL` (e.g. an [ntfy](https://ntfy.sh) topic) and get a push when an agent is blocked on an approval — tap it to open that terminal. [Setup](docs/remote-access.md#phone-notifications).
-- Notifications when a background command finishes or an agent needs you — in-app, and native when the window isn't focused.
+- Notifications when a background command finishes or an agent needs you — in-app, and native when the window isn't focused. Snooze them for 30 min, 1 h or until you resume (⌘K → *Snooze notifications*): toasts, native alerts and the phone webhook pause, the agent queue keeps working.
 - A first-run tour, and a game to play while a long command runs (Dino or Snake, each remembers its best score).
 
 **Privacy & effects**
