@@ -2,6 +2,9 @@
 
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
+## 1.34.0
+- **Snooze notifications** — ⌘K → *Snooze notifications* for 30 min, 1 h or until you turn them back on. While snoozed, the *Done*, *Waiting on you*, *Needs approval* and *Still working* toasts, native notifications and the phone webhook (`TD_NOTIFY_URL`) pause. The agent queue, dots and LEDs keep working, and approvals are still held. A struck bell in the header shows the time left; click it to resume. Ending the snooze shows what you missed. It survives a reload.
+
 ## 1.33.0
 - **Answer agent questions and approve plans from the queue** — when Claude Code asks you a question (`AskUserQuestion`) or proposes a plan (`ExitPlanMode`), the agent queue shows a card instead of a plain Approve/Deny. A question card steps through the questions one at a time, with options as buttons (checkboxes when several may be picked), an *Other…* field for a typed answer, keys **1–9** to pick and **Enter** to continue, and *Skip*. A plan row has *Review plan* (opens it in the Markdown viewer), *Approve* and *Keep planning* (the agent stays in plan mode). Needs the termdeck hooks installed (`termdeck hooks install`); Codex, Copilot and Gemini are unchanged. A plain Approve or an allow-rule never answers a question or a plan, and the audit log records the chosen option, never typed text.
 - **Clickable links** — OSC 8 hyperlinks printed by tools (`ls --hyperlink`, `gcc`, `gh` and others) open in a new tab on click. Only `http`, `https` and `mailto` links are followed.
