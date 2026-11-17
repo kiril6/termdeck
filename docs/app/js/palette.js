@@ -79,6 +79,7 @@ const PAL_CMDS=[
   {icon:ICON.log,label:"New log panel",sub:"Read-only output monitor",kbd:"\u2318\u2325L",run:()=>createSession({cwd:curCwd()},true)},
   {layout:1,icon:ICON.grid,label:"Tile windows",sub:"Auto-arrange into the best-fit grid",kbd:"\u2318\u2325\u21e7T",run:tileAll},
   ...LAYOUT_PRESETS.map(([c,r])=>({layout:1,icon:ICON.grid,label:"Layout "+c+"\u00d7"+r,sub:c+" column"+(c>1?"s":"")+" \u00d7 "+r+" row"+(r>1?"s":"")+" \u2014 extra windows are minimized",run:()=>tileGrid(c,r,"Layout "+c+"\u00d7"+r)})),
+  {icon:ICON.x,label:"Kill orphaned tmux sessions\u2026",sub:"List termdeck shells still running in tmux that no open window uses, and end them",run:()=>{closePalette();sweepOrphans();}},
   {icon:ICON.monitor,label:"Live overview",sub:"Read-only tiles of every session's latest output",run:()=>{closePalette();openOverview();}},
   {icon:ICON.sidebar,label:"Toggle directory tree",sub:"Show/hide sidebar",kbd:"\u2318B",run:toggleSidebar},
   {icon:ICON.move,label:"Move or resize window",sub:"With the keyboard \u2014 arrows move, Shift+arrows resize, Enter done, Esc cancel",run:()=>{const s=focusedId&&sessions.get(focusedId); closePalette(); if(s) keyboardMoveWindow(s); else toast(ICON.warn,"No window focused","Click a window or press \u2325+1\u20139 first",2800);}},
@@ -117,7 +118,7 @@ const PAL_CAT_OF={"New terminal":"Terminals","New log panel":"Terminals","Add SS
   "Open file\u2026":"Terminals","Open directory\u2026":"Terminals","New project":"Terminals",
   "New agent task\u2026":"Agents","Finish agent task\u2026":"Agents","Review agent changes\u2026":"Agents","Add AI CLI preset\u2026":"Agents",
   "Reset usage":"Agents","Reset agent order":"Agents",
-  "Live overview":"Sessions","Search sessions":"Sessions",
+  "Live overview":"Sessions","Kill orphaned tmux sessions\u2026":"Sessions","Search sessions":"Sessions",
   "Toggle directory tree":"Layout","Move or resize window":"Layout","Save layout as\u2026":"Layout","Restore layout\u2026":"Layout",
   "Keyboard shortcuts":"Help","Take the tour":"Help",
   "Play game":"Fun","Toggle pixel pets":"Fun"};

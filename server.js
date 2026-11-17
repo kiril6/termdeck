@@ -25,6 +25,7 @@ const { createSessions, maybePromptTmux, shellCandidates } = require('./scripts/
 const agentApi   = require('./scripts/agent-api');
 const fsApi      = require('./scripts/fs-api');
 const layoutsApi = require('./scripts/layouts-api');
+const sessionsApi = require('./scripts/sessions-api');
 const { gitApi } = require('./scripts/git-api');
 
 // ── Load node-pty — try both the standard and the Linux prebuilt fork ────────
@@ -202,6 +203,7 @@ const server = http.createServer(app);
 const wss    = new WebSocketServer({ server, maxPayload: 16 * 1024 * 1024, verifyClient: security.verifyClient });
 const sessions = createSessions({ pty, live, approvals: agent.approvals, secret: security.SECRET, home: HOME, logDir: LOG_DIR, safeDir });
 wss.on('connection', sessions.handleConnection);
+app.use(sessionsApi({ apiGuard, sessions }));
 
 // Graceful shutdown: kill every live PTY before exiting. Without this a dead parent
 // leaves orphan shells running until the OS reparents them — they accumulate across

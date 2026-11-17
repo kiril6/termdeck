@@ -398,10 +398,43 @@ function createSessions({ pty, live, approvals, secret, home, logDir, safeDir })
       else if (m.type === 'kill')   {
         // tmux: killing the pty only detaches the client — the session would live on and
         // reattach as a "dead" terminal. Kill the session so the shell actually ends.
-        if (s.tmuxName) { try { execFile('tmux', ['kill-session', '-t', tmuxTarget(s.tmuxName)], () => {}); } catch {} }
-        try { s.term.kill(); } catch {}
-        clearTimeout(s.killTimer); live.delete(id);
+        killLive(s, id);
       }
+  }
+  function killLive(s, id) {
+    if (s.tmuxName) { try { execFile('tmux', ['kill-session', '-t', tmuxTarget(s.tmuxName)], () => {}); } catch {} }
+    try { s.term.kill(); } catch {}
+    clearTimeout(s.killTimer); live.delete(id);
+  }
+  // Close a terminal without its socket (#302): the window was closed while reconnecting, with the server briefly
+  // unreachable, or after "opened elsewhere" — no `kill` message could go out, and the tmux session would live on.
+  function killById(id) {
+    if (!VALID_ID.test(String(id))) return false;
+    const s = live.get(id);
+    if (s) { killLive(s, id); return true; }
+    if (!TMUX_OK) return false;
+    const name = tmuxSessionName(id);
+    if ([...live.values()].some((x) => x.tmuxName === name)) return false;   // another live terminal owns that name
+    execFile('tmux', ['kill-session', '-t', tmuxTarget(name)], () => {});
+    return true;
+  }
+  // td_* tmux sessions nothing is attached to and no live terminal owns: what is left after a window closed with no
+  // server to hear it. (Right after a server restart this also lists shells the browser is about to reattach, so the
+  // client drops the ones its own windows use.)
+  function listOrphans(cb) {
+    if (!TMUX_OK) return cb([]);
+    execFile('tmux', ['list-sessions', '-F', '#{session_name} #{session_attached}'], { timeout: 3000 }, (e, out) => {
+      if (e) return cb([]);                                              // no tmux server = no sessions
+      const owned = new Set([...live.values()].map((x) => x.tmuxName));
+      cb(String(out).split('\n').map((l) => /^(td_\S*) (\d+)$/.exec(l)).filter((m) => m && m[2] === '0' && !owned.has(m[1])).map((m) => m[1]));
+    });
+  }
+  function killOrphans(names, cb) {
+    listOrphans((orphans) => {
+      const kill = orphans.filter((n) => names.includes(n));            // only what is still an orphan right now
+      kill.forEach((n) => execFile('tmux', ['kill-session', '-t', tmuxTarget(n)], () => {}));
+      cb(kill);
+    });
   }
 
   if (readCwds || TMUX_OK) setInterval(async () => {
@@ -429,6 +462,7 @@ function createSessions({ pty, live, approvals, secret, home, logDir, safeDir })
     handleConnection,
     setAgentUrl: (u) => { AGENT_URL = u; },   // fixed at listen(); shells started after it carry it as TD_URL
     tmuxOk: () => TMUX_OK,
+    killById, listOrphans, killOrphans,
   };
 }
 

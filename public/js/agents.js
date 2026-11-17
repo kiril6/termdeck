@@ -326,7 +326,7 @@ function openTabWS(s,tab){
   tab.conn={
     send:(d)=>ws.readyState===1&&ws.send(JSON.stringify({type:"input",data:d})),
     resize:(c,r)=>ws.readyState===1&&ws.send(JSON.stringify({type:"resize",cols:c,rows:r})),
-    kill:()=>ws.readyState===1&&ws.send(JSON.stringify({type:"kill"})),
+    kill:()=>ws.readyState===1&&(ws.send(JSON.stringify({type:"kill"})),true),   // true = sent
     approve:(reqId,decision)=>ws.readyState===1&&ws.send(JSON.stringify({type:"approve",reqId,decision})),
     answer:(reqId,picks)=>ws.readyState===1&&ws.send(JSON.stringify({type:"approve",reqId,decision:"answer",picks})),
     close:()=>ws.close(),
@@ -396,12 +396,40 @@ function restartSession(s){
   if(s.tabs.some((t)=>t.agent)) updateAgentOverview();
 }
 
+// End a tab's shell: over its socket when it is open, else over HTTP — the window was closed while reconnecting, so no
+// `kill` could go out and the tmux session (and any agent in it) would live on invisibly (#302). Not for a tab that
+// exited or was taken by another device: that shell is gone, or belongs to the other screen now.
+function killTabShell(s,tab){
+  if(!tab.conn)return;
+  if(tab.conn.kill?.()!==true&&LIVE&&!tab.exited)
+    fetch("/api/session-kill",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:s.id+"-"+tab.id}),keepalive:true}).catch(()=>{});   // server down: "Kill orphaned tmux sessions" in the palette sweeps it later
+  if(tab.conn.close)tab.conn.close();
+}
+// tmux names a terminal td_<id without punctuation>; same rule as scripts/sessions.js tmuxSessionName.
+const tmuxNameOf=(id)=>"td_"+String(id).replace(/[^A-Za-z0-9_]/g,"").slice(0,60);
+// Palette: list the server's td_* tmux sessions that no window here owns and nothing is attached to, then kill them on confirm.
+async function sweepOrphans(){
+  if(!LIVE){toast(ICON.warn,"Needs the real server","tmux sessions only exist when termdeck runs with its backend.",3500);return;}
+  let names;
+  try{const r=await fetch("/api/orphans",{cache:"no-store"}); if(!r.ok)throw 0; names=(await r.json()).names;}
+  catch{toast(ICON.warn,"Couldn't list tmux sessions","The server did not answer.",4000);return;}
+  const mine=new Set([...sessions.values()].flatMap((x)=>x.tabs.map((t)=>tmuxNameOf(x.id+"-"+t.id))));
+  const orphans=names.filter((n)=>!mine.has(n));
+  if(!orphans.length){toast(ICON.check,"No orphaned sessions","Every termdeck tmux session belongs to an open window.",3500);return;}
+  if(!(await confirmModal(orphans.length+" tmux session"+(orphans.length>1?"s":"")+" no window here uses ("+orphans.slice(0,5).join(", ")+(orphans.length>5?", …":"")+"). Kill "+(orphans.length>1?"them":"it")+"? Any shell, agent or dev server inside stops. A window open on another browser or device would lose its shell too.","Kill",true)))return;
+  try{
+    const r=await fetch("/api/orphans/kill",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:orphans})});
+    const k=(await r.json()).killed||[];
+    toast(ICON.check,"Killed "+k.length+" tmux session"+(k.length===1?"":"s"),"",3500);
+  }catch{toast(ICON.warn,"Couldn't kill them","The server did not answer.",4000);}
+}
+
 function closeSession(s,skipCount){
   s.closedByUser=true;
   s.tabs.forEach((tab)=>{
     if(findTarget===tab) closeFind();
     tab.closedByUser=true; clearTimeout(tab.reconnectTimer); stopAgentIdle(s,tab);
-    if(tab.conn){if(tab.conn.kill)tab.conn.kill(); if(tab.conn.close)tab.conn.close();}
+    killTabShell(s,tab);
     glDetach(tab); try{tab.term.dispose();}catch{}
   });
   s.win.remove(); s.chip.remove(); syncWebgl();

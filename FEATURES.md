@@ -175,7 +175,12 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   still-living tmux session. Same pattern ttyd/wetty use. Auto-off where tmux is missing (incl.
   Windows) or when `NO_TMUX=1` — falls back to raw-shell spawn. **Explicit kill** ends the tmux
   session (`kill-session`); disconnect/grace only detaches the client, so the session lives on for
-  later reattach. cwd tracking uses `tmux display-message #{pane_current_path}` for tmux sessions.
+  later reattach. Closing a window **whose socket isn't open** (reconnecting, server blip) sends the kill over HTTP
+  (`POST /api/session-kill`) instead, so no tmux session outlives its window — except a tab another device took over,
+  which is that device's now. If the server was down for the close, palette → **Kill orphaned tmux sessions…** lists
+  the `td_*` sessions nothing is attached to, no live terminal owns and no open window uses, and kills them after a
+  confirm (`GET /api/orphans`, `POST /api/orphans/kill`; only names that are still orphans at that moment die) (#302).
+  cwd tracking uses `tmux display-message #{pane_current_path}` for tmux sessions.
   Terminal ids may only hold letters, digits, `_` and `-` (anything else, or over 64 characters, is refused with WS
   close 1008, never rewritten); a second id that maps to a tmux name a live terminal already holds is refused too.
   termdeck addresses its sessions by exact name (`-t =td_…`), since tmux otherwise falls back to a prefix match.

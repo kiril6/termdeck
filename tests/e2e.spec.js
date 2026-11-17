@@ -489,7 +489,7 @@ test.describe('tree find (#167)', () => {
 
 test.describe('send to agent (#27)', () => {
   test('a hostile file name cannot end the bracketed paste early (#301)', async ({ page }) => {
-    /* global sessions, sendToAgent, fenceOf, restartSession -- page-side names, evaluated in the browser */
+    /* global sessions, sendToAgent, fenceOf, restartSession, closeSession -- page-side names, evaluated in the browser */
     const errors = await boot(page, '/?demo');
     const sent = await page.evaluate(async () => {
       const out = [];
@@ -1047,6 +1047,27 @@ test.describe('live backend', () => {
     await page.waitForTimeout(1500);                                     // a "taken" from a doubled socket would arrive by now
     await expect(page.locator('.win.dead')).toHaveCount(0);
     expect(await status()).toBe('live');
+  });
+
+  test('closing a window whose socket is not open still ends its shell over HTTP (#302)', async ({ page }) => {
+    const kills = [];
+    page.on('request', (r) => { if (r.url().includes('/api/session-kill')) kills.push(JSON.parse(r.postData() || '{}').id); });
+    await boot(page, '/');
+    const status = () => page.evaluate(() => [...sessions.values()][0].tabs[0].status);
+    await expect.poll(status).toBe('live');
+    const sid = await page.evaluate(() => { const s = [...sessions.values()][0]; return s.id + '-' + s.tabs[0].id; });
+    await page.evaluate(() => { const s = [...sessions.values()][0]; s.tabs[0].conn.close(); closeSession(s); });   // socket closing = "reconnecting": no kill message can go out
+    await expect.poll(() => kills).toEqual([sid]);
+  });
+
+  test('closing a window with an open socket kills over the socket, not HTTP (#302)', async ({ page }) => {
+    const kills = [];
+    page.on('request', (r) => { if (r.url().includes('/api/session-kill')) kills.push(r.url()); });
+    await boot(page, '/');
+    await expect.poll(() => page.evaluate(() => [...sessions.values()][0].tabs[0].status)).toBe('live');
+    await page.evaluate(() => closeSession([...sessions.values()][0]));
+    await page.waitForTimeout(500);
+    expect(kills).toEqual([]);
   });
 
   test('terminal runs a command; reload reattaches and replays the buffer', async ({ page }) => {
