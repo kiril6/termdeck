@@ -322,7 +322,7 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   **Safety:** text is wrapped in a bracketed paste (a TUI sees one paste — real Claude Code shows
   `[Pasted text #1 +3 lines]`), but if the target did not turn bracketed paste on and the text has line breaks it
   asks first, because the breaks could run as commands. Control characters (an embedded `ESC[201~` could end a
-  paste early) and bidi overrides are stripped, the fence is longer than any backtick run in the text, and a selection
+  paste early) and bidi overrides are stripped from the **whole** message — the file path / window-name header too, not only the excerpt (#301), the fence is longer than any backtick run in the text, and a selection
   over 64 KB is refused. It deliberately does **not** go through Cast broadcast (that would copy a file excerpt into
   every shell). Works in demo mode too. Checked in a real browser against zsh and real Claude Code.
 - 🖥️ **Finish agent task — merge or PR, then clean up** (palette → *Finish agent task…*, #83). The "land"
