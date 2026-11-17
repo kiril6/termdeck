@@ -222,6 +222,9 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   window or raise TD_MAX_PANELS, then click ⟳ to retry"* in the terminal, and one toast per burst. ⟳ retries.
 - 🖥️ **Wake reconnect** — on tab refocus (`visibilitychange`), reconnecting shells retry
   immediately instead of waiting out the backoff (localhost drops on sleep aren't network events).
+  A tab has **one socket**: a retry silences and closes the previous one first, and a tab whose socket is still
+  connecting is skipped — so a wake can't double up and get the shell parked as *opened on another device*.
+  **⟳** restarts only the dead tabs of a window; live tabs keep their socket (#300).
 - 🖥️ WS auto-reconnect with exponential backoff (caps at 5s).
 - 🖥️ **Coalesced exit toasts** — a shell exiting shows a *"Shell exited"* toast with a red status dot
   (matching the *Restored* toast's dot), but a **burst** of exits within ~700ms (e.g. many dead PTYs on

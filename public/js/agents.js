@@ -245,7 +245,9 @@ function openTabWS(s,tab){
   if(tab.shell) p.set("shell",tab.shell);   // server honours it only if it is in its shell allowlist
   if(tab.cmd) p.set("cmd",tab.cmd);   // startup command; backend runs it only on a fresh shell
   if(s.isLog)  p.set("log","1");
-  const ws=new WebSocket(proto+"://"+location.host+"/?"+p.toString());
+  // One socket per tab: silence + close the previous one first, or the server's "taken" for it would mark the live tab dead (#300).
+  const old=tab.ws; if(old){old.onopen=old.onmessage=old.onclose=old.onerror=null; try{old.close();}catch{}}
+  const ws=tab.ws=new WebSocket(proto+"://"+location.host+"/?"+p.toString());
   tab.exited=false;
   setTabStatus(s,tab,tab.reconnecting?"reconnecting":"pending");
 
@@ -367,7 +369,7 @@ function scheduleTabRecon(s,tab){
 document.addEventListener("visibilitychange",()=>{
   if(document.hidden||!LIVE)return;
   sessions.forEach((s)=>s.tabs.forEach((tab)=>{
-    if(tab.reconnecting&&!tab.closedByUser&&!tab.exited){
+    if(tab.reconnecting&&!tab.closedByUser&&!tab.exited&&tab.ws?.readyState!==0){   // not while a socket is still connecting (#300)
       clearTimeout(tab.reconnectTimer); tab.retries=0; openTabWS(s,tab);
     }
   }));
@@ -386,6 +388,7 @@ function setTabStatus(s,tab,status){
 function restartSession(s){
   if(!LIVE)return;
   s.tabs.forEach((tab)=>{
+    if(!tab.exited)return;   // ⟳ shows when ANY tab is dead — leave the live ones alone (#300)
     clearTimeout(tab.reconnectTimer); tab.exited=false; tab.retries=0; tab.reconnecting=false;
     tab.term.reset(); openTabWS(s,tab);
   });
