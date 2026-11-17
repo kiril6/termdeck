@@ -529,7 +529,7 @@ function closeTab(s,tid){
   const tab=s.tabs[idx];
   if(findTarget===tab) closeFind();
   tab.closedByUser=true; clearTimeout(tab.reconnectTimer); stopAgentIdle(s,tab);
-  if(tab.conn){if(tab.conn.kill)tab.conn.kill(); if(tab.conn.close)tab.conn.close();}
+  killTabShell(s,tab);
   glDetach(tab); try{tab.term.dispose();}catch{}
   tab.wt.remove(); tab.pane.remove();
   s.tabs.splice(idx,1); updTabEdges(s.wtabsTrack);

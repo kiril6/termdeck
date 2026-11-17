@@ -6,6 +6,7 @@ const fs = require('fs');
 const net = require('net');
 const os = require('os');
 const path = require('path');
+const http = require('http');
 const { spawn, execFileSync } = require('child_process');
 const WebSocket = require('ws');
 
@@ -32,11 +33,11 @@ setTimeout(() => { console.error('tmux.test: timed out'); cleanup(1); }, 60000).
 (async () => {
   const port = await free(), id = 'tmuxtest' + Date.now();
   const start = () => { srv = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], { env: { ...env, PORT: String(port) }, stdio: 'ignore' }); };
-  const connect = async () => {
+  const connect = async (cid = id) => {
     for (let i = 0; i < 100; i++) {
       let secret = ''; try { secret = fs.readFileSync(path.join(home, '.termdeck', 'token'), 'utf8').trim(); } catch {}
       const c = await new Promise((ok) => {
-        const ws = new WebSocket(`ws://127.0.0.1:${port}/?id=${id}&cols=100&rows=30`, { headers: { Origin: `http://127.0.0.1:${port}`, Cookie: 'td_token=' + secret } });
+        const ws = new WebSocket(`ws://127.0.0.1:${port}/?id=${cid}&cols=100&rows=30`, { headers: { Origin: `http://127.0.0.1:${port}`, Cookie: 'td_token=' + secret } });
         const msgs = []; ws.on('message', (raw) => msgs.push(JSON.parse(raw)));
         ws.on('open', () => ok({ ws, msgs })); ws.on('error', () => ok(null)); ws.on('unexpected-response', () => ok(null));
       });
@@ -73,6 +74,38 @@ setTimeout(() => { console.error('tmux.test: timed out'); cleanup(1); }, 60000).
     c.ws.send(JSON.stringify({ type: 'kill' }));
     assert.ok(await until(() => !/^td_tmuxtest/m.test(tmux('list-sessions', '-F', '#{session_name}')), 5000), 'tmux session ended');
     c.ws.close();
+
+    // A window closed without its socket (#302): the HTTP kill ends the tmux session, live or not, and the orphan
+    // sweep lists and kills sessions nothing owns — but only ones nothing is attached to.
+    const secret = fs.readFileSync(path.join(home, '.termdeck', 'token'), 'utf8').trim();
+    const api = (method, p, body) => new Promise((ok, no) => {
+      const q = http.request({ host: '127.0.0.1', port, path: p, method, headers: { Origin: `http://127.0.0.1:${port}`, Cookie: 'td_token=' + secret, 'Content-Type': 'application/json' } },
+        (res) => { let b = ''; res.on('data', (d) => { b += d; }); res.on('end', () => ok(JSON.parse(b))); });
+      q.on('error', no); q.end(body ? JSON.stringify(body) : undefined);
+    });
+    const has = (name) => tmux('list-sessions', '-F', '#{session_name}').split('\n').includes(name);
+    const open = async (cid) => { const k = await connect(cid); await until(() => k.msgs.some((m) => m.type === 'attach')); return k; };
+    const restart = async () => { await new Promise((r) => { srv.once('exit', r); srv.kill('SIGKILL'); }); start(); await connect().then((k) => k.ws.close()); };
+    const live = id + 'live', gone = id + 'gone', orph = id + 'orph';
+    const kl = await open(live);
+    assert.ok(has('td_' + live));
+    assert.deepStrictEqual(await api('POST', '/api/session-kill', { id: live }), { ok: true });
+    assert.ok(await until(() => !has('td_' + live), 5000), 'HTTP kill ends a live terminal and its tmux session');
+    kl.ws.close();
+    assert.deepStrictEqual(await api('POST', '/api/session-kill', { id: '../x' }), { ok: false }, 'an invalid id is refused');
+
+    const kg = await open(gone), ko = await open(orph);
+    kg.ws.close(); ko.ws.close(); await sleep(300);
+    await restart();                                                    // tmux still has both; the server no longer knows them
+    assert.ok(has('td_' + gone) && has('td_' + orph));
+    assert.ok((await api('GET', '/api/orphans')).names.includes('td_' + orph), 'a detached session no terminal owns is listed');
+    assert.deepStrictEqual(await api('POST', '/api/session-kill', { id: gone }), { ok: true });
+    assert.ok(await until(() => !has('td_' + gone), 5000), 'HTTP kill ends a tmux session the server no longer holds');
+    assert.deepStrictEqual((await api('POST', '/api/orphans/kill', { names: ['td_' + orph, 'td_notthere', 'other'] })).killed, ['td_' + orph], 'only real orphans are killed');
+    assert.ok(await until(() => !has('td_' + orph), 5000), 'sweep ended the orphan');
+    const ka = await open(id + 'att');                                  // attached: owned by a live terminal, never listed
+    assert.ok(!(await api('GET', '/api/orphans')).names.includes('td_' + id + 'att'), 'an attached session is not an orphan');
+    ka.ws.send(JSON.stringify({ type: 'kill' }));
     console.log('tmux.test: ok');
     cleanup(0);
   } catch (e) { console.error(e); cleanup(1); }
