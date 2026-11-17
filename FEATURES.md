@@ -82,7 +82,7 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   hidden by default), rooted at the **active project's** root and lazy-expanding dirs on click. Per-row actions:
   a dir's **＋** opens a new terminal there (`createSession` at that path); clicking a file's name opens
   the **in-app file viewer** (`/api/read` → overlay showing the text; binary files and >2 MB files are
-  handled gracefully; **`.md` files render as formatted Markdown** with a *Raw / Rendered* toggle), and its **⤢** reveals it in the OS file manager (`/api/reveal`). Falls back to a
+  handled gracefully; a named pipe, socket or device is refused with 400 instead of being opened — opening a FIFO would freeze the whole server (#303); **`.md` files render as formatted Markdown** with a *Raw / Rendered* toggle), and its **⤢** reveals it in the OS file manager (`/api/reveal`). Falls back to a
   static demo tree in `file://` demo mode.
 - 🖥️ **Markdown viewer** — `.md` / `.markdown` files open **rendered** (headings, bold/italic, inline + fenced
   code, lists, blockquotes, tables, rules, `http(s)`/`mailto` links) in the file-viewer overlay; the header

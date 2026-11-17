@@ -126,6 +126,7 @@ module.exports = function fsApi({ apiGuard, expandDir, safeDir }) {
     let st;
     try { st = fs.statSync(target); } catch { return res.status(404).json({ error:'not found' }); }
     if (st.isDirectory()) return res.status(400).json({ error:'is a directory' });
+    if (!st.isFile()) return res.status(400).json({ error:'not a file' });   // openSync on a FIFO blocks the event loop (#303)
     const MAX = 2 * 1024 * 1024;                        // 2MB cap — this is a peek, not an editor
     let fd;
     try {
