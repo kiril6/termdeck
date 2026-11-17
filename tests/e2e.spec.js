@@ -489,7 +489,7 @@ test.describe('tree find (#167)', () => {
 
 test.describe('send to agent (#27)', () => {
   test('a hostile file name cannot end the bracketed paste early (#301)', async ({ page }) => {
-    /* global sessions, sendToAgent, fenceOf -- page-side names, evaluated in the browser */
+    /* global sessions, sendToAgent, fenceOf, restartSession -- page-side names, evaluated in the browser */
     const errors = await boot(page, '/?demo');
     const sent = await page.evaluate(async () => {
       const out = [];
@@ -1030,6 +1030,23 @@ test.describe('live backend', () => {
     await page.locator('.win .wbtn.restart').click();
     await expect(page.locator('.win.dead')).toHaveCount(0);
     await expect.poll(() => page.evaluate(() => window.__other.readyState)).toBe(3);   // and the other one is closed now
+  });
+
+  test('⟳ with a live tab, and a wake while still connecting, never mark the shell dead (#300)', async ({ page }) => {
+    const ids = [];
+    page.on('websocket', (ws) => { const m = /[?&]id=([^&]+)/.exec(ws.url()); if (m) ids.push(decodeURIComponent(m[1])); });
+    await boot(page, '/');
+    await expect.poll(() => ids.length).toBe(1);
+    const status = () => page.evaluate(() => [...sessions.values()][0].tabs[0].status);
+    await expect.poll(status).toBe('live');
+    await page.evaluate(() => restartSession([...sessions.values()][0]));   // ⟳ is only shown when some tab is dead; the live ones must keep their socket
+    await page.evaluate(() => {                                          // wake while a tab is "reconnecting" with a socket still connecting
+      const tab = [...sessions.values()][0].tabs[0];
+      tab.reconnecting = true; document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await page.waitForTimeout(1500);                                     // a "taken" from a doubled socket would arrive by now
+    await expect(page.locator('.win.dead')).toHaveCount(0);
+    expect(await status()).toBe('live');
   });
 
   test('terminal runs a command; reload reattaches and replays the buffer', async ({ page }) => {
