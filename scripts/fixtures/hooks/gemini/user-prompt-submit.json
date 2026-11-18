@@ -1,0 +1,8 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000000",
+  "transcript_path": "/home/user/.gemini/tmp/project/chats/session-2026-01-01T00-00-00000000.jsonl",
+  "cwd": "/home/user/project",
+  "hook_event_name": "BeforeAgent",
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "prompt": "Run the shell command: echo hi . Then reply with the single word done."
+}
