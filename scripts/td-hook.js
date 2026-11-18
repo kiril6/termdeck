@@ -50,6 +50,7 @@ function toEvent(h, agent) {
     if (h.tool_name === 'AskUserQuestion' && Array.isArray(input.questions)) ev.ask = { questions: input.questions.slice(0, 5) };
     else if (h.tool_name === 'ExitPlanMode' && typeof input.plan === 'string') ev.ask = { plan: input.plan.slice(0, 15000) };
   }
+  if (typeof h.agent_id === 'string') ev.sub = h.agent_id.slice(0, 64);   // set only inside a sub-agent: its events must not settle the main agent's held request (#286)
   if (typeof h.session_id === 'string') ev.session = h.session_id.slice(0, 64);   // the CLI's own session id: lets termdeck resume exactly this conversation
   // The full command + cwd let the server match opt-in allow-rules (#44 phase 2). Bash only — never a patch body.
   if (ev.wait && h.tool_name === 'Bash' && typeof input.command === 'string') { ev.command = input.command.slice(0, 4000); if (typeof h.cwd === 'string') ev.cwd = h.cwd.slice(0, 500); }

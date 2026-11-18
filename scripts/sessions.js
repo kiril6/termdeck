@@ -249,9 +249,11 @@ function createSessions({ pty, live, approvals, secret, home, logDir, safeDir })
       existing.ws = ws;
       if (prev && prev !== ws) { send(prev, { type:'taken' }); prev.close(4001, 'opened elsewhere'); }
       replayTo(existing, ws, id);
-      if (existing.agentEvt) {   // a replayed request is only answerable while its hook is still held; settled ones lose the reqId
-        const e = existing.agentEvt, held = approvals.pending.get(id)?.reqId === e.reqId;
-        send(ws, { type:'agent', event: held || !e.reqId ? e : { ...e, reqId: undefined } });
+      const heldReqs = approvals.pending.get(id);   // every request still waiting for a click (#286), not only the last event
+      const last = existing.agentEvt;
+      for (const p of heldReqs?.values() || []) if (p.ev !== last) send(ws, { type:'agent', event: p.ev });
+      if (last) {   // a replayed request is only answerable while its hook is still held; settled ones lose the reqId
+        send(ws, { type:'agent', event: !last.reqId || heldReqs?.has(last.reqId) ? last : { ...last, reqId: undefined } });
       }
       try { existing.term.resize(cols, rows); } catch {}
       bindWsEvents(ws, id);
@@ -388,11 +390,11 @@ function createSessions({ pty, live, approvals, secret, home, logDir, safeDir })
         s.term.write(m.data);
       }
       else if (m.type === 'approve' && !s.isLog) {
-        const p = approvals.pending.get(id);
-        if (p && p.reqId === m.reqId) {
-          if (m.decision === 'deny') approvals.settle(id, 'deny', 'click');
-          else if (m.decision === 'allow' && p.ev.ask?.kind !== 'question') approvals.settle(id, 'allow', 'click');   // a question needs its answer: 'answer' below
-          else if (m.decision === 'answer') approvals.answer(id, m.picks);
+        const p = approvals.pending.get(id)?.get(m.reqId);
+        if (p) {
+          if (m.decision === 'deny') approvals.settle(id, 'deny', 'click', undefined, m.reqId);
+          else if (m.decision === 'allow' && p.ev.ask?.kind !== 'question') approvals.settle(id, 'allow', 'click', undefined, m.reqId);   // a question needs its answer: 'answer' below
+          else if (m.decision === 'answer') approvals.answer(id, m.picks, m.reqId);
         }
       }
       else if (m.type === 'resize') { try { s.term.resize(clampInt(m.cols,80,MAX_COLS), clampInt(m.rows,24,MAX_ROWS)); } catch {} }

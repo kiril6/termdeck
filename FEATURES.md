@@ -425,11 +425,14 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   releases the hold). Codex uses the same JSON per its docs but blocks on the hook *before* its prompt, so typing
   in that terminal releases the hold — all events incl. approval checked against real Codex 0.160.0
   ([docs/agent-hooks.md](docs/agent-hooks.md)). **No click = no decision**: after
-  120s (`TD_APPROVAL_HOLD_MS`), when you type in the terminal, when no browser is attached, or on any other agent
-  event, the helper prints nothing and the CLI asks as usual. Only that terminal's own socket can answer
+  120s (`TD_APPROVAL_HOLD_MS`), when you type in the terminal, when no browser is attached, or on another event from
+  the same agent, the helper prints nothing and the CLI asks as usual. **Several at once (#286):** up to 5 requests are held per
+  terminal — parallel sub-agents do ask at the same time (checked on a real Claude Code; the main agent's own requests come one at a
+  time). The queue row then shows *‹ 1 of N waiting ›* to step through them; Approve / Deny / answer apply to the one shown,
+  and each keeps its own hold. A sub-agent's event (the hook's `agent_id`, sent as `sub`) releases only that sub-agent's request, never
+  the main agent's. A 6th request is not held: the CLI shows its own prompt. Pinned by `scripts/approval.test.js` and an e2e test. Only that terminal's own socket can answer
   (same guards as input); the command is shown via `textContent`. **Audit log:** every held request is
-  recorded with time, terminal, tool/command, decision and **who decided** (*you* / *in terminal* / *timed out* /
-  *replaced*) — listed under the queue (*Recent approvals*), served at `GET /api/approvals`, and appended to
+  recorded with time, terminal, tool/command, decision and **who decided** (*you* / *in terminal* / *timed out*) — listed under the queue (*Recent approvals*), served at `GET /api/approvals`, and appended to
   `TD_LOG_DIR/approvals.jsonl` (0600) when set; past 10 MB it becomes `approvals.1.jsonl` (replacing the previous one), so the audit log stays under ~20 MB. Without hooks, or on Gemini (no decision channel), rows stay
   jump-only.
   **Questions and plans (#280)** — Claude Code's `AskUserQuestion` and `ExitPlanMode` arrive on

@@ -115,6 +115,15 @@ function renderAgentList(queue){
     if(ue){const x=el("span","agent-row-evt"); x.textContent=" \u00b7 "+fmtTok(ue.t)+" tok"; x.title=usageTip({tokens:ue.t,cache:ue.c}); st.append(x);}
     info.append(path,st);
     if(state==="approval"&&tab.ask){   // exact request + one-click answer; textContent only — the command is untrusted
+      if(tab.asks.length>1){   // #286: several requests wait for this terminal: step through them, each answered on its own
+        const nav=el("div","agent-ask-nav"), n=tab.asks.length;
+        const step=(d)=>(e)=>{e.stopPropagation(); tab.askIdx=(tab.askIdx+d+n)%n; syncAsk(tab); updateAgentOverview();};
+        const pv=el("button","agent-btn"), nx=el("button","agent-btn"), lb=el("span");
+        pv.type=nx.type="button"; pv.textContent="\u2039"; nx.textContent="\u203a"; pv.title="Previous request"; nx.title="Next request";
+        lb.textContent=(tab.askIdx+1)+" of "+n+" waiting";
+        pv.addEventListener("click",step(-1)); nx.addEventListener("click",step(1));
+        nav.append(pv,lb,nx); info.append(nav);
+      }
       const q=el("div","agent-row-ask"); q.textContent=tab.ask.text; q.title=tab.ask.text;
       const kind=tab.ask.ask?.kind, bt=el("div","agent-row-btns");
       const decide=(d)=>{const a=tab.ask; if(!a||!tab.conn?.approve)return; tab.conn.approve(a.reqId,d);};
@@ -255,6 +264,7 @@ function openTabWS(s,tab){
   ws.onmessage=(ev)=>{
     let m; try{m=JSON.parse(ev.data);}catch{return;}
     if(m.type==="attach"){
+      tab.asks=[]; syncAsk(tab);   // the server replays the requests still held (#286); ones that ended while we were away must not linger
       if(m.resumed){tab.term.reset(); tab.replay=true; tab.replayAt=Date.now();}   // replayAt: the OSC shield ignores re-sent sequences   // next output chunk is the replayed ring buffer, not live output
       if(m.cwd){tab.cwd=m.cwd; if(s.activeTabId===tab.id) setCwdBadge(s,m.cwd);}
       if(m.shell){tab.shellName=m.shell; if(s.activeTabId===tab.id) s.badgeShell.textContent=m.shell;}
@@ -264,7 +274,8 @@ function openTabWS(s,tab){
       toast(ICON.bot,"Auto-allowed by rule","\""+s.name+"\": "+[m.tool,m.detail].filter(Boolean).join(" ").slice(0,80)+" (rule: "+m.rule+")",6000,()=>{revealWindow(s);switchTab(s,tab.id);});
       loadAudit();
     }else if(m.type==="approval"){   // the held request ended (clicked, answered in the terminal, timed out)
-      if(tab.ask?.reqId===m.reqId){tab.ask=null; updateAgentOverview(); loadAudit();}
+      const i=tab.asks?tab.asks.findIndex((x)=>x.reqId===m.reqId):-1;
+      if(i>=0){tab.asks.splice(i,1); syncAsk(tab); updateAgentOverview(); loadAudit();}
     }else if(m.type==="output"){
       if(tab.replay){tab.muteReplies=true; tab.term.write(m.data,()=>{tab.muteReplies=false;});}   // see TERM_REPLY_RE
       else tab.term.write(m.data);

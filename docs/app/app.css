@@ -215,6 +215,7 @@ html.is-mac .hint-kbd{letter-spacing:.22em;}   /* inner gap only for mac glyph l
 .agent-row-path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;}
 .agent-row-evt{text-transform:none;letter-spacing:0;}
 .agent-row-ask{font-size:11px;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.agent-ask-nav{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:11px;opacity:.85;}
 .agent-row-btns{display:flex;gap:6px;margin-top:5px;}
 .agent-btn{font:inherit;font-size:11px;padding:3px 10px;border-radius:5px;border:1px solid var(--line);background:var(--btn-bg);color:inherit;cursor:pointer;}
 .agent-btn.allow{border-color:#2e9d5b;color:#43c077;}
