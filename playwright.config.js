@@ -22,10 +22,11 @@ if (!fs.existsSync(tokenFile)) {
 }
 const TOKEN = fs.readFileSync(tokenFile, 'utf8').trim();
 process.env.TD_E2E_TOKEN = TOKEN;
-const PORT = 4783;
+const PORT = Number(process.env.PW_PORT) || 4783;   // CI runs one process per browser at once: each gets its own port, throwaway HOME and output dir
 
 module.exports = defineConfig({
   testDir: 'tests',
+  outputDir: process.env.PW_OUTPUT_DIR || 'test-results',
   workers: 1,                       // one shared server; live tests reuse terminal ids across contexts
   timeout: 30000,
   reporter: process.env.CI ? 'list' : 'line',
