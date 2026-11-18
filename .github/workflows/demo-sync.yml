@@ -19,6 +19,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
+          cache: npm
       # --ignore-scripts skips node-pty's native build; build:demo only needs the
       # pure-JS xterm packages, so no compiler/tmux required in CI.
       - run: npm ci --ignore-scripts
