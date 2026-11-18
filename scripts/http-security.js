@@ -93,6 +93,7 @@ function createSecurity({ host, publicDir }) {
       return res.redirect(req.path);
     }
     if (hasAuthCookie(req)) return next();
+    if (req.path === '/manifest.webmanifest') return next();   // static, no secrets; WebKit 27+ fetches it without the cookie despite crossorigin="use-credentials"
     if (req.path === '/api/agent-events') return next();   // hooks authenticate per terminal (TD_HOOK_AUTH) — see the route
     if (req.method === 'GET' && !path.extname(req.path) && req.accepts(['html', 'json']) === 'html') return res.status(401).type('html').send(SIGNIN_PAGE);
     res.status(401).type('text').send('Unauthorized — run `termdeck open`, or open the link printed at server startup.');
