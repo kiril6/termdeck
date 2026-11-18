@@ -1,0 +1,18 @@
+{
+  "user-prompt-submit": {
+    "type": "prompt_submit"
+  },
+  "pre-tool-use-bash": {
+    "type": "tool_start",
+    "tool": "run_shell_command",
+    "detail": "echo hi"
+  },
+  "post-tool-use-bash": {
+    "type": "tool_end",
+    "tool": "run_shell_command",
+    "detail": "echo hi"
+  },
+  "stop": {
+    "type": "stop"
+  }
+}

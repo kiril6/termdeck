@@ -46,22 +46,22 @@ function buildPet(spec,scale,opacity){
   return {node:pet,face,spec,x:0,y:0,w:spec.w*px*scale,h:spec.h*px*scale};
 }
 function petBounds(){return {w:petField.clientWidth,h:petField.clientHeight};}
+// y is the lift above the floor (≤0): pets sit on the field's bottom edge in CSS, so a height change never moves them
 function placePet(p,x,y){p.x=x;p.y=y;p.node.style.transform=`translate(${x}px,${y}px)`;}
 // pets ride a floor strip along the desktop bottom, above windows — always visible, never over the terminal body
-function petTarget(p,w,h){
-  const floor=h-p.h-3;
-  return {tx:petRand(0,Math.max(0,w-p.w)), ty:petRand(Math.max(0,floor-34),floor)};
+function petTarget(p,w){
+  return {tx:petRand(0,Math.max(0,w-p.w)), ty:-petRand(3,37)};
 }
 function petStep(p){
   if(!petsShown)return;
-  const {w,h}=petBounds(); if(w<80){petTimers.push(setTimeout(()=>petStep(p),1500));return;}
-  const {tx,ty}=petTarget(p,w,h);
+  const {w}=petBounds(); if(w<80){petTimers.push(setTimeout(()=>petStep(p),1500));return;}
+  const {tx,ty}=petTarget(p,w);
   const dist=Math.hypot(tx-p.x,ty-p.y);
   const speed=p.spec.kind==="slime"?26:34; // px/s
   const dur=Math.max(1.2,dist/speed);
   p.face.style.setProperty("--dir",tx<p.x?-1:1);
   p.node.style.setProperty("--dur",dur+"s");
-  p.node.classList.add("walking");
+  p.node.classList.add("walking"); p.until=performance.now()+dur*1000;
   placePet(p,tx,ty);
   petTimers.push(setTimeout(()=>{
     p.node.classList.remove("walking");
@@ -84,32 +84,27 @@ function startPets(){
     {spec:PET_SPECIES.slime,scale:1.0,op:.78},
     {spec:PET_SPECIES.bird,scale:1.0,op:.8},
   ];
-  const {w,h}=petBounds();
+  const {w}=petBounds(); petFieldW=w;
   roster.forEach((r,i)=>{
     const p=buildPet(r.spec,r.scale,r.op);
     petField.append(p.node); pets.push(p);
-    const spot=petTarget(p,w,h);
+    const spot=petTarget(p,w);
     placePet(p,spot.tx,spot.ty);
     petTimers.push(setTimeout(()=>petStep(p),petRand(300,1200)*(i+1)));
   });
 }
 /* ── screensaver logic: enabled by default but only shown when the user is away/idle ──
-   want = enabled && (tab hidden/blurred || mouse idle). Activity or refocus hides them. */
-const PET_IDLE_MS=45000;
-let petsShown=false, petAway=false, petIdle=false, petLastAct=Date.now();
-function petWant(){const m=petsMode(); return m==="on" || (m==="auto"&&(petAway||petIdle));}
+   want = enabled && (tab hidden/blurred || mouse idle), from the shared away state (matrix.js). Activity or refocus
+   hides them. "auto" also stands aside while the Matrix rain background signals the agents (working, or calm for a
+   waiting/approval alert); on idle they walk in front of the rain. "on" always shows. */
+let petsShown=false;
+function petWant(){const m=petsMode(); return m==="on" || (m==="auto"&&(away.out||away.idle)&&!mxAmbientBusy());}
 function petEval(){
   const want=petWant();
   if(want&&!petsShown){petsShown=true;startPets();}
   else if(!want&&petsShown){petsShown=false;stopPets();}
 }
-function petActivity(){petLastAct=Date.now(); if(petIdle){petIdle=false;petEval();}}
-["mousemove","mousedown","keydown","wheel","touchstart"].forEach(ev=>
-  window.addEventListener(ev,petActivity,{passive:true}));
-document.addEventListener("visibilitychange",()=>{petAway=document.hidden; if(!document.hidden)petActivity(); petEval();});
-window.addEventListener("blur",()=>{petAway=true;petEval();});
-window.addEventListener("focus",()=>{petAway=false;petActivity();petEval();});
-setInterval(()=>{const idle=Date.now()-petLastAct>PET_IDLE_MS; if(idle!==petIdle){petIdle=idle;petEval();}},2000);
+onAmbient(petEval);
 function togglePets(){                                      // cycles auto → on → off → auto
   const next={auto:"on",on:"off",off:"auto"}[petsMode()];
   try{localStorage.setItem(PETS_STORE,next);}catch{}
@@ -117,16 +112,22 @@ function togglePets(){                                      // cycles auto → o
   toast(ICON.gamepad,"Pixel pets: "+next,
     {on:"Always visible",off:"Hidden",auto:"Shown when idle or the tab loses focus"}[next]);
 }
-// resize (incl. fullscreen) must NOT rebuild — that teleports/flickers pets. Glide them into new bounds instead.
+// resize (incl. fullscreen/maximize) must NOT rebuild — that teleports/flickers pets. Every frame of the resize, scale
+// each pet's x with the width so they keep their spread and ride the edge (no transition); a walking pet then carries
+// on to its scaled target in the time its walk had left.
+let petFieldW=0;
 function petReflow(){
-  const {w,h}=petBounds(); if(w<80)return;
-  pets.forEach(p=>{
-    const floor=h-p.h-3;
-    const x=Math.min(Math.max(0,p.x),Math.max(0,w-p.w));
-    const y=Math.min(Math.max(floor-34,p.y),floor);
-    if(x!==p.x||y!==p.y){p.node.style.setProperty("--dur","0.6s");placePet(p,x,y);}
-  });
+  const {w}=petBounds(), oldW=petFieldW;
+  if(w<80||!oldW||w===oldW)return;
+  petFieldW=w;
+  const now=performance.now();
+  for(const p of pets){
+    const fit=x=>Math.max(0,w-p.w)*Math.min(1,Math.max(0,x/Math.max(1,oldW-p.w)));
+    const walking=p.node.classList.contains("walking"), tx=fit(p.x), ty=p.y;
+    const at=new DOMMatrix(getComputedStyle(p.node).transform);   // where a walking pet is right now, mid-transition
+    p.node.style.transition="none"; placePet(p,fit(at.e),at.f); void p.node.offsetWidth; p.node.style.transition="";
+    if(walking){p.node.style.setProperty("--dur",Math.max(.05,(p.until-now)/1000)+"s");placePet(p,tx,ty);}
+  }
 }
-let petResizeT;
-window.addEventListener("resize",()=>{clearTimeout(petResizeT);petResizeT=setTimeout(()=>{if(petsShown)petReflow();},200);});
-petAway=document.hidden; petEval();
+new ResizeObserver(()=>{if(petsShown)petReflow();}).observe(petField);
+petEval();

@@ -46,7 +46,7 @@ function wireWindow(s){
   win.querySelectorAll(".wgrip").forEach((g)=>g.addEventListener("pointerdown",(e)=>startResize(s,g.dataset.dir,e)));
 
   // window controls
-  const [bRestart,bTheme,bMin,bMax,bClose]=s.head.querySelectorAll(".win-ctrls .wbtn");
+  const [bRestart,bTheme,bMin,bMax,bClose]=s.head.querySelectorAll(".win-ctrls .wbtn:not(.shield)");   // by position; the shield button wires itself (sessions.js)
   bRestart.addEventListener("click",(e)=>{e.stopPropagation(); restartSession(s);});
   bTheme.addEventListener("click",(e)=>{e.stopPropagation(); openThemePop(s,bTheme);});
   bMin.addEventListener("click",(e)=>{e.stopPropagation(); minimize(s);});
@@ -66,11 +66,14 @@ function toggleMax(s){
 function unmaxKeeping(s){const p=s.prevRect||{width:"580px",height:"380px"};s.win.classList.remove("max");s.maximized=false;s.win.style.width=p.width;s.win.style.height=p.height;refitActive(s);}
 // Focus a terminal on the next tick — unless focus moved somewhere else meanwhile (the palette or a dialog opened, a
 // tab name went into rename): a late timer must never pull keystrokes back into a shell. Seen when ⌘K follows page
-// load closely: the queued timer fired after the palette opened, closed it, and Enter went to the shell.
+// load closely: the queued timer fired after the palette opened, closed it, and Enter went to the shell. Focus can also
+// sit unchanged in a dialog that closed and reopened meanwhile (⌘K right after a palette command), so an open dialog
+// holding focus always wins.
 function focusTermSoon(t){
   const before=document.activeElement;
   setTimeout(()=>{
-    const ae=document.activeElement;
+    const ae=document.activeElement, dlg=ae?.closest?.('[aria-modal="true"]');
+    if(dlg&&dlg.getClientRects().length) return;
     if(ae&&ae!==before&&ae!==document.body&&!ae.classList.contains("xterm-helper-textarea")) return;
     try{t.term.focus();}catch{}
   },0);
@@ -452,11 +455,13 @@ function setGlobalTheme(id){
   try{localStorage.setItem(THEME_STORE,id);}catch{}
   applyUITheme(id);
   sessions.forEach((s)=>{if(!s.themeId) s.tabs.forEach((t)=>{try{t.term.options.theme=THEMES[id].xterm;t.pane.style.background=THEMES[id].xterm.background;}catch{}});});
+  mxThemePicked(id);   // after the terminals: rain behind text re-clears their background
   renderThemeGrid(themeSearch.value.trim());
 }
 function setSessionTheme(s,id){
   s.themeId=id;
   s.tabs.forEach((t)=>{const th=THEMES[id||defaultThemeId].xterm;try{t.term.options.theme=th;t.pane.style.background=th.background;}catch{}});
+  mxVeilRestyle();
   scheduleSave(); renderThemeGrid(themeSearch.value.trim());
 }
 function renderThemeGrid(filter){
@@ -476,6 +481,7 @@ function renderThemeGrid(filter){
     themeGrid.append(card);
   });
   themeReset.style.display=(sc&&sc.themeId)?"":"none";
+  mxRenderThemeFx(sc);
 }
 function openThemePop(scoped,anchor){
   closeModals("theme");

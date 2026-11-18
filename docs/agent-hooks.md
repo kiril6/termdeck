@@ -24,6 +24,22 @@ helper prints that decision. No click means no output and the CLI asks as usual 
 terminal, or when no browser is attached). termdeck never answers a prompt unless you click — or you opted in to a scoped
 allow-rule (*Always allow…* on an approval row; off by default; never for deny-listed commands; every firing is logged and toasted).
 
+### Questions and plans (Claude Code)
+
+Claude Code sends two things through the same `PermissionRequest` hook that are not yes/no permissions: `AskUserQuestion`
+(a question with options) and `ExitPlanMode` (a plan to approve). termdeck shows them as cards in the agent queue instead of
+Approve / Deny:
+
+- **A question** is answered by merging `answers` (`{ "<question text>": "<option label>" }`, several picks joined with `", "`, a typed
+  answer as plain text) into the CLI's own `tool_input` and returning it as `updatedInput`. A plain Approve never answers a question.
+- **A plan** is approved by returning its own `tool_input` as `updatedInput` (the agent then continues in *accept edits* mode), or
+  denied with a message so the agent stays in plan mode.
+- Same rules as Approve / Deny: nothing is typed into the terminal, no click means no decision, and an allow-rule never answers
+  a question or a plan. The audit log records the chosen option, never typed text. Codex, Copilot and Gemini: not supported.
+- **Several requests at once.** Parallel sub-agents ask at the same time (the main agent's own requests come one at a time; checked on real Claude Code). termdeck holds up to 5 per terminal, shows *1 of N* in the queue row and answers each on its own click. A sub-agent's event (the hook's `agent_id`) releases only that sub-agent's request. A 6th request is not held: the CLI shows its own prompt.
+
+Verified on Claude Code 2.1.296 (single and multi-select questions, plan approve, plan deny).
+
 ## Verified against the real CLIs
 
 Payloads were captured from real sessions and are replayed through the helper in CI
@@ -31,10 +47,10 @@ Payloads were captured from real sessions and are replayed through the helper in
 
 | CLI | Version tested | Status |
 |---|---|---|
-| Claude Code | 2.1.195 | ✅ every event in the snippet; `"$TD_HOOK"` expands; silent and error-free outside termdeck |
+| Claude Code | 2.1.296 | ✅ every event in the snippet; `"$TD_HOOK"` expands; silent and error-free outside termdeck |
 | Codex | codex-cli 0.160.0 | ✅ with one setting (below): all events incl. approval; `apply_patch` files are read from the patch text (it arrives in `tool_input.command`). No `Notification` hook exists |
 | GitHub Copilot CLI | 1.0.93 | ✅ every event in the snippet, incl. Approve / Deny (decision verified: allowed and blocked a real command). `PermissionRequest` arrives camelCase without `hook_event_name`; only a top-level `{"behavior":…}` answer is honoured |
-| Gemini CLI | 0.62.0 | ⚠️ partly: the settings format, project-level hook loading (needs a trusted folder) and the common payload fields (`session_id`, `transcript_path`, `cwd`, `hook_event_name`, `timestamp`) were captured from real `SessionStart` / `SessionEnd` events. `BeforeAgent`, `BeforeTool`, `AfterTool`, `AfterAgent` and `Notification` are **not verified**: they only fire during a model turn, and Google's personal-account sign-in (Gemini Code Assist for individuals) is rejected by 0.62.0 (*"no longer supported … migrate to Antigravity"*), so no turn could run. Needs an API-key, Vertex or Workspace login to finish |
+| Gemini CLI | 0.63.0 | ✅ `BeforeAgent`, `BeforeTool`, `AfterTool` and `AfterAgent` captured from a real model turn (`gemini -p`, API-key login) and replayed in CI (`scripts/fixtures/hooks/gemini/`). The shell tool is named `run_shell_command`. ⚠️ `Notification` (interactive TUI only) is **not verified**. `SessionStart` / `SessionEnd` fire but are ignored. Project-level hooks load only in a trusted folder; the personal Google sign-in is rejected by the CLI (use an API key, Vertex or Workspace login) |
 
 **Things the real CLIs taught us** (all fixed here):
 - A bare `node "$TD_HOOK" …` **fails outside termdeck** — `$TD_HOOK` is empty, `node ""` runs node on stdin and the hook
@@ -56,7 +72,7 @@ never estimated, and **no dollar figure** (neither transcript has one; termdeck 
 - **Claude Code** repeats one message once per streamed block in the transcript; a naive sum **double-counts (~2×)**, so
   the helper sums per message id. Main conversation only — sub-agent runs are not in that file. `scripts/check-usage.js` pins this in CI.
 - **Codex** `token_count` is cumulative: the helper takes the last one (input − cached input + output).
-- **Copilot CLI / Gemini CLI**: not read, show nothing. Unreadable / missing / oversized transcripts show nothing (never a `0`).
+- **Copilot CLI / Gemini CLI**: not read, show nothing. (Gemini records per-message counts as `tokens: {input, output, cached, …}` in its session `.jsonl` transcript — not read yet.) Unreadable / missing / oversized transcripts show nothing (never a `0`).
 
 ## Quick setup
 

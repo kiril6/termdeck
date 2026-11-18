@@ -83,10 +83,15 @@ async function portFree(port, host) {
   // Port
   const host = process.env.HOST || '127.0.0.1';
   const pinned = process.env.PORT != null && process.env.PORT !== '';
-  const port = Number(process.env.PORT) || 3000;
-  if (await portFree(port, host)) add('pass', 'Port', `${host}:${port} is free`);
-  else if (pinned) add('fail', 'Port', `${host}:${port} is in use and PORT is pinned`, `pick another: termdeck --port ${port + 1}`);
-  else add('warn', 'Port', `${host}:${port} is in use — the server will move to the next free port`);
+  // Unpinned: the port the server last ran on (server.js writes it on every start), so a desktop-app user on a
+  // pinned autostart port isn't told about 3000. Same validation as server.js.
+  const lastPort = (() => { try { const n = Number(fs.readFileSync(path.join(os.homedir(), '.termdeck', 'last-port'), 'utf8')); if (Number.isInteger(n) && n > 0 && n < 65536) return n; } catch {} return null; })();
+  const port = pinned ? Number(process.env.PORT) || 3000 : lastPort || 3000;
+  const why = pinned ? 'PORT' : lastPort ? 'last run' : 'default';
+  if (await portFree(port, host)) add('pass', 'Port', `${host}:${port} (${why}) is free`);
+  else if (pinned) add('fail', 'Port', `${host}:${port} (${why}) is in use and PORT is pinned`, `pick another: termdeck --port ${port + 1}`);
+  else if (lastPort) add('warn', 'Port', `${host}:${port} (${why}) is in use — termdeck may already be running there`);
+  else add('warn', 'Port', `${host}:${port} (${why}) is in use — the server will move to the next free port`);
 
   // Network exposure
   const loop = ['127.0.0.1', 'localhost', '::1'].includes(host);

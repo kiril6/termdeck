@@ -7,6 +7,7 @@ const path = require('path');
 const url = require('url');
 const { execFile, execFileSync } = require('child_process');
 const access = require('./access');
+const { redact } = require('./redact');
 
 const isWindows = os.platform() === 'win32';
 function positiveEnvNumber(name, fallback) {
@@ -225,7 +226,7 @@ function createSessions({ pty, live, approvals, secret, home, logDir, safeDir })
       const stamp = new Date().toISOString().replace(/[:.]/g, '-');
       const file  = path.join(logDir, `${stamp}_${String(id).replace(/[^\w.-]/g, '_').slice(0, 60)}.log`);
       const head  = `# termdeck session ${id} · ${sess.shellName} · cwd ${sess.cwd} · exit ${code} · ended ${new Date().toISOString()}\n\n`;
-      fs.writeFileSync(file, head + tail(sess).replace(ANSI_RE, '').replace(/\r\n?/g, '\n'), { mode: 0o600 });
+      fs.writeFileSync(file, redact(head + tail(sess).replace(ANSI_RE, '').replace(/\r\n?/g, '\n')), { mode: 0o600 });
     } catch (e) { console.error('  [log] save failed:', e.message); }
   }
 
@@ -248,9 +249,11 @@ function createSessions({ pty, live, approvals, secret, home, logDir, safeDir })
       existing.ws = ws;
       if (prev && prev !== ws) { send(prev, { type:'taken' }); prev.close(4001, 'opened elsewhere'); }
       replayTo(existing, ws, id);
-      if (existing.agentEvt) {   // a replayed request is only answerable while its hook is still held; settled ones lose the reqId
-        const e = existing.agentEvt, held = approvals.pending.get(id)?.reqId === e.reqId;
-        send(ws, { type:'agent', event: held || !e.reqId ? e : { ...e, reqId: undefined } });
+      const heldReqs = approvals.pending.get(id);   // every request still waiting for a click (#286), not only the last event
+      const last = existing.agentEvt;
+      for (const p of heldReqs?.values() || []) if (p.ev !== last) send(ws, { type:'agent', event: p.ev });
+      if (last) {   // a replayed request is only answerable while its hook is still held; settled ones lose the reqId
+        send(ws, { type:'agent', event: !last.reqId || heldReqs?.has(last.reqId) ? last : { ...last, reqId: undefined } });
       }
       try { existing.term.resize(cols, rows); } catch {}
       bindWsEvents(ws, id);
@@ -387,17 +390,54 @@ function createSessions({ pty, live, approvals, secret, home, logDir, safeDir })
         s.term.write(m.data);
       }
       else if (m.type === 'approve' && !s.isLog) {
-        const p = approvals.pending.get(id);
-        if (p && p.reqId === m.reqId && (m.decision === 'allow' || m.decision === 'deny')) approvals.settle(id, m.decision, 'click');
+        const p = approvals.pending.get(id)?.get(m.reqId);
+        if (p) {
+          if (m.decision === 'deny') approvals.settle(id, 'deny', 'click', undefined, m.reqId);
+          else if (m.decision === 'allow' && p.ev.ask?.kind !== 'question') approvals.settle(id, 'allow', 'click', undefined, m.reqId);   // a question needs its answer: 'answer' below
+          else if (m.decision === 'answer') approvals.answer(id, m.picks, m.reqId);
+        }
       }
       else if (m.type === 'resize') { try { s.term.resize(clampInt(m.cols,80,MAX_COLS), clampInt(m.rows,24,MAX_ROWS)); } catch {} }
       else if (m.type === 'kill')   {
         // tmux: killing the pty only detaches the client — the session would live on and
         // reattach as a "dead" terminal. Kill the session so the shell actually ends.
-        if (s.tmuxName) { try { execFile('tmux', ['kill-session', '-t', tmuxTarget(s.tmuxName)], () => {}); } catch {} }
-        try { s.term.kill(); } catch {}
-        clearTimeout(s.killTimer); live.delete(id);
+        killLive(s, id);
       }
+  }
+  function killLive(s, id) {
+    if (s.tmuxName) { try { execFile('tmux', ['kill-session', '-t', tmuxTarget(s.tmuxName)], () => {}); } catch {} }
+    try { s.term.kill(); } catch {}
+    clearTimeout(s.killTimer); live.delete(id);
+  }
+  // Close a terminal without its socket (#302): the window was closed while reconnecting, with the server briefly
+  // unreachable, or after "opened elsewhere" — no `kill` message could go out, and the tmux session would live on.
+  function killById(id) {
+    if (!VALID_ID.test(String(id))) return false;
+    const s = live.get(id);
+    if (s) { killLive(s, id); return true; }
+    if (!TMUX_OK) return false;
+    const name = tmuxSessionName(id);
+    if ([...live.values()].some((x) => x.tmuxName === name)) return false;   // another live terminal owns that name
+    execFile('tmux', ['kill-session', '-t', tmuxTarget(name)], () => {});
+    return true;
+  }
+  // td_* tmux sessions nothing is attached to and no live terminal owns: what is left after a window closed with no
+  // server to hear it. (Right after a server restart this also lists shells the browser is about to reattach, so the
+  // client drops the ones its own windows use.)
+  function listOrphans(cb) {
+    if (!TMUX_OK) return cb([]);
+    execFile('tmux', ['list-sessions', '-F', '#{session_name} #{session_attached}'], { timeout: 3000 }, (e, out) => {
+      if (e) return cb([]);                                              // no tmux server = no sessions
+      const owned = new Set([...live.values()].map((x) => x.tmuxName));
+      cb(String(out).split('\n').map((l) => /^(td_\S*) (\d+)$/.exec(l)).filter((m) => m && m[2] === '0' && !owned.has(m[1])).map((m) => m[1]));
+    });
+  }
+  function killOrphans(names, cb) {
+    listOrphans((orphans) => {
+      const kill = orphans.filter((n) => names.includes(n));            // only what is still an orphan right now
+      kill.forEach((n) => execFile('tmux', ['kill-session', '-t', tmuxTarget(n)], () => {}));
+      cb(kill);
+    });
   }
 
   if (readCwds || TMUX_OK) setInterval(async () => {
@@ -425,6 +465,7 @@ function createSessions({ pty, live, approvals, secret, home, logDir, safeDir })
     handleConnection,
     setAgentUrl: (u) => { AGENT_URL = u; },   // fixed at listen(); shells started after it carry it as TD_URL
     tmuxOk: () => TMUX_OK,
+    killById, listOrphans, killOrphans,
   };
 }
 

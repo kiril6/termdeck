@@ -40,7 +40,7 @@ function maybeNudge(s,tab){
   const r=running.get(s.id+tab.id); if(!r||r.nudged)return; r.nudged=true;
   if(gameOv.classList.contains("open"))return;   // already playing — no offer needed
   // Note: fire even while you're watching the tab — waiting on a slow command IS the moment to offer a game.
-  toast(ICON.hourglass,"Still working…","\""+s.name+"\" running "+Math.round(NUDGE_MS/1000)+"s — play a game? "+kbd("⌘","⌥","G"),6000,
+  notifyToast("running",ICON.hourglass,"Still working…","\""+s.name+"\" running "+Math.round(NUDGE_MS/1000)+"s — play a game? "+kbd("⌘","⌥","G"),6000,
     ()=>{revealWindow(s);switchTab(s,tab.id);openGame();});   // toast() mirrors to an OS notification itself
 }
 function fmtDur(ms){const s=Math.round(ms/1000);return s<60?s+"s":s<3600?Math.floor(s/60)+"m"+String(s%60).padStart(2,"0")+"s":Math.floor(s/3600)+"h"+String(Math.floor(s%3600/60)).padStart(2,"0")+"m";}
@@ -110,12 +110,23 @@ function agentEvent(s,tab,ev){
   if(ev.type==="stop"||ev.type==="error") agentWaiting(s,tab);
   else if(ev.type==="permission_request"){
     // reqId = the hook is held open for a click (#44): the queue row offers Approve / Deny. No reqId = display-only.
-    tab.ask=ev.reqId?{reqId:ev.reqId,text:[ev.tool,ev.files?.[0]||ev.detail].filter(Boolean).join(" "),cmd:ev.detail||"",risk:ev.risk||"",cwd:ev.cwd||"",canRule:ev.tool==="Bash"&&!ev.risk&&!!ev.cwd&&!!ev.detail}:null;
+    // Several requests can wait at once (parallel sub-agents, #286): tab.asks holds them all, tab.ask is the one shown.
+    if(ev.reqId){
+      const a={reqId:ev.reqId,text:(ev.sub?"sub-agent \u00b7 ":"")+[ev.tool,ev.files?.[0]||ev.detail].filter(Boolean).join(" "),cmd:ev.detail||"",risk:ev.risk||"",cwd:ev.cwd||"",canRule:ev.tool==="Bash"&&!ev.risk&&!!ev.cwd&&!!ev.detail,ask:ev.ask||null};
+      const asks=tab.asks||(tab.asks=[]), i=asks.findIndex((x)=>x.reqId===a.reqId);
+      if(i<0) asks.push(a); else{ a.ui=asks[i].ui; asks[i]=a; }   // a replay keeps the half-made answer
+    }
+    syncAsk(tab);
     agentApproval(s,tab);
   }
-  else setWaiting(s,tab,false);   // prompt/tool activity = working (also clears a red approval once you answered)
-  if(ev.type!=="permission_request") tab.ask=null;
+  else if(!tab.asks?.length) setWaiting(s,tab,false);   // prompt/tool activity = working (also clears a red approval once you answered); a request still waiting keeps it red
   updateAgentOverview();
+}
+// tab.ask = the request shown in the queue row: tab.asks[tab.askIdx] (#286).
+function syncAsk(tab){
+  const n=tab.asks?.length||0;
+  tab.askIdx=n?Math.min(tab.askIdx||0,n-1):0;
+  tab.ask=n?tab.asks[tab.askIdx]:null;
 }
 // ── Token usage (#85): what the agent itself reported, never estimated ────────────────────────────
 // The hook helper reads it from the CLI's transcript on `stop` (Claude Code, Codex): `tokens` = new input +
@@ -166,19 +177,24 @@ function agentWaiting(s,tab){
   const watching=focusedId===s.id&&s.activeTabId===tab.id&&!s.minimized&&s.project===activeProject&&document.hasFocus();
   setWaiting(s,tab,true,tab.approval);   // dock/tab pulse marks the queue even while you watch; preserve a red approval flag, never downgrade it
   if(watching)return;              // looking right at it → the pulse is enough, skip the toast
-  toast(ICON.bot,"Waiting on you","\""+s.name+"\" is waiting for input",6000,()=>{revealWindow(s);switchTab(s,tab.id);});
+  notifyToast("waiting",ICON.bot,"Waiting on you","\""+s.name+"\" is waiting for input",6000,()=>{revealWindow(s);switchTab(s,tab.id);});
 }
 // #3 approval-prompt routing: a tool-approval prompt blocks ALL progress, so it fires a
 // louder, STICKY toast (ms=0) distinct from the plain idle "waiting", and flags the tab/chip
 // red at once — no 8s wait. Cheap per-chunk regex across CLIs. NEVER auto-answers: surface + jump only.
 const REPLAY_SCAN=2000;   // bytes of a replayed buffer treated as "current screen"
+// xterm's automatic answers to terminal queries: device attributes (ESC[c → ESC[?1;2c, ESC[>c → ESC[>0;276;0c), status
+// and cursor reports, mode reports, window reports, OSC colour and DCS replies. A replayed buffer still holds the old
+// queries; answering them again would type the answers into the shell (the stray "1;2c0;276;0c" after a reload).
+// Keys never look like this: arrows/function keys end in A-D, H, F, ~ or P-S.
+const TERM_REPLY_RE=/^\x1b(?:\[[?>=]?[\d;]*(?:\$y|[cRnt])|\][^\x07\x1b]*(?:\x07|\x1b\\)|P[^\x1b]*\x1b\\)$/;
 const APPROVAL_RE=/allow this (tool|command|action|edit)|do you want to (proceed|allow|continue|run|make this|create|edit)|approve this|grant (access|permission)|\b(y\s*\/\s*n|yes\s*\/\s*no|\[y\/n\])\b|press\s+y\s+to|❯\s*1\.?\s*yes/i;
 function agentApproval(s,tab){
   if(tab.approval||tab.exited||tab.status!=="live")return;   // fire only on the transition into "blocked" — repaints of the prompt are ignored
   setWaiting(s,tab,true,true);
   const watching=focusedId===s.id&&s.activeTabId===tab.id&&!s.minimized&&s.project===activeProject&&document.hasFocus();
   if(watching)return;
-  toast('<span class="t-appr">'+ICON.bot+"</span>","Needs approval","\""+s.name+"\" is blocked on a permission prompt",0,()=>{revealWindow(s);switchTab(s,tab.id);});
+  notifyToast("approval",'<span class="t-appr">'+ICON.bot+"</span>","Needs approval","\""+s.name+"\" is blocked on a permission prompt",0,()=>{revealWindow(s);switchTab(s,tab.id);});
 }
 function setWaiting(s,tab,on,approval){
   const ap=on&&!!approval;

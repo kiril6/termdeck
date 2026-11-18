@@ -8,12 +8,21 @@ termdeck autostart install             # asks, then writes it and starts the ser
 termdeck autostart uninstall           # stops it and removes only the file it created
 ```
 
-`--port <n>` picks the port (default 3000, pinned, so the URL never moves). It fills in the real `node` and
+`--port <n>` picks the port (default 3000, pinned, so the URL never moves). For the desktop app (PWA) use an uncommon one, `--port 17300`, the same port you installed it on. It fills in the real `node` and
 `server.js` paths and a `PATH` that includes where `tmux` and `git` live, uses a **user-level** unit (no
 root), and keeps the log file private (`~/Library/Logs/termdeck.log` on macOS, the journal on Linux). It
 never writes the access token anywhere, refuses to overwrite a file it didn't create, and refuses to run
 from the temporary `npx` cache (install globally or clone first). A non-loopback `--host` is only used if you
 pass it, with a warning. macOS and Linux only; everything below is the manual route.
+
+### Updating termdeck
+
+Run `termdeck update`. It installs the latest release with npm, then restarts the service in place (`launchctl kickstart -k`, or `systemctl --user restart`): the service file points at the package folder, so it keeps its port and host. Then reload the app window. (`npm update -g @kiril6/termdeck` followed by `termdeck autostart install --port <same port> --yes` does the same by hand.)
+
+```bash
+termdeck update --yes
+```
+
 
 ---
 

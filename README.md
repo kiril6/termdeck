@@ -33,6 +33,16 @@ npx @kiril6/termdeck
 
 Needs **Node.js 20+**. It opens **http://127.0.0.1:3000** in your browser (`localhost:3000` redirects there). Optional: install **tmux** (a terminal session manager that keeps shells alive across restarts; `brew install tmux` / `sudo apt install tmux`) so shells survive a server restart. Other ways to install are [below](#install-and-run).
 
+> **Install as a desktop app:** the installed app is only a window onto the running server, and it is tied to one address. So run termdeck from login on a fixed, uncommon port. Not 3000: dev servers often take it, and the app would then open their page instead.
+>
+> ```bash
+> npm i -g @kiril6/termdeck
+> termdeck autostart install --port 17300   # starts it now and at every login (macOS, Linux)
+> termdeck open                             # opens http://127.0.0.1:17300, signed in
+> ```
+>
+> Then click the install icon in the address bar (Chrome, Edge) or use *File → Add to Dock* (Safari). termdeck opens in its own window without tabs or address bar. On Windows, autostart isn't available: run `termdeck --port 17300` and keep it running. Already installed on `:3000`? Keep that port (`--port 3000`): a new one is a new address (⌘K → *Export / Import settings* moves your setup). Details in [FEATURES.md](FEATURES.md).
+
 ---
 
 ## Why termdeck
@@ -61,17 +71,17 @@ termdeck uses tmux under the hood when it's installed, so you keep tmux's durabi
 
 ![Agent queue: one agent needs approval for a command, one is waiting, one is working; two of them change the same lines of client.js](https://raw.githubusercontent.com/kiril6/termdeck/master/docs/screenshots/agent-queue.png)
 
-**3. Unblock.** With the optional [agent hooks](docs/agent-hooks.md) (small scripts your agent CLI runs to report what it's doing; `termdeck hooks install` sets them up and asks first), the queue shows the exact command an agent wants to run with **Approve / Deny** buttons. termdeck never answers on its own — only when you click, or through an allow-rule you created yourself (a saved pattern such as `npm test` that may run without asking).
+**3. Unblock.** With the optional [agent hooks](docs/agent-hooks.md) (small scripts your agent CLI runs to report what it's doing; `termdeck hooks install` sets them up and asks first), the queue shows the exact command an agent wants to run with **Approve / Deny** buttons. When Claude Code asks a question or wants a plan approved, the row becomes a card: pick an option (or type an answer), or review the plan and approve it or keep planning. termdeck never answers on its own — only when you click, or through an allow-rule you created yourself (a saved pattern such as `npm test` that may run without asking). When several requests wait for one terminal (parallel sub-agents do ask at the same time), the row shows *1 of N* and each is answered on its own.
 
-**4. Review.** *Review agent changes…* shows a read-only diff of everything the agent changed since its branch was cut — committed and uncommitted work in one view.
+**4. Review.** *Review agent changes…* shows a read-only diff of everything the agent changed since its branch was cut — committed and uncommitted work in one view. *Run check…* runs your test command in the worktree and shows pass or fail next to the diff (the last result is still there when you reopen it, and is marked out of date once the agent changes more), and files that run code or carry secrets (lockfiles, CI config, `.env`) are flagged for a closer look.
 
-![Read-only diff of an agent's worktree: files added and modified, then the unified diff](https://raw.githubusercontent.com/kiril6/termdeck/master/docs/screenshots/review-changes.png)
+![Read-only diff of an agent's worktree: a passing check above the files added and modified, then the unified diff](https://raw.githubusercontent.com/kiril6/termdeck/master/docs/screenshots/review-changes.png)
 
 **5. Land.** *Finish agent task…* merges the branch or opens a pull request, optionally after a check like `npm test` that must pass first. Each option says why when it isn't available. Removing the worktree is a separate opt-in, and git still refuses to delete unmerged work.
 
 ![Finish agent task dialog: merge into main, run npm test first, keep the worktree](https://raw.githubusercontent.com/kiril6/termdeck/master/docs/screenshots/finish-task.png)
 
-**Supported agents:** Claude Code, Codex, Gemini, Copilot, Cursor Agent, OpenCode, Qwen Code, Antigravity, Aider — or any CLI you add as a preset. Hooks report exact state for Claude Code, Codex and GitHub Copilot CLI (Gemini CLI is supported but not yet verified); Approve / Deny works with Claude Code, Codex and Copilot. Without hooks, termdeck estimates state from terminal output.
+**Supported agents:** Claude Code, Codex, Gemini, Copilot, Cursor Agent, OpenCode, Qwen Code, Antigravity, Aider — or any CLI you add as a preset. Hooks report exact state for Claude Code, Codex, GitHub Copilot CLI and Gemini CLI (checked on real turns; Gemini's interactive notification event is not verified); Approve / Deny works with Claude Code, Codex and Copilot. Without hooks, termdeck estimates state from terminal output.
 
 ---
 
@@ -96,6 +106,7 @@ Needs the [agent hooks](docs/agent-hooks.md) for Approve and the exact state. Al
 termdeck spawns real shells, so it is locked down by default:
 
 - **It never answers for you.** An agent's permission prompt is only answered when you click Approve, or by an allow-rule you created for that repo. Rules are off by default, and a hard deny-list (`rm -rf`, `sudo`, force-push, curl-to-shell, reading secrets…) can never be allowed automatically. The deny-list is a safety net, not a sandbox. Every decision, manual or by rule, is recorded in an audit log ([details](docs/agent-hooks.md)).
+- **Secrets are redacted on the way out.** Known secret shapes (API keys, GitHub/AWS/Slack/npm tokens, JWTs, private keys, `Authorization:` headers, `user:pass@` URLs, `NAME_TOKEN=value` lines) become `[REDACTED]` in session logs, the approval audit log, webhook detail and *Save output* (a separate *unredacted* item keeps the raw text; `TD_REDACT=0` turns it off on the server). Pattern based, so a best effort, not a guarantee.
 - **Local only.** The server listens on `127.0.0.1` ("loopback"), so nothing else on your network can reach it.
 - **Only your browser drives it.** Other programs on the same computer can reach a loopback port too (another user account, or an agent running inside termdeck), so the browser signs in once: the tab termdeck opens on start, or `termdeck open`, carries a link that sets a cookie. The secret lives in `~/.termdeck/token` (readable only by you) and survives restarts, so this happens once per browser. Terminals never get it: each gets its own `TD_HOOK_AUTH`, which can only report that terminal's agent events. Approvals are a guard against mistakes, not a sandbox: an agent that can already run arbitrary code as you can read your files, so use your agent CLI's own sandbox for untrusted work.
 - **Blocks malicious web pages.** Every API call and WebSocket is rejected unless its `Origin` and `Host` headers resolve to a known localhost name (or a `TD_ALLOWED_HOSTS` entry). This blocks cross-site and DNS-rebinding attacks, so a website can't connect to your shells or read your files.
@@ -114,13 +125,14 @@ See also [Known limits](#known-limits). Found a vulnerability? Report it private
 - **Terminal font and size** (palette → *Terminal font…*), applied live to every terminal; use any installed font, including a Nerd Font for starship / powerlevel10k glyphs.
 - **Layouts:** click *Tile* to auto-tile, or its **▾** for a fixed grid (1×1, 2×1, 1×2, 2×2, 3×2), *Restore minimized* and Fullscreen (also in the palette's *Layout* tab) — extra windows are minimized, not closed. `⌥1`–`9` jumps to the Nth window.
 - **Live overview:** the toolbar *Sessions* button → *Grid* (or palette → *Live overview*) shows a read-only tile per session across all projects with its latest output and state, most urgent first (needs approval, waiting, working, idle); an *All | Active* filter hides idle sessions; click a tile to jump to it.
-- **Projects** group windows; each remembers its folder. A **file tree** (`⌘B`, drag its edge to resize) with a built-in file viewer (text, Markdown, CSV tables, images, PDF, audio and video); its ⋯ menu has **Follow focused terminal**, which reveals the focused window's live folder in the tree.
-- **Live working directory, last command and dev-server port** in every window's footer (a globe icon opens the port when running locally; right-click for Copy URL / Stop server), clickable links and `file:line` paths, search the terminal's history, GPU-accelerated rendering.
+- **Projects** group windows; each remembers its folder. A **file tree** (`⌘B`, drag its edge to resize) with a *Find files…* box (`/`) that searches names across the whole project root, and a built-in file viewer (text, Markdown, CSV tables, images, PDF, audio and video); its ⋯ menu has **Follow focused terminal**, which reveals the focused window's live folder in the tree.
+- **Live working directory, last command and dev-server port** in every window's footer (a globe icon opens the port when running locally; right-click for Copy URL / Stop server), clickable links (plain URLs and OSC 8 hyperlinks, which open in a new tab) and `file:line` paths, search the terminal's history, GPU-accelerated rendering.
 - **Version, What's new and update check:** the version shows in the footer and Help; Help → *What's new* lists the changelog offline, a one-time toast appears after an upgrade, and *Check for updates* asks npm only when you click.
 - 24 themes (17 dark, 7 light), per terminal or for the whole dashboard, all with readable text (WCAG AA contrast).
 - **Export / import settings** (palette): theme, font, snippets, SSH hosts and AI CLI presets in one JSON file, for another browser or a backup.
 - **Keyboard and screen readers:** move or resize a window from the keyboard (palette → *Move or resize window*); the palette, dialogs and toasts work with screen readers.
 - **Phone layout:** on a screen 600 px wide or less, every window fills the screen; switch between them from the dock.
+- **Install as a desktop app (PWA):** Chrome and Edge show an install icon; Safari uses *File → Add to Dock*. It opens in its own window without tabs or address bar. It needs the running server on one fixed address: after `npm i -g @kiril6/termdeck`, `termdeck autostart install --port 17300` runs it now and at every login on an uncommon port (dev servers often take 3000); `termdeck open` then opens it signed in. With `npx` or a project install it works the same while the server runs, but you start it yourself each time on the same port (`PORT=17300 npx -y @kiril6/termdeck@latest`): there is no start-at-login, and with the server down the window shows a browser error.
 
 ![Four terminals tiled with the file tree open, in the GitHub Light theme](https://raw.githubusercontent.com/kiril6/termdeck/master/docs/screenshots/workspace-light.png)
 
@@ -137,8 +149,14 @@ See also [Known limits](#known-limits). Found a vulnerability? Report it private
 **Productivity**
 - Command palette (`⌘K`), snippets, broadcast input to every shell in a project, safe multi-line paste.
 - **Phone alerts:** set `TD_NOTIFY_URL` (e.g. an [ntfy](https://ntfy.sh) topic) and get a push when an agent is blocked on an approval — tap it to open that terminal. [Setup](docs/remote-access.md#phone-notifications).
-- Notifications when a background command finishes or an agent needs you — in-app, and native when the window isn't focused.
-- A first-run tour, and a game to play while a long command runs.
+- Notifications when a background command finishes or an agent needs you — in-app, and native when the window isn't focused. Snooze them for 30 min, 1 h or until you resume (⌘K → *Snooze notifications*): toasts, native alerts and the phone webhook pause, the agent queue keeps working.
+- A first-run tour, and a game to play while a long command runs (Dino or Snake, each remembers its best score).
+
+**Privacy & effects**
+- **Privacy shield** (`⌘⌥X`, or the top bar's *Privacy* button) — for screen sharing and streaming: covers every terminal, file view and the file tree with a plain panel, a strong blur or Matrix rain, and can blur window names and commands too. Shield one tab or a whole project instead; a script can cover its own pane with `printf '\e]7777;shield\a'`. Optional walk-away shield after 2, 5 or 10 idle minutes. It's a visual cover, not security.
+- **Working effect** (off by default) — Matrix rain behind the text, a blur or a cover over a terminal while its agent works; *Cover this tab now* hides any tab until you press a key.
+- **Matrix rain background** (off by default) — falling characters behind the windows that speed up while agents work and calm down when one waits for you. Pixel pets come out on it when you're idle.
+- Everything in plain words in one dialog: palette → *Privacy & effects…*.
 
 **Every feature, in detail: [FEATURES.md](FEATURES.md).**
 
@@ -154,7 +172,7 @@ See also [Known limits](#known-limits). Found a vulnerability? Report it private
 
 - **tmux (recommended):** with tmux installed, shells run inside it and survive a server restart or crash. Without it everything else works. Not available on Windows; `NO_TMUX=1` turns it off.
 - **Browser:** it opens automatically, already signed in. Disable with `--no-open` / `NO_OPEN=1`, pick one with `BROWSER` (e.g. `BROWSER=firefox`). Another browser, or a bookmark to a fresh one, shows a *link this browser* page: run `termdeck open` once.
-- **Port:** defaults to 3000 and moves to the next free port if that's taken. `--port 4000` / `PORT=4000` pins it.
+- **Port:** defaults to 3000 and moves to the next free port if that's taken. A new port is a new browser address, so windows and settings saved on the old one don't show there: termdeck remembers the last port and says so in the console and in the app when it lands elsewhere, and ⌘K → *Export / Import settings* moves them. `--port 4000` / `PORT=4000` pins it.
 - **No compiler needed:** `node-pty` ships prebuilt binaries for macOS, Windows and Linux (x64/arm64).
 
 ### CLI commands
@@ -164,7 +182,7 @@ termdeck [options]             # start the server (--port <n>, --host <h>, --no-
 termdeck open                  # open the running dashboard in your browser, signed in (--no-open: print the link)
 termdeck doctor                # check Node, node-pty, shell, tmux, git, ports (offline)
 termdeck hooks install         # wire Claude Code, Gemini CLI, Codex and Copilot hooks (also: uninstall, --dry-run, --yes)
-termdeck autostart install     # start termdeck at login via launchd/systemd (also: uninstall, --dry-run)
+termdeck autostart install     # start termdeck at login via launchd/systemd (also: uninstall, --port, --dry-run)
 termdeck uninstall             # remove hooks, start-at-login, termdeck's tmux sessions and ~/.termdeck (--dry-run, --yes)
 ```
 
@@ -187,8 +205,9 @@ Set via environment variable; `--port`, `--host` and `--no-open` also exist as f
 | `TD_BUFFER` | `1000000` | Output replayed on reconnect, per terminal (bytes). |
 | `TD_MAX_PANELS` | `64` | Maximum live terminals on the server. Never blocks reattaching. |
 | `TD_EDITOR` | `code` | Executable for the file tree's *Open in editor*. |
-| `TD_CHECK_TIMEOUT` | `600` | Seconds the *Finish agent task* check may run before landing is blocked. |
+| `TD_CHECK_TIMEOUT` | `600` | Seconds a check may run: in *Finish agent task* (landing is blocked after that) and in *Run check…* in the review view. |
 | `TD_LOG_DIR` | *(none)* | Write session logs (and the approval audit log) here. Off by default. |
+| `TD_REDACT` | on | `0` stops redacting known secret shapes in session logs, the approval audit log and webhook detail (#226). |
 | `TD_ALLOWED_HOSTS` | *(none)* | Extra exact hostnames for a reverse proxy (e.g. `tailscale serve`). Switches to a per-start access token. |
 | `TD_NOTIFY_URL` | *(none)* | Webhook POSTed when an agent needs you (ntfy-ready). Also `TD_NOTIFY_EVENTS` (default `permission_request`), `TD_NOTIFY_DETAIL=1` (include the command). See [remote access](docs/remote-access.md#phone-notifications). |
 | `XDG_CONFIG_HOME` | `~/.config` | Linux only: where `termdeck autostart install` writes its systemd user unit (`systemd/user/termdeck.service`). |
@@ -197,8 +216,10 @@ Set via environment variable; `--port`, `--host` and `--no-open` also exist as f
 
 The running version is shown in the app's **? Help** panel; see [Releases](https://github.com/kiril6/termdeck/releases) for what's new.
 
-- **Global install:** `npm update -g @kiril6/termdeck`
-- **npx** caches, so force a fresh copy: `npx -y @kiril6/termdeck@latest`
+- **Global install:** `termdeck update` installs the latest release with npm and, if you set up start-at-login, restarts that service in place (same port, nothing to retype). It asks first; `--check` only reports, `--dry-run` shows the commands, `--yes` skips the question. Then reload the app window (`⌘R` / `Ctrl+R`): an update is *new package → restart the server → reload the window*, because the window only shows what the server serves. Shells keep running through the restart only if tmux is installed.
+- **Without autostart (or on Windows):** `termdeck update` installs the package and tells you to stop termdeck (`Ctrl+C`) and start it again with the same `--port`: a different port is a different address, so your saved windows and projects don't show (⌘K → *Export / Import settings* moves them).
+- **npx** caches, so force a fresh copy: `npx -y @kiril6/termdeck@latest` (stop the running one first). `termdeck update` doesn't apply: there is no installed copy to replace.
+- **Installed in a project (`npm i @kiril6/termdeck`):** `npm update @kiril6/termdeck` in that project, then restart. `termdeck update` only updates the global install.
 - **Clone:** `git pull && node install.js && npm start`
 
 ### Platform notes
@@ -253,6 +274,7 @@ On Windows/Linux, `⌘` = `Ctrl` and `⌥` = `Alt`. Press `?` in the app for the
 | Jump to the Nth window of the project | `⌥1`–`⌥9` (`⌘⌥1`–`9` also inside a terminal) |
 | Broadcast input to all shells | `⌘⌥B` |
 | Play game (Dino / Snake) | `⌘⌥G` |
+| Privacy shield on / off | `⌘⌥X` |
 | Open directory | `⌘⇧O` |
 | Open file | `⌘⌥O` |
 | New agent task | `⌘⌥R` |

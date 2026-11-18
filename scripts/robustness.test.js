@@ -7,7 +7,7 @@ const http = require('http');
 const net = require('net');
 const os = require('os');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
 const WebSocket = require('ws');
 
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'td-robust-'));
@@ -50,6 +50,17 @@ const until = async (fn, ms = 5000) => { for (let t = 0; t < ms; t += 50) { if (
     });
     assert.strictEqual(r.status, 400); assert.match(r.type, /json/);
     assert.deepStrictEqual(JSON.parse(r.body), { error: 'bad request' }, 'no stack trace or server paths');
+
+    // /api/read on a FIFO must be refused, not opened: openSync on a pipe with no writer blocks the event loop forever (#303).
+    if (process.platform !== 'win32') {
+      const fifo = path.join(home, 'pipe'); execFileSync('mkfifo', [fifo]);
+      const rd = await new Promise((ok) => {
+        const q = http.get({ host: '127.0.0.1', port, path: '/api/read?path=' + encodeURIComponent(fifo), headers: { Origin: origin, Cookie: 'td_token=' + secret }, timeout: 3000 },
+          (res) => { res.resume(); res.on('end', () => ok(res.statusCode)); });
+        q.on('timeout', () => { q.destroy(); ok('hung'); }); q.on('error', () => {});
+      });
+      assert.strictEqual(rd, 400, '/api/read on a FIFO must answer 400 (got ' + rd + ')');
+    }
 
     // An id outside [A-Za-z0-9_-] is refused (1008), not rewritten into another terminal's id.
     for (const id of ['../x', 'a b', 'x'.repeat(65)]) {

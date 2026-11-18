@@ -57,9 +57,11 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   hints as the palette, nothing destructive, no submenus; snippets, SSH hosts and AI CLI presets stay in the palette.
 - 🖥️ **Find in terminal** (`⌘F` when focused) — scrollback search with match highlighting and a
   result counter (xterm search addon). The current match is selected, so it shows in the theme's selection colour. `⌘F` with no terminal focused filters sessions instead.
-- 🖥️ **Clickable links** — URLs in output open in a new tab (xterm web-links addon).
+- 🖥️ **Clickable links** — URLs in output open in a new tab (xterm web-links addon). **OSC 8 hyperlinks**
+  (`ls --hyperlink`, `gcc`, `rg`, `delta`…) work too: the real URL shows on hover, only `http(s)` and `mailto` open (other schemes are ignored).
 - 🖥️ **Save output** — right-click → *Save output…* downloads the scrollback as a `.log`
-  (xterm serialize addon).
+  (xterm serialize addon). Known secret shapes are replaced with `[REDACTED]` (#226, `public/js/redact.js`: API keys, GitHub/AWS/Slack/npm tokens,
+  JWTs, private keys, `Authorization:` headers, `user:pass@` URLs, `NAME_TOKEN=value` assignments) and the toast says so; *Save output (unredacted)…* keeps the raw text.
 - 🖥️ **GPU rendering** — WebGL renderer for every terminal on screen (up to 12 at once; browsers allow ~16 per page). Hidden terminals (other projects, minimized windows, background tabs) give theirs up when a shown one needs it, the one shown longest ago first. If the GPU drops a context (sleep/wake, driver reset), that terminal draws with the DOM renderer and gets WebGL back when shown again or a few seconds later.
 - 🔌 **Live working directory** — each window's cwd badge follows the shell as it `cd`s. The backend
   polls each shell's real working dir from the OS (~1.5s) and pushes it on change — no shell config
@@ -73,12 +75,15 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
 
 ## Projects
 - 🖥️ Group windows into project tabs; switch context instantly. Cycle projects with `⌘⇧]` / `⌘⇧[`.
+- 🖥️ **Logo easter eggs** — hover the *TermDeck* brand and its glow fades in, then breathes slowly (a 3.2 s swell) while the pointer stays, and fades out from wherever it was when the pointer leaves. **Click** it for one brighter neon pulse (the wordmark tints to the accent colour and settles back, 1.5 s). **Double-click** it and the two squares of the mark orbit each other twice (1.5 s, eased, staying upright) and settle back. Only the glow's opacity moves, never its blur, so it stays smooth; breathing and both animations are off under `prefers-reduced-motion`.
+- 🖥️ **Rename a project** by double-clicking its name (hover shows *Double-click to rename*) or **right-click the tab → Rename**; the same menu has **Move left / Move right** and **Delete project** (off while it is the only one).
+- 🖥️ **Reorder projects** — hover a project tab and click the **‹** arrow at its left edge to move it one place left (not shown on the first tab), or use the right-click menu. The order is saved with the layout.
 - 🖥️ **Limits:** 12 terminals per project, 10 project tabs (keeps one browser tab responsive).
 - 🖥️ Directory sidebar / tree (`⌘B`) — **real filesystem** listing via `/api/ls` (dirs first, dotfiles
   hidden by default), rooted at the **active project's** root and lazy-expanding dirs on click. Per-row actions:
   a dir's **＋** opens a new terminal there (`createSession` at that path); clicking a file's name opens
   the **in-app file viewer** (`/api/read` → overlay showing the text; binary files and >2 MB files are
-  handled gracefully; **`.md` files render as formatted Markdown** with a *Raw / Rendered* toggle), and its **⤢** reveals it in the OS file manager (`/api/reveal`). Falls back to a
+  handled gracefully; a named pipe, socket or device is refused with 400 instead of being opened — opening a FIFO would freeze the whole server (#303); **`.md` files render as formatted Markdown** with a *Raw / Rendered* toggle), and its **⤢** reveals it in the OS file manager (`/api/reveal`). Falls back to a
   static demo tree in `file://` demo mode.
 - 🖥️ **Markdown viewer** — `.md` / `.markdown` files open **rendered** (headings, bold/italic, inline + fenced
   code, lists, blockquotes, tables, rules, `http(s)`/`mailto` links) in the file-viewer overlay; the header
@@ -97,10 +102,10 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   Live mode only — the hosted demo has no files to read. Clicking a path in terminal output opens it the same way.
 - 🖥️ **Move to project (dock chip)** — the folder-arrow button on a dock chip moves that window to another project; it is **disabled (dimmed) while there is only one project** and enables as soon as a second exists.
 - 🖥️ **Last project can't be deleted** — the **×** on a project tab is dimmed and disabled (tooltip *Can't delete the only project*) while only one project exists, and enables once a second is added.
-- 🖥️ **First-run tour** — a 6-step spotlight walkthrough (⌘K palette → New agent task → agent queue → projects & dock → directory tree ⋯ menu → Help; the tree step opens the sidebar and closes it again on leaving) that auto-shows once on a first visit (not on narrow/touch screens) and never again once closed (`td.tourDone.v1` in `localStorage`). Replay: palette → *Take the tour*, the Help sheet, or the empty-desktop link. Esc closes, ←/→ step, focus stays in the card; no layout shift, no network, animation off under `prefers-reduced-motion`. Works in the hosted demo.
+- 🖥️ **First-run tour** — a 7-step spotlight walkthrough (⌘K palette → New agent task → agent queue → projects & dock → directory tree ⋯ menu → Privacy shield → Help; the tree step opens the sidebar and closes it again on leaving) that auto-shows once on a first visit (not on narrow/touch screens) and never again: it counts as seen the moment it shows, so a reload or closed tab mid-tour doesn't bring it back (`td.tourDone.v1` in `localStorage`, per browser and address). Replay: palette → *Take the tour*, the Help sheet, or the empty-desktop link. Esc closes, ←/→ step, focus stays in the card; no layout shift, no network, animation off under `prefers-reduced-motion`. Works in the hosted demo.
 - 🖥️ **Short empty palette** — with nothing typed (category *All*) ⌘K lists only **Recent** (the last 5 palette commands you ran, `td.palRecent.v1` in `localStorage`), **Start** (New terminal · New agent task… · Open directory… · Open file… · New project), your snippets / SSH hosts, the top AI CLIs and open sessions, plus a *Type to search all N commands* footer. Typing searches **every** command (an `x` matches `×`, so `2x2` finds *Layout 2×2*); a category chip lists all of its commands.
 - 🖥️ **Palette search ranking** — typed searches order commands by relevance: a label **word starting** with the text first, then labels merely containing it, then description-only matches; ties go to recently run commands, with the fixed-grid layout presets after real commands (so `layout` lists *Save layout as…* / *Restore layout…* before *Layout 1×1…*), then list order.
-- 🖥️ **Palette categories** — a chip row under the ⌘K input (*All · Terminals · Agents · Sessions · Layout · Settings · Help · Fun*; *Terminals* also holds snippets and SSH hosts, *Agents* the agent tasks, CLI presets and the usage / agent-order resets, *Sessions* the Live overview, Search sessions and open sessions, *Layout* Tile windows, the fixed-grid presets, the directory-tree toggle and *Move or resize window*, *Settings* only real preferences — theme, terminal font, scrollback — *Help* keyboard shortcuts and the tour, *Fun* the game and pixel pets) narrows the list; click a chip or press **Tab / Shift+Tab** to cycle, and the search text still applies inside the chosen category. Resets to *All* each time the palette opens. A **×** in the input (or **Ctrl+U**) clears the typed text.
+- 🖥️ **Palette categories** — a chip row under the ⌘K input (*All · Terminals · Agents · Sessions · Layout · Settings · Privacy · Help · Fun*; *Terminals* also holds snippets and SSH hosts, *Agents* the agent tasks, CLI presets and the usage / agent-order resets, *Sessions* the Live overview, Search sessions and open sessions, *Layout* Tile windows, the fixed-grid presets, the directory-tree toggle and *Move or resize window*, *Settings* only real preferences — theme, terminal font, scrollback — *Help* keyboard shortcuts and the tour, *Fun* the game and pixel pets) narrows the list; click a chip or press **Tab / Shift+Tab** to cycle, and the search text still applies inside the chosen category. Resets to *All* each time the palette opens. A **×** in the input (or **Ctrl+U**) clears the typed text.
 - 🖥️ **Palette shortcut hints** — every palette command that has a shortcut shows it, matching the real binding.
   Frequent actions get one (*Open file* `⌘⌥O`, *New agent task* `⌘⌥R`, *Review agent changes* `⌘⌥D`); one-off setup
   dialogs (*Add SSH host*, *Add AI CLI preset*, *Set scrollback*) deliberately stay palette-only. *Maximize / restore*
@@ -124,6 +129,14 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   shell's **live** cwd (see *Live working directory*), so it also follows a `cd` in the focused terminal.
   Turning it off collapses the folders it expanded (ones you opened yourself stay open).
   Live mode only; off keeps the project-anchored behaviour below.
+- 🖥️ **Find files in the tree** (#167) — a *Find files…* box under the tree header searches **file and folder names
+  under the whole root**, not just expanded rows (`GET /api/find?dir=&q=[&all=1]`, behind `apiGuard`: breadth-first,
+  case-insensitive substring, skips `node_modules` and `.git`, never follows symlinks, capped at depth 8 / 5000
+  folders / 200 results — a "first 200" note shows when truncated). Dotfiles follow the *Show hidden files* toggle.
+  Press **`/`** (when no terminal or input has focus) to jump to the box; input is debounced and stale requests
+  are cancelled. Matches replace the tree as a flat list (name + dimmed relative parent path); a file opens in the
+  viewer, a folder re-roots the tree there, **Enter** takes the first match, **Esc** clears. Hosted demo: filters
+  the fake tree.
 - 🖥️ **Resizable tree** — drag the tree's right edge to widen/narrow it (180–640 px); double-click the edge to reset.
   The width is deliberately **not remembered**: each time the tree opens it is the default 240 px. A long breadcrumb
   fades out on the left instead of cutting letters, and hovering it shows the full path.
@@ -163,7 +176,12 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   still-living tmux session. Same pattern ttyd/wetty use. Auto-off where tmux is missing (incl.
   Windows) or when `NO_TMUX=1` — falls back to raw-shell spawn. **Explicit kill** ends the tmux
   session (`kill-session`); disconnect/grace only detaches the client, so the session lives on for
-  later reattach. cwd tracking uses `tmux display-message #{pane_current_path}` for tmux sessions.
+  later reattach. Closing a window **whose socket isn't open** (reconnecting, server blip) sends the kill over HTTP
+  (`POST /api/session-kill`) instead, so no tmux session outlives its window — except a tab another device took over,
+  which is that device's now. If the server was down for the close, palette → **Kill orphaned tmux sessions…** lists
+  the `td_*` sessions nothing is attached to, no live terminal owns and no open window uses, and kills them after a
+  confirm (`GET /api/orphans`, `POST /api/orphans/kill`; only names that are still orphans at that moment die) (#302).
+  cwd tracking uses `tmux display-message #{pane_current_path}` for tmux sessions.
   Terminal ids may only hold letters, digits, `_` and `-` (anything else, or over 64 characters, is refused with WS
   close 1008, never rewritten); a second id that maps to a tmux name a live terminal already holds is refused too.
   termdeck addresses its sessions by exact name (`-t =td_…`), since tmux otherwise falls back to a prefix match.
@@ -180,6 +198,8 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   (CI / piped / detached), so scripted runs never block.
 - 🔌 **Reattach model:** on WS disconnect the PTY is NOT killed — a 60s grace timer holds it;
   reconnecting with the same `id` replays the last 1 MB of output. Survives browser refresh.
+  Terminal queries inside the replayed output (device attributes, cursor/status reports, colour queries) are not
+  answered a second time, so a reload never types stray replies like `1;2c0;276;0c` into the shell.
   The WS id is `<sessionId>-<tabId>`, so **both** ids are persisted with the layout — a reload that
   minted fresh tab ids would connect under a new id and silently get a *brand new shell* (and, with
   tmux, leak the old `td_*` session) instead of reattaching.
@@ -208,6 +228,9 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   window or raise TD_MAX_PANELS, then click ⟳ to retry"* in the terminal, and one toast per burst. ⟳ retries.
 - 🖥️ **Wake reconnect** — on tab refocus (`visibilitychange`), reconnecting shells retry
   immediately instead of waiting out the backoff (localhost drops on sleep aren't network events).
+  A tab has **one socket**: a retry silences and closes the previous one first, and a tab whose socket is still
+  connecting is skipped — so a wake can't double up and get the shell parked as *opened on another device*.
+  **⟳** restarts only the dead tabs of a window; live tabs keep their socket (#300).
 - 🖥️ WS auto-reconnect with exponential backoff (caps at 5s).
 - 🖥️ **Coalesced exit toasts** — a shell exiting shows a *"Shell exited"* toast with a red status dot
   (matching the *Restored* toast's dot), but a **burst** of exits within ~700ms (e.g. many dead PTYs on
@@ -255,7 +278,9 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   custom presets). If you exited the agent but left its shell open, a reboot will resume it again.
   **Verified with real Claude Code 2.1.195:** a conversation survived a killed tmux session + reload and
   remembered its context, `--resume <id>` restored an interactive session, a plain reload did not re-run it.
-  *Not verified:* Codex / Gemini / Copilot / Antigravity (`agy --continue`) resume flows. A Claude that opens its agent dashboard on bare
+  **Also verified** (marker word planted, then recalled after the preset's resume flag, run with each CLI's non-interactive `-p` / `exec`):
+  Codex 0.160.0 `resume --last`, Gemini CLI 0.68.0 `--resume latest`, Copilot CLI 1.0.114 `--continue`, Antigravity `agy` 1.5.0 `--continue`.
+  The interactive TUI itself was not driven for these. Gemini's "latest" is per project folder ("No previous sessions found for this project" elsewhere), so a resumed shell must start in the same folder. A Claude that opens its agent dashboard on bare
   `claude` can't `--resume` a running background agent (falls back to a clean start).
 - 🖥️ **Agent worktrees — one isolated checkout per task** (palette → *New agent task…*). Three agents
   loose in one repo overwrite each other, so a task gets its own `git worktree`: pick the **repository**, a
@@ -282,6 +307,18 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   file summary (modified / added / deleted / new) above the unified diff and untracked files listed.
   Deliberately **view-only** — no accept, discard or reset buttons; landing is a separate, explicit step
   (*Finish agent task…*). The base commit is persisted with the project, so the baseline survives reloads.
+  **Run check:** a *Run check…* button at the top of the diff runs the same command as Finish's *Check before
+  landing* (shared per-repo store `td.checks.v1`, editable in the dialog) in the worktree and shows ✓/✗ plus the last
+  15 lines of output, so you see pass/fail next to the diff before landing. Nothing is merged or changed. While it
+  runs the button turns into *Cancel*: closing the request kills the whole process tree on the server.
+  The last finished result per worktree (`td.checkres.v1`, newest 30) is shown when the view is reopened: coloured
+  while the diff is the one it ran on, muted with *the changes differ now, run it again* once it isn't (a hash of the
+  diff and file list, so an edit inside an untracked file isn't noticed). A cancelled or refused run saves nothing;
+  there is no automatic re-run, since that would run branch code unattended.
+  `POST /api/git/check` (behind `apiGuard`, termdeck worktrees only, one run per worktree, same `TD_CHECK_TIMEOUT`).
+  **Review closely:** changed files that run code, carry secrets or pin what gets installed — lockfiles, package/dependency
+  manifests, CI config, git hooks, `.env*` / keys / `.npmrc`, Dockerfile / Makefile — are listed in a block above the
+  file summary. Path patterns only (no content scan, no blocking): a hint of where to look, not a verdict.
 - 🖥️ **Send to agent (#27)** — turn a selection into a prompt for another terminal, no copy-paste. **Three
   sources, one target picker:** a selection in the **file viewer** (a floating *Send to agent…* button appears
   next to it), a selection in the **Review agent changes** diff, or **any terminal's output** (right-click →
@@ -296,7 +333,7 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   **Safety:** text is wrapped in a bracketed paste (a TUI sees one paste — real Claude Code shows
   `[Pasted text #1 +3 lines]`), but if the target did not turn bracketed paste on and the text has line breaks it
   asks first, because the breaks could run as commands. Control characters (an embedded `ESC[201~` could end a
-  paste early) and bidi overrides are stripped, the fence is longer than any backtick run in the text, and a selection
+  paste early) and bidi overrides are stripped from the **whole** message — the file path / window-name header too, not only the excerpt (#301), the fence is longer than any backtick run in the text, and a selection
   over 64 KB is refused. It deliberately does **not** go through Cast broadcast (that would copy a file excerpt into
   every shell). Works in demo mode too. Checked in a real browser against zsh and real Claude Code.
 - 🖥️ **Finish agent task — merge or PR, then clean up** (palette → *Finish agent task…*, #83). The "land"
@@ -366,7 +403,7 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
 - 🖥️ **Live overview** (the Sessions button uses the robot icon, the same as the old Agents button; the grid icon is reserved for Tile/layouts, and the palette entry has its own monitor icon) — the **Grid** view of the toolbar **Sessions** button (its *Queue | Grid* toggle; ⋯ menu below 1260px) or palette → *Live overview* opens a full-screen, read-only grid with one tile per
   tab across all projects (grouped by project): the tab's last ~9 output lines plus its state (needs approval /
   waiting / running / idle / exited; dot and border tinted). Tiles are **sorted by urgency** within each project (needs approval → waiting → working → running → idle → exited; window order kept inside a state) and the border/dot is colour-coded (red / amber / teal). An **All | Active** filter beside the view toggle hides idle and exited sessions (*Active · N* shows the count); with no saved choice it defaults to Active while anything is running and to All otherwise, and an explicit pick is remembered in browser storage. With *Active* and nothing running it says so instead of showing an empty grid. Refreshes every 1.5 s **only while open** (timer
-  stops on close); output is rendered as text, no input. Click a tile (or Enter) to jump to that window and
+  stops on close); output is rendered as text, no input. Click a tile (or Tab to its header, a button, and press Enter) to jump to that window and
   tab; Esc, ✕ or a click on the backdrop closes; **Queue** in its header switches back to the agent queue. Reads the already-streamed xterm buffer — no extra endpoint or WebSocket.
   The grid sits on a theme-coloured sheet (header with *Queue | Grid* left, *Show All | Active* and ✕ right; a
   footer with the hints), so its text keeps the theme's contrast on light themes too. Tiles show the state as a
@@ -388,14 +425,29 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   **Checked against real Claude Code 2.1.195** (allow → "Allowed by PermissionRequest hook", deny →
   "Denied by …"; the normal dialog still shows while the hook is held, and answering it in the terminal
   releases the hold). Codex uses the same JSON per its docs but blocks on the hook *before* its prompt, so typing
-  in that terminal releases the hold — not yet verified against a real Codex. **No click = no decision**: after
-  120s (`TD_APPROVAL_HOLD_MS`), when you type in the terminal, when no browser is attached, or on any other agent
-  event, the helper prints nothing and the CLI asks as usual. Only that terminal's own socket can answer
+  in that terminal releases the hold — all events incl. approval checked against real Codex 0.160.0
+  ([docs/agent-hooks.md](docs/agent-hooks.md)). **No click = no decision**: after
+  120s (`TD_APPROVAL_HOLD_MS`), when you type in the terminal, when no browser is attached, or on another event from
+  the same agent, the helper prints nothing and the CLI asks as usual. **Several at once (#286):** up to 5 requests are held per
+  terminal — parallel sub-agents do ask at the same time (checked on a real Claude Code; the main agent's own requests come one at a
+  time). The queue row then shows *‹ 1 of N waiting ›* to step through them; Approve / Deny / answer apply to the one shown,
+  and each keeps its own hold. A sub-agent's event (the hook's `agent_id`, sent as `sub`) releases only that sub-agent's request, never
+  the main agent's. A 6th request is not held: the CLI shows its own prompt. Pinned by `scripts/approval.test.js` and an e2e test. Only that terminal's own socket can answer
   (same guards as input); the command is shown via `textContent`. **Audit log:** every held request is
-  recorded with time, terminal, tool/command, decision and **who decided** (*you* / *in terminal* / *timed out* /
-  *replaced*) — listed under the queue (*Recent approvals*), served at `GET /api/approvals`, and appended to
+  recorded with time, terminal, tool/command, decision and **who decided** (*you* / *in terminal* / *timed out*) — listed under the queue (*Recent approvals*), served at `GET /api/approvals`, and appended to
   `TD_LOG_DIR/approvals.jsonl` (0600) when set; past 10 MB it becomes `approvals.1.jsonl` (replacing the previous one), so the audit log stays under ~20 MB. Without hooks, or on Gemini (no decision channel), rows stay
   jump-only.
+  **Questions and plans (#280)** — Claude Code's `AskUserQuestion` and `ExitPlanMode` arrive on
+  the same hook. The helper now passes the question (up to 4, each with up to 8 options) or the plan to the server, which rebuilds it
+  field by field (a question or option label too long to be an exact answer is not shown as a card) and shows its text as the row's
+  detail. A question is answered over the terminal's WebSocket with `{decision:'answer', picks}` (option indexes, optional typed text); the
+  helper merges the answers into the CLI's own `tool_input` as `updatedInput.answers`, and a plan is approved by echoing its `tool_input`
+  (verified on Claude Code 2.1.296; approving a plan moves the agent to *accept edits*). A plain Approve never answers a question, an
+  allow-rule never answers a question or a plan, and the audit log records the chosen option, never typed text. Codex, Copilot and Gemini: unchanged.
+  **In the queue** a question becomes a card: one question at a time (*Next* / *Back*, *Send answer* on the last), options as buttons
+  (checkbox-style when several may be picked), an *Other…* field for a typed answer, keys **1–9** to pick and **Enter** to continue while the
+  card has focus, and *Skip* (denies, the agent is told no). A plan row has *Review plan* (the plan in the read-only Markdown viewer),
+  *Approve* and *Keep planning* (denies, so the agent stays in plan mode). The half-made answer survives the queue redrawing. All agent text is shown as text, never markup.
 - 🖥️🔌 **Token totals (#85)** — what the agent itself reported, never estimated, labelled *as reported by the agent*.
   On `stop` the hook helper reads the CLI's transcript (**Claude Code, Codex**; Gemini shows nothing) and sends the
   conversation total; the browser keeps it **per tab** and shows it on the **queue row** (`361k tok`), the **queue
@@ -451,7 +503,7 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   [docs/agent-hooks.md](docs/agent-hooks.md). **Verified against real Claude Code, Codex and Copilot CLI sessions (#46, #139):**
   captured payloads live in `scripts/fixtures/hooks/` and CI (`scripts/check-hooks.js`) replays them through
   the helper, so a CLI changing its hook format fails the build instead of silently breaking the queue
-  (Gemini CLI only partly verified: settings format and `SessionStart`/`SessionEnd` payloads on 0.62.0; its turn events need a non-personal login to capture). Running the real CLIs surfaced and fixed: the hook command is now guarded
+  (Gemini CLI 0.63.0: `BeforeAgent`/`BeforeTool`/`AfterTool`/`AfterAgent` verified from a real turn and replayed in CI; interactive `Notification` not verified.) Running the real CLIs surfaced and fixed: the hook command is now guarded
   (`[ -z "$TD_HOOK" ] || node …`) because a bare `node ""` errored on every event when the agent ran **outside**
   termdeck — `termdeck hooks install` upgrades old entries in place and leaves hand-edited ones alone; Codex
   `apply_patch` shows the patched file(s) instead of the raw patch text; and Codex needs
@@ -483,6 +535,8 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   press (no lag). Arms on the focused terminal; when a matching shell's command finishes (same
   done-heuristic as command-done alerts) a green in-game banner names it — the game never
   auto-closes, you decide when to leave. Plays solo if no terminal is focused.
+  Each game keeps its **best score** in this browser (survives reloads): the corner reads *score N · best M*, and
+  beating it ends the round with *New best: N!*.
 - 🖥️ **Long-run nudge** — when any command runs past 20s, a ⏳ *"Still working…"* toast (+ OS
   notification) offers to play a game while you wait; click it to open the game armed on that tab.
   Fires **even while you're watching** the terminal (waiting is the point) — only suppressed if a
@@ -500,9 +554,19 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   switch) are ignored, so zsh and bash 5.1+ prompts are recognised — before, the prompt was often missed,
   so no *Done* toast came and the long-run nudge fired for commands that had already finished.
 - 🖥️ Attention indicators on tabs/dock chips for background output.
+- 🖥️ **Snooze notifications (#284)** — palette: *Snooze notifications 30 min / 1 h / until I turn them on*, *Resume
+  notifications*. While snoozed there are no *Done*, *Waiting on you*, *Needs approval* or *Still working* toasts, no native
+  notifications, and no phone webhook posts (#84: the browser tells the server the end time; if it can't, the webhook just
+  notifies as before). The agent queue, attention dots and LEDs keep working, and an approval is still held and listed. A struck
+  bell with the time left shows in the header — click it to resume. The end time is kept in `localStorage`, so a reload keeps
+  the snooze and it ends on time; the end shows one toast counting what you missed (*"While snoozed: 2 finished, 1 need
+  approval"*; the count is lost on a reload). Not part of exported settings. The webhook follows the browser's snooze (no
+  separate switch); a server restart forgets it until the page next loads.
 
 ## Appearance & layout
-- 🖥️ Themes — per-terminal or dashboard-wide, searchable picker (`⌘⇧P`). 24 built-in: 17 dark + 7 light (GitHub Light, Paper, Solarized Light, One Light, Catppuccin Latte, Rose Pine Dawn, Gruvbox Light).
+- 🖥️ Themes — per-terminal or dashboard-wide, searchable picker (`⌘⇧P`). 24 built-in: 17 dark + 7 light (GitHub Light, Paper, Solarized Light, One Light, Catppuccin Latte, Rose Pine Dawn, Gruvbox Light). **Matrix** keeps the neon `#00ff41` for the accent and cursor, but its text is a
+  softer green (`#3be278`, 12:1 on black) for long sessions, its dim/comment text clears 4.5:1, and red and yellow keep
+  their own hue (coral, lime-yellow) so errors, warnings and `git diff` still read; the other ANSI colours are green-family shades.
   Text on accent-filled surfaces (the primary dialog button, hovered menu rows) is picked per theme as near-black or white, whichever contrasts more with that theme's accent (≥4.7:1 across all 24), via the `--on-accent` variable.
   **Readable text on every theme (WCAG AA):** when a theme is applied, its `--text`, `--muted` and `--accent-text`
   (accent used as a text colour) are lifted in 5% steps toward the text colour / white / black until they reach 4.5:1
@@ -544,12 +608,99 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   slime, and a bird) walk a *floor strip* along the desktop bottom edge, each with its own wander/pause/groom
   AI. They are **not shown while you're working**: they appear only when the browser tab loses
   focus/visibility **or** the mouse sits idle ~45s, and vanish the moment you return or move the
-  mouse. Pure CSS box-shadow sprites tinted from the active theme's `--accent`/`--muted`, so they
+  mouse. The away/idle detection is shared with the walk-away privacy shield (`away` in `js/matrix.js`).
+  With the Matrix rain background on, *auto* pets stand aside while agents work or wait (the rain signals
+  them then); on idle they walk in front of the rain, which keeps falling. *Always on* always shows them. Pure CSS box-shadow sprites tinted from the active theme's `--accent`/`--muted`, so they
   recolor with the theme. Decorative only — `pointer-events:none`; they ride above window bodies
   but stay pinned to the bottom band so they never cover terminal text, and sit below the
-  toolbar/sidebar/overlays. Toggle the whole feature with **`⌘⌥P`** or palette → *Toggle pixel
+  toolbar/sidebar/overlays. Resizing or maximizing the window keeps them where they were: they stay on the floor
+  (anchored to the bottom edge) and keep their spread across the new width every frame, mid-walk too, so none floats,
+  piles up at the edge or slides back from off-screen. Toggle the whole feature with **`⌘⌥P`** or palette → *Toggle pixel
   pets* (paw icon); enabled by default, state saved to `localStorage` (`td.pets.v1`). Fully hidden
   under `prefers-reduced-motion`.
+- 🖥️ **Privacy shield** (`⌘⌥X`, palette → *Privacy*) — covers what people watching your screen could read
+  (screen-share, streaming, a café): every terminal pane, the file viewer and *Review agent changes*, the
+  live-overview tiles, the directory tree, the agent queue's request/tool text, snippet commands and SSH targets
+  in the palette (labels only; the hidden text isn't searchable either), and toast message text (our own shield
+  toasts stay readable; native notifications drop their body). Find-in-terminal is refused on a covered tab.
+  Looks (*Privacy & effects…*): **a plain panel** (default, an empty `--panel` cover), **a strong blur** (16px +
+  60% tint) or **Matrix rain** (panel + rain). Optionally it also blurs tab and window names, folders, the last
+  command and project names, and hides their hover tooltips (full paths, *Last command*) until names show again. **Top bar**: a *Privacy* split button next to *Theme* — click hides/shows all
+  terminals (lit while on); its caret menu has *Hide/Show all*, *this project*, *the focused tab*, *Cover the
+  focused tab now* and *Privacy & effects…*. On a tab the global or project shield covers, *Shield this tab* (palette,
+  menus, the tab's header button) **shows just that tab** while the rest stay covered, and again puts it back under;
+  each says its real state (*On — hidden by the privacy shield*). That exception is never saved and ends whenever a
+  shield turns on or off, so the next `⌘⌥X` or walk-away hides everything again. On narrow screens a shield indicator in the top bar turns it off.
+  **Hold `⌥`** (alone) to peek — any other key ends the peek so `⌥`+arrow word jumps don't flash the screen;
+  long-press on touch. Typing still reaches a covered shell (password prompts while sharing), and a
+  *Needs approval* flag and toast still fire (agent name only). **Per tab**: the shield icon in the window
+  header or the pane's right-click menu locks one tab; **per project**: palette → *Shield this project*
+  opens every terminal in it covered. Tab and project locks persist with the layout (`td.state.v5`, saved
+  layouts too); the global shield and its options persist in `td.matrix.v1` (exported with the settings), are
+  followed by other open browser tabs, and are painted by the `<head>` script before the app loads, so a
+  reload mid-stream never shows a frame of output. `?shield` in the URL opens covered (a "streaming"
+  bookmark). **From the shell**: `printf '\e]7777;shield\a'` covers the pane it's printed in — a sequence
+  can only turn the shield **on**, never off (a `cat`'d file must not uncover you), at most once a second,
+  and it's ignored for 1.5s after a reattach replays old output. **Walk-away** (*Privacy & effects…*:
+  never · 2 · 5 · 10 min idle): covers everything after that long without mouse or keys (losing focus alone
+  never does); mouse movement isn't enough to lift it, a click is. A visual cover, **not security**: the
+  text is still in the DOM, the clipboard, search and the replay buffer. The pane's xterm screen goes
+  transparent (not hidden, so its input stays focusable).
+- 🖥️ **Working effect** (focus veil; palette → *Privacy & effects…*, off by default) — what a **working**
+  agent's window shows, chosen in plain words under *While an agent is working, its window shows*:
+  **Nothing** · **Matrix rain behind the text** · **Blur it** · **Cover it with Matrix rain** · **Cover it with a
+  plain panel**. It starts after 3s of *working* (hook events or the output heuristic) and stops as soon as the
+  agent waits, at least 1.5s after it started (and won't restart for 2s, so a quick working/waiting flip can't
+  flicker it); an **approval** prompt stops it at once. **Rain behind the text** covers nothing: the terminal's
+  own background goes transparent (xterm `allowTransparency`, honoured by the WebGL renderer, only on that tab
+  while it runs; a theme change keeps it clear and stopping restores the real background) and a faint, slow
+  rain (~1.4:1 against the terminal background, backed off per theme so the text keeps at least AA or 90% of
+  its own contrast; 24 fps, no bright head glyph) drifts under readable text — you keep typing and
+  clicking in it, and it doesn't count toward anything you must dismiss. It is skipped on High Contrast and at
+  the step-down's still-frame level. The three **covers** show a pill with only the session · tab name and how
+  long it has been working (no command or file text); hover the pane to peek; any key (not a lone modifier) or a
+  click ends a cover for this run and still reaches the shell (Esc interrupts as usual); the pill's eye button —
+  or *Turn off the working effect for this tab* in the pane menu — opts that tab out (saved with the tab).
+  *Cover this tab now* (palette or pane menu) covers any tab — a long build in a plain shell — until a key or
+  click (blur when the chosen effect is rain behind the text). Blur: 4px + 20% dim; rain cover: 72% dim + rain;
+  panel: 88% dim. A shielded tab gets no working effect (it's covered already).
+- 🖥️ **Privacy & effects… dialog** (palette → *Privacy*, desktop right-click menu) — one dialog of plain-language
+  dropdowns instead of toggles to cycle through: what a working agent's window shows, what's *Behind the windows*
+  (plain or Matrix rain), what *The privacy shield looks like* (plain panel, strong blur, Matrix rain), what *The
+  privacy shield hides* (contents, or contents plus names, folders and commands) and *Turn the privacy shield on
+  when I walk away* (never, 2, 5 or 10 min idle). Save applies it to every window and toasts a one-line summary;
+  Cancel changes nothing. The palette's *Privacy* tab keeps only the quick toggles: *Privacy shield* (`⌘⌥X`),
+  *Shield this tab*, *Shield this project*, *Matrix rain background* (each subtitle starts with its On/Off state),
+  *Cover this tab now*, and last *Privacy & effects…* (its subtitle is the current summary).
+- 🖥️ **Matrix rain** (palette → *Matrix rain background*, desktop right-click menu; off by default) —
+  falling katakana/digit columns behind the windows, never behind terminal text. It follows the agents:
+  idle drifts (4 rows/s), any agent working speeds up and brightens (10 rows/s), waiting/approval calms it
+  down (3 rows/s) so the alerts stand out; it fades out when windows cover the desktop (a maximized window, or
+  windows leaving fewer than 3 of 48 sample points of it visible — overlapping windows are not counted twice)
+  and while the pets show. Motion is time-based: each column falls at its own speed (60–100%) by the time since
+  its last draw, so a skipped frame never stutters or slows it, and the trail fades at a matching rate. Colours come from the theme: trail `--accent`, leading
+  glyph `--text` (dark on light themes), and each canvas fades toward transparent so the theme's own
+  background shows through (true black on AMOLED). Its opacity is computed per theme so the trail has the
+  same faint contrast against `--bg` everywhere (~1.25:1; rain behind text 1.4:1, rain cover 2.2:1, shield rain 2.5:1 on `--panel`).
+  **High Contrast** gets no rain at all (covers and the shield fall back to a panel, rain behind text is skipped). Picking the **Matrix**
+  theme offers the rain once in a toast; it is never switched on by itself. The **Theme** menu has the
+  switches too: in the global view *Matrix rain behind the windows* and *Matrix rain behind the text while an
+  agent works*; in a window's own theme view one switch for that window (with *Use default*), plus a link to
+  *Privacy & effects…*. Built to cost nothing when off
+  (no canvas, no loop) and little when on: 2D canvas only (xterm already spends the WebGL context budget),
+  drawn at DPR 1 from a pre-rendered glyph atlas, **one shared `requestAnimationFrame` loop** with fps caps
+  (background ≤15, the same while the window is out of focus; covers 30, rain behind text 24), at most **4 canvas draws per frame**
+  (round-robin, most overdue first), each pane with its own random seed, at most **4
+  animated panes** on screen (extra ones hold a still frame; the slots follow what is visible, so after a project
+  switch or a closed window the panes you can see take them over), 0 draws for hidden/minimized panes and a hidden tab
+  (the loop then re-checks twice a second instead of every frame). If frames keep taking >3ms for ~2s it
+  steps down once — half fps, then still frames (rain behind text stops), then no rain — and never back up that session.
+  Resizing the browser window or a pane (maximize, dragging an edge) never restarts the rain: the frame and the columns
+  that still fit carry on, new columns start spread over the height, and columns a shorter window cuts off carry on
+  at a random height instead of all restarting from the top together.
+  `prefers-reduced-motion`: still frames only. Katakana is checked against the installed fonts at startup and
+  falls back to digits and symbols where it would render as boxes.
+- 🖥️ **Installable as a desktop app (PWA, #1)** — `public/manifest.webmanifest` (192/512px icons, `display: standalone`, relative `start_url`/`scope`) lets Chrome/Edge install termdeck (address-bar icon) and Safari add it to the Dock (*File → Add to Dock*), in its own window without tabs or address bar. No service worker: the app needs the live server anyway, so nothing is cached, so the window always shows what the running server serves. An update is *new package → restart the server → reload the window*: `termdeck update` does the first two (see its entry), a different port being a different address. The manifest link has `crossorigin="use-credentials"` because every request needs the `td_token` cookie, and browsers fetch manifests without credentials by default (otherwise `401`, not installable). The install is bound to the origin (`http://127.0.0.1:<port>`) and so is `localStorage`: pin a fixed port (an explicit `PORT` fails on a clash instead of picking another). The docs suggest **`PORT=17300`**: unassigned at IANA, no known product default, below every OS's ephemeral range (Linux starts at 32768). Not 3000: dev servers (Next.js, Express, Rails…) often take it, and an app installed on `:3000` would then open their page. The code default stays 3000, so plain runs don't move; an app already installed on `:3000` should keep `PORT=3000`. On a new origin, ⌘K → *Export settings…* / *Import settings…* and *Save layout as…* / *Restore layout…* bring the setup back. The installed app is only a window onto the running server: if the server is down it shows a browser error page, so use `termdeck autostart install --port 17300` (the same port) to start it at login. The hosted demo (`docs/app/`) carries the same manifest.
 - 🖥️ **Help / About** — the **? Help** button (and `?`) opens an overlay: a one-paragraph "what is
   this" intro at the top, then the full keyboard-shortcut reference. The empty desktop also shows a
   *What is this?* link that opens the same overlay, so a first-timer has an entry point. The intro
@@ -565,8 +716,13 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
 - 🖥️ **Browser-reserved combos avoided** — actions the browser/OS hard-owns (`⌘T` new-tab, `⌘W`
   close-tab, `⌘L` omnibox, `⌘⇧B`/`⌘⇧T`/`⌘⇧N` bookmarks/reopen/incognito, `⌘M` mac-minimize) are
   bound to `⌘⌥…` / `Ctrl+Alt+…` instead, matched by `e.code` so mac's Alt-mangled `e.key` (`⌥T`→`†`)
-  doesn't break them. Known gap: tab/project cycle (`⌘[` `⌘]` `⌘⇧[` `⌘⇧]`) still collides with mac
-  Chrome history/tab-nav — works on Windows/Linux.
+  doesn't break them. **AltGr is typing, not a shortcut**: on Windows/Linux European layouts AltGr arrives as
+  Ctrl+Alt (AltGr+7 is `{` on German, AltGr+X is `ź` on Polish), so the handler ignores keys with the `AltGraph`
+  modifier and those characters reach the terminal. The `Ctrl+Alt` shortcuts also work while a terminal has focus on
+  Windows/Linux (xterm used to take them as terminal input); other `Ctrl+Alt` keys still go to the shell. Known gaps: tab/project cycle (`⌘[` `⌘]` `⌘⇧[` `⌘⇧]`) still
+  collides with mac Chrome history/tab-nav — works on Windows/Linux; Firefox keeps `Ctrl+Shift+P`/`⌘⇧P` (private
+  window) for itself, so open the theme picker from the Theme button or the palette there; on Ubuntu/GNOME the
+  desktop takes `Ctrl+Alt+T` (system terminal) — use *+ New terminal* or the palette.
 
 ## Persistence & safety
 - 🖥️ Layout (windows, projects, themes) saved to `localStorage` (`td.state.v5`, `td.theme.v2`),
@@ -583,6 +739,8 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   per-tab (lock, caches, usage, the tour). *Import settings…* takes only those known keys with string values, asks first
   (it warns that snippets and AI presets run commands), writes them over the same keys here, and reloads; terminals
   reconnect. A file from a newer format, invalid JSON or a non-settings file is refused with a toast.
+  Saved snippets, SSH hosts and AI CLI presets load only entries with the text fields they need (a name and a
+  command or target); others, from a hand-edited file or an older build, are skipped instead of breaking the palette.
 - 🖥️ **Single-instance guard** — a timestamped `localStorage` lock + heartbeat elects one active
   tab; extra dashboard tabs go passive behind an overlay so they can't clobber shared state. The active
   tab reloads only when another tab takes over; if it stalls past the lock's 5 s lifetime (busy main thread,
@@ -645,7 +803,7 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
 - 📄 **Remote access docs** — `docs/remote-access.md`: Tailscale Serve (recommended), SSH tunnel, LAN bind.
 - 🔌 **Session log on exit** — with `TD_LOG_DIR` set, a shell's buffered output (ANSI stripped, last `TD_BUFFER` bytes)
   is written to `<dir>/<timestamp>_<id>.log` (dir `0700`, file `0600`) when the shell actually ends (kill / process exit).
-  Browser disconnects don't write a log — reattach/replay is unchanged. Off by default (output can contain secrets).
+  Browser disconnects don't write a log — reattach/replay is unchanged. Off by default (output can contain secrets). The same redaction as *Save output* runs on the log, the approvals audit log's `detail` and the webhook's `detail` (#226); `TD_REDACT=0` turns it off on the server. Pattern-based best effort, pinned by `scripts/redact.test.js`.
 - 🖥️ **Clickable file paths** — `path/file.ext`, `./x`, `~/x`, `/abs/x`, optional `:line[:col]` in terminal output become links
   when `/api/stat` confirms a regular file (relative paths resolve against the tab's live cwd). Click opens the file viewer
   scrolled to and highlighting that line (markdown opens as raw source for a `:line` link). Live mode only; no-op in demo.
@@ -653,11 +811,11 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
 - 🔌 **`termdeck autostart install|uninstall`** — sets up start-at-login without hand-editing (`scripts/autostart.js`):
   a launchd agent `~/Library/LaunchAgents/com.termdeck.plist` (macOS; `launchctl bootstrap`/`bootout`) or a systemd
   **user** unit `~/.config/systemd/user/termdeck.service` (Linux; `daemon-reload` + `enable --now`). No root.
-  Fills the real `node`/`server.js` paths, `NO_OPEN=1`, a pinned `PORT` (`--port`, default 3000) and a `PATH`
+  Fills the real `node`/`server.js` paths, `NO_OPEN=1`, a pinned `PORT` (`--port`, default 3000; the docs suggest `--port 17300` for the desktop app) and a `PATH`
   with node's, tmux's and git's dirs (service managers start with a minimal one); `HOST` only if `--host` is given,
   with a warning for non-loopback. Previews the whole file and the exact commands first; `--dry-run` writes/runs
-  nothing; confirm unless `--yes` (non-terminal without it refuses). Idempotent (an identical file is left alone),
-  reloads cleanly when it changed, `uninstall` stops the service and removes only a file it recognises (a foreign file
+  nothing; confirm unless `--yes` (non-terminal without it refuses). Idempotent (an identical file is left alone), but
+  the service is **always reloaded** (so re-running it also restarts the server; `termdeck update` is the way to update); `uninstall` stops the service and removes only a file it recognises (a foreign file
   is never overwritten). Paths are XML/systemd-escaped; the macOS log is pre-created `0600` because a non-loopback
   start logs the token URL; the access token is never written to the unit. Refuses to install from the temporary
   `npx` cache (it can be deleted). Verified on macOS (install → serving → idempotent → uninstall → clean); the
@@ -682,10 +840,13 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   wrongly-shaped `hooks`, is reported and left untouched while the other CLIs still proceed (exit 1). The
   event table lives in one place and `scripts/check-hooks-docs.js` (run in CI) fails if
   [docs/agent-hooks.md](docs/agent-hooks.md) drifts from it. Only runs on this explicit command, never on start.
+- 🔌 **`termdeck update`** — one command for *new package → restart* (`scripts/update.js`, own flags, runs before the server boots). Asks the npm registry for the latest release (same check as the app's *Check for updates*; `TD_UPDATE_URL` overrides the URL for tests); up to date → says so, exit 0. `--check` stops there and only reports. Otherwise it updates only a **global npm install** (`npm root -g` must contain this copy): a clone, pnpm/yarn or a project install is told to update itself, the temporary `npx` cache is told it already fetches the latest. Shows the exact commands (`npm install -g @kiril6/termdeck@<version>`, pinned to what it reported) and asks (`--yes` skips, `--dry-run` shows only; a non-terminal without `--yes` refuses). Then, **if a start-at-login service exists** (`autostart.js` `buildPlan().restart`: `launchctl kickstart -k gui/<uid>/com.termdeck`, or `systemctl --user restart termdeck`), restarts it last: the service file points at the package folder and keeps its port and host, so nothing is retyped. The success line is printed *before* the restart, since run from a TermDeck terminal the restart can end that process. Terminals not under tmux end with the restart. Without a service it tells you to restart termdeck yourself. Windows: installs, never restarts.
 - 🔌 **`termdeck doctor`** — offline self-check (`scripts/doctor.js`), run in a child process so the server never starts:
   Node version, node-pty (and the macOS `spawn-helper` execute bit — missing after `npx`/global installs; doctor restores it, as the server does on start, so the shell check below is honest), a shell actually spawns, tmux present and ≥ 3.2 (needed
-  for the agent-hook env), git, whether the port is free (a pinned `PORT` that's busy is a failure; otherwise a note
-  that the server will move), network exposure / token state, wildcard `TD_ALLOWED_HOSTS`, `TD_*` numbers that would
+  for the agent-hook env), git, whether the port is free — the pinned `PORT`, else the port of the last run
+  (`~/.termdeck/last-port`), else 3000, and it says which (`17300 (last run)`); a pinned `PORT` that's busy is a
+  failure, otherwise a warning (the last run's port busy = termdeck may already run there; 3000 busy = the server
+  will move) — network exposure / token state, wildcard `TD_ALLOWED_HOSTS`, `TD_*` numbers that would
   silently fall back to defaults, and `TD_LOG_DIR` writability. Each problem prints its fix. Exit 0 = all good,
   1 = any warning/failure. No network calls; plain text when piped or `NO_COLOR` is set.
 - 🖥️ **Layout presets + Alt+N (#51)** — the toolbar Tile **▾** menu or palette commands *Layout 1×1 / 2×1 / 1×2 / 2×2 / 3×2* (columns × rows) arrange the active
@@ -717,7 +878,7 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   `TD_LOG_DIR` and the browser's site data; the package itself stays `npm uninstall -g`. Pinned by `scripts/uninstall.test.js`
   (throwaway HOME and its own tmux socket).
 - 🔌 **`npx` runnable** — `npx @kiril6/termdeck` fetches the released npm package and launches the server with no clone (`bin: termdeck`, shebang on `server.js`). The docs only show the npm package (tagged, CI-gated releases), not `npx github:…`, which runs whatever is on `master`. The package ships only the runtime files (`files` lists each runtime script; `scripts/check-pack.js` in CI fails if a shipped file needs one that isn't listed, or if a test / dev tool is shipped). Runs correctly as an installed dependency (npx / `npm i -g`), not just from a repo clone: `/vendor/*` assets resolve xterm via `require.resolve` (deps get hoisted to a parent `node_modules`, so `__dirname/node_modules` would 404), and node-pty's `spawn-helper` is `chmod +x`'d at startup on macOS (installs that skip `install.js` leave it non-executable → `posix_spawnp failed`). tmux/durable-session support only if `tmux` is on the host (offered for install on first interactive run — see Durable sessions).
-- 🔌 **Auto port fallback** — default port is 3000. If it's busy and `PORT` wasn't set, the server walks up to the next free port automatically (3001, 3002, … up to 20 tries) and prints which one it landed on — so `npx` still works when 3000 is taken. If you **explicitly** set `PORT`, it's respected: it waits up to 5 s for the port (a server being replaced, e.g. by an autostart restart, may still hold it), then fails loudly with a `PORT=<n+1>` hint rather than silently moving. If `~/.termdeck/server.json` names another termdeck server that is still running, the banner warns (pid + URL): both work and share `~/.termdeck`, but it is usually one left running. `HOST=0.0.0.0` (or a LAN IP) still binds where you ask.
+- 🔌 **Auto port fallback** — default port is 3000. If it's busy and `PORT` wasn't set, the server walks up to the next free port automatically (3001, 3002, … up to 20 tries) and prints which one it landed on — so `npx` still works when 3000 is taken. A port is a **browser origin** (`localStorage` — windows, projects, themes — and the sign-in cookie stay with it, #245), so each run records its port in `~/.termdeck/last-port`, and an unpinned run that lands elsewhere — 3000 busy, or back on 3000 after a fallback — gets a yellow ⚠ banner note saying the saved workspace is on the old port and how to get it back (restart on that port, `PORT=<n>`, or ⌘K → *Export settings…* / *Import settings…*; `PORT=<n>` / `--port` pins one). `/api/version` then also returns `movedFrom` (the old port), and the app shows a sticky *Saved workspace is on :<port>* toast (click → ⌘K filtered to *Export / Import settings*), once per old port: it is remembered (`td.portNotice.v1`) only when closed or clicked, so a reload under the first-run tour doesn't lose it. A machine where 3000 is always busy lands on the same fallback port each time, so it isn't nagged. Not on the very first run (no `~/.termdeck/token` yet: nothing is saved anywhere), which keeps the short *(port 3000 was busy)* line; after an upgrade with no `last-port` yet, the last port counts as the default one. If you **explicitly** set `PORT`, it's respected: it waits up to 5 s for the port (a server being replaced, e.g. by an autostart restart, may still hold it), then fails loudly with a `PORT=<n+1>` hint rather than silently moving. If `~/.termdeck/server.json` names another termdeck server that is still running, the banner warns (pid + URL): both work and share `~/.termdeck`, but it is usually one left running. `HOST=0.0.0.0` (or a LAN IP) still binds where you ask.
 
 ## Modes
 - 🖥️ **Live** over `http(s)://` (real shells). **Demo** over `file://`, with `?demo` in the URL, or on a `github.io` host (no backend, UI preview with a fake shell).

@@ -1,6 +1,6 @@
 {
   "name": "@kiril6/termdeck",
-  "version": "1.27.0",
+  "version": "1.35.0",
   "description": "Local-first browser cockpit for running AI coding agents (Claude Code, Codex, Gemini) and shells in floating windows backed by real PTYs. Git worktree per agent, approval alerts, sessions that survive restarts.",
   "main": "server.js",
   "bin": {
@@ -48,10 +48,13 @@
     "scripts/layouts-api.js",
     "scripts/notify.js",
     "scripts/open-browser.js",
+    "scripts/redact.js",
+    "scripts/sessions-api.js",
     "scripts/sessions.js",
     "scripts/td-hook.js",
     "scripts/uninstall.js",
     "scripts/update-check.js",
+    "scripts/update.js",
     "FEATURES.md",
     "CHANGELOG.md"
   ],
@@ -84,7 +87,7 @@
     "ws": "^8.18.0"
   },
   "optionalDependencies": {
-    "@homebridge/node-pty-prebuilt-multiarch": "0.14.1",
+    "@homebridge/node-pty-prebuilt-multiarch": "0.15.0",
     "node-pty": "^1.1.0"
   },
   "devDependencies": {

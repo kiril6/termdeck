@@ -18,6 +18,11 @@ const { prepare, clearToasts } = require('./scene');
   await sleep(400);
   await palette(page, 'Review agent changes');
   await sleep(1500);
+  await page.getByRole('button', { name: 'Run check…' }).click();   // show a finished check next to the diff
+  await page.getByPlaceholder('npm test').fill('npm test');
+  await page.getByRole('button', { name: 'Run', exact: true }).click();
+  await page.locator('pre[role=status]').filter({ hasText: /Check (passed|failed)/ }).waitFor({ timeout: 60000 });
+  await sleep(500);
   await page.screenshot({ path: path.join(OUT, 'review-changes.png') });
   await page.keyboard.press('Escape');
   await sleep(400);

@@ -87,6 +87,7 @@ function buildPlan(action, opts) {
       content: action === 'install' ? renderPlist({ ...opts, log: path.join(home, 'Library', 'Logs', 'termdeck.log') }) : null,
       before: [['launchctl', ['bootout', `${domain}/${LABEL}`], true]],                    // [cmd, args, ignoreFailure]
       after:  [['launchctl', ['bootstrap', domain, file], false]],
+      restart: [['launchctl', ['kickstart', '-k', `${domain}/${LABEL}`], false]],   // `termdeck update`: new code, same service file
       hint: `Logs: ~/Library/Logs/termdeck.log`,
     };
   }
@@ -98,6 +99,7 @@ function buildPlan(action, opts) {
       before: [['systemctl', ['--user', 'disable', '--now', UNIT], true]],
       after:  [['systemctl', ['--user', 'daemon-reload'], false], ['systemctl', ['--user', 'enable', '--now', UNIT], false]],
       afterUninstall: [['systemctl', ['--user', 'daemon-reload'], true]],
+      restart: [['systemctl', ['--user', 'restart', UNIT], false]],
       hint: `Logs: journalctl --user -u ${UNIT} -f   (start at boot, not just login: loginctl enable-linger "$USER")`,
     };
   }
@@ -192,4 +194,4 @@ async function main(argv) {
 }
 
 if (require.main === module) main(process.argv.slice(2)).catch((e) => { console.error('  ✗', e.message); process.exit(1); });
-module.exports = { renderPlist, renderUnit };
+module.exports = { renderPlist, renderUnit, buildPlan };

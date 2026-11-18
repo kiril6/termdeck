@@ -2,6 +2,52 @@
 
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
+## 1.35.0
+- **Secrets are redacted on the way out** — known secret shapes (API keys, GitHub / AWS / Slack / npm tokens, JWTs, private keys, `Authorization:` headers, `user:pass@` URLs and `NAME_TOKEN=value` lines) become `[REDACTED]` in *Save output*, session logs (`TD_LOG_DIR`), the approval audit log and the phone webhook detail. *Save output* says when it redacted something, and a separate *Save output (unredacted)…* keeps the raw text. `TD_REDACT=0` turns it off on the server. Pattern based: a best effort, not a guarantee.
+- **Several approval requests per terminal** — parallel sub-agents ask for permission at the same time. termdeck now holds up to 5 requests per terminal instead of letting the newest replace the older ones; the queue row shows *1 of N waiting* with ‹ › to step through them, and Approve / Deny / an answer applies to the one shown. A sub-agent's own events release only its own request. A 6th request is not held: the CLI shows its own prompt.
+- **Kill orphaned tmux sessions** — ⌘K → *Kill orphaned tmux sessions…* lists termdeck's tmux sessions that no window owns (and nothing is attached to) and ends the ones you confirm. Closing a window whose connection was down now also ends its tmux session instead of leaving the shell running unseen.
+- **Fixed: ⟳ Restart and waking the laptop** no longer mark a live shell dead ("opened on another device"): each tab keeps one socket, and a restart only touches tabs that actually ended.
+- **Fixed: Send to agent** now cleans the whole message, including the file path header, so a file named with a bracketed-paste escape can no longer run commands in the target shell.
+- **Fixed: opening a named pipe (FIFO) from the file tree** no longer freezes the server; only regular files are read.
+- **Gemini CLI hooks verified** — prompt, tool and stop events were captured from a real Gemini CLI 0.63.0 turn and are replayed in CI; the resume flags of Codex, Gemini, Copilot and Antigravity were checked too. Gemini's interactive notification event is still unverified.
+
+## 1.34.0
+- **Snooze notifications** — ⌘K → *Snooze notifications* for 30 min, 1 h or until you turn them back on. While snoozed, the *Done*, *Waiting on you*, *Needs approval* and *Still working* toasts, native notifications and the phone webhook (`TD_NOTIFY_URL`) pause. The agent queue, dots and LEDs keep working, and approvals are still held. A struck bell in the header shows the time left; click it to resume. Ending the snooze shows what you missed. It survives a reload.
+
+## 1.33.0
+- **Answer agent questions and approve plans from the queue** — when Claude Code asks you a question (`AskUserQuestion`) or proposes a plan (`ExitPlanMode`), the agent queue shows a card instead of a plain Approve/Deny. A question card steps through the questions one at a time, with options as buttons (checkboxes when several may be picked), an *Other…* field for a typed answer, keys **1–9** to pick and **Enter** to continue, and *Skip*. A plan row has *Review plan* (opens it in the Markdown viewer), *Approve* and *Keep planning* (the agent stays in plan mode). Needs the termdeck hooks installed (`termdeck hooks install`); Codex, Copilot and Gemini are unchanged. A plain Approve or an allow-rule never answers a question or a plan, and the audit log records the chosen option, never typed text.
+- **Clickable links** — OSC 8 hyperlinks printed by tools (`ls --hyperlink`, `gcc`, `gh` and others) open in a new tab on click. Only `http`, `https` and `mailto` links are followed.
+
+## 1.32.0
+- **Privacy shield** — for screen sharing and streaming. `⌘⌥X` (or the top bar's *Privacy* button) covers every terminal, file view and the file tree with a plain panel, a strong blur or Matrix rain, and can blur window names, paths and commands too, tooltips included. Shield one tab or a whole project instead, or let it switch on after 2, 5 or 10 idle minutes. A script can cover its own pane with `printf '\e]7777;shield\a'`. It's a visual cover, not security.
+- **Working effect** (off by default) — Matrix rain behind the text, a blur or a cover over a terminal while its agent works. *Cover this tab now* hides any tab, a long build in a plain shell for example, until you press a key.
+- **Matrix rain background** (off by default) — falling characters behind the windows that speed up while agents work and calm down when one waits for you. Pixel pets come out on it when you're idle. Everything in *Privacy & effects…* costs nothing while it's off.
+- **`termdeck update`** — checks npm for the latest release, installs it and restarts the start-at-login service in place, keeping its port and host. `--check` only reports, `--dry-run` shows the commands, `--yes` skips the question. It works for global npm installs; other installs get the command to run. The README's *Updating* section now also covers the installed app.
+- **Reorder and rename project tabs** — hover a project tab for a **‹** arrow that moves it left, or right-click it for *Rename*, *Move left*, *Move right* and *Delete project*. The order is saved with the layout.
+- **The review view keeps the last Run check result** — reopening *Review agent changes…* shows the last ✓ or ✗ for that worktree. Once the agent has changed more, the result turns grey and says the changes differ now. Nothing runs again on its own.
+- **Mini-games remember your best score** — Dino and Snake each keep a best score in this browser; the corner reads `score N · best M`, and beating it ends the round with *New best!*
+- **Logo easter eggs** — hover the TermDeck logo for a soft glow, click it for a neon flash, double-click it and the two squares orbit each other.
+- **Fixed: AltGr and Ctrl+Alt shortcuts on Windows and Linux** — AltGr characters such as `{` or `ź` no longer trigger termdeck shortcuts, and the `Ctrl+Alt` shortcuts (*New terminal*, *Play game*, …) now work while a terminal has focus.
+- **Fixed: stray characters after a reload** — text like `1;2c0;276;0c` no longer appears at the shell prompt after reloading the page.
+- **Fixed: pets on resize** — the pixel pets stay on the floor when the window is resized or maximized, instead of floating up or piling at the edge.
+- **Fixed: the first-run tour** no longer comes back if you reload or close the tab halfway through it.
+- **Fixed: a broken saved snippet, SSH host or AI preset** (from a hand-edited settings file, say) no longer breaks the ⌘K palette; it's skipped.
+- **Fixed: the Run check button** now looks like the app's other buttons instead of a white browser button.
+- **Security:** body-parser 2.4.0 for [GHSA-27r3-jxmh-p828](https://github.com/advisories/GHSA-27r3-jxmh-p828); Express 5.3.0.
+
+## 1.31.0
+- **Run your check from the review view** — *Review agent changes…* now has a *Run check…* button. It runs the same command as *Finish agent task*'s *Check before landing* (for example `npm test`, remembered per repo) in the agent's worktree and shows ✓ or ✗ plus the last lines of output next to the diff, so you see whether the work passes before you land it. Nothing is merged. While it runs the button becomes *Cancel*, which stops the command and everything it started. The command is only ever what you typed, never read from the repo, and it runs code from the branch.
+- **Risky files are flagged in the review** — a *Review closely* block above the file list names changed files that run code, carry secrets or pin what gets installed: lockfiles, `package.json` and other dependency manifests, CI config, git hooks, `.env*`, keys and `.npmrc`, Dockerfile and Makefile. It matches file paths only and blocks nothing; it points at where to look first.
+
+## 1.30.0
+- **A warning when termdeck starts on a different port** — when port 3000 is busy, termdeck moves to the next free port. That is a different browser address, so the windows, projects and themes you saved on the old one don't show, and it looked like they were lost. termdeck now remembers the port it ran on last time. When it starts somewhere else (3000 busy, or back on 3000 after a run on 3001), the console and the app say where your workspace is and how to get it back: restart termdeck on that port (`PORT=3001`), or use ⌘K → *Export settings…* / *Import settings…*. Click the notice to jump to those commands. There's no notice on a first run or with a pinned `PORT`.
+
+## 1.29.0
+- **Install termdeck as a desktop app** — Chrome and Edge show an install icon in the address bar; in Safari use *File → Add to Dock*. termdeck then opens in its own window, without tabs or address bar. Pin a fixed port (`PORT=3000`) so the install keeps one address; if it ever lands on a new one, ⌘K → *Export settings…* / *Import settings…* bring your setup back. There is no offline mode and nothing is cached, so updating is just a reload. Thanks @DYNOSuprovo!
+
+## 1.28.0
+- **Find files in the tree** — a *Find files…* box under the directory tree's header searches file and folder names across the whole project root, not just the folders you have expanded. Press `/` to jump to it, `Esc` to clear, `Enter` to open the first match. A file opens in the viewer; a folder re-roots the tree there. `node_modules` and `.git` are skipped, dotfiles follow *Show hidden files*, and results stop at 200 with a note.
+
 ## 1.27.0
 - **Pick the repository for a new agent task** — *New agent task…* now has a *Repository* field, so it works on a fresh start too. Before, it used the folder of the current project and stopped with *not a git repository* when that folder (often your home folder) wasn't in a repo. The field suggests your other projects' repos and the last 5 you used, and any path can be typed (`~` works).
 - **Projects remember their repo** — each project keeps the repo its last agent task was cut from, saved with the layout, so the next task defaults to it. A task's own project points at the main repo, not its worktree.

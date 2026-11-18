@@ -8,13 +8,13 @@
 function scheduleSave(){updateGlueUI();clearTimeout(saveTimer);saveTimer=setTimeout(saveState,300);}
 function serializeState(){
     return {activeProject,
-      projects:projectOrder.map((pid)=>({id:pid,name:projects.get(pid).name,root:projects.get(pid).root||null,repo:projects.get(pid).repo||null,base:projects.get(pid).base||null,baseBranch:projects.get(pid).baseBranch||null,launchedAt:projects.get(pid).launchedAt||null,lastCwd:projects.get(pid).lastCwd||null})),
+      projects:projectOrder.map((pid)=>({id:pid,name:projects.get(pid).name,root:projects.get(pid).root||null,repo:projects.get(pid).repo||null,base:projects.get(pid).base||null,baseBranch:projects.get(pid).baseBranch||null,launchedAt:projects.get(pid).launchedAt||null,lastCwd:projects.get(pid).lastCwd||null,shield:!!projects.get(pid).shield})),
       sessions:order.map((id)=>{const s=sessions.get(id);if(!s)return null;const st=s.win.style;
-        return{id:s.id,project:s.project,name:s.name,cwd:s.cwd,themeId:s.themeId||null,isLog:s.isLog||false,
+        return{id:s.id,project:s.project,name:s.name,cwd:s.cwd,themeId:s.themeId||null,fx:typeof s.fx==="boolean"?s.fx:null,isLog:s.isLog||false,
                left:st.left,top:st.top,width:st.width,height:st.height,
                minimized:s.minimized,maximized:s.maximized,prevRect:s.prevRect,glue:s.glue||null,
                // agent tag + resume command persist (resume only fires on a fresh shell, see agentRun); the launch cmd deliberately does NOT, so it can't re-fire
-               tabs:s.tabs.map((t)=>({id:t.id,name:t.name,cwd:t.cwd||"",agent:!!t.agent,shell:t.shell||"",resume:t.resume||"",rtpl:t.rtpl||""}))};}).filter(Boolean)};
+               tabs:s.tabs.map((t)=>({id:t.id,name:t.name,cwd:t.cwd||"",agent:!!t.agent,shell:t.shell||"",resume:t.resume||"",rtpl:t.rtpl||"",shield:!!t.shield,noVeil:!!t.noVeil}))};}).filter(Boolean)};
 }
 let saveFailed=false;
 function saveState(){
@@ -32,7 +32,7 @@ function restoreState(){
   return true;
 }
 function applyState(data){
-  if(data.projects?.length) data.projects.forEach((p)=>{addProject(p.name,p.id,true); const pr=projects.get(p.id); if(pr){if(p.root)pr.root=p.root; if(p.repo)pr.repo=p.repo; if(p.base)pr.base=p.base; if(p.baseBranch)pr.baseBranch=p.baseBranch; if(p.launchedAt)pr.launchedAt=p.launchedAt; if(p.lastCwd)pr.lastCwd=p.lastCwd;}});
+  if(data.projects?.length) data.projects.forEach((p)=>{addProject(p.name,p.id,true); const pr=projects.get(p.id); if(pr){if(p.root)pr.root=p.root; if(p.repo)pr.repo=p.repo; if(p.base)pr.base=p.base; if(p.baseBranch)pr.baseBranch=p.baseBranch; if(p.launchedAt)pr.launchedAt=p.launchedAt; if(p.shield)pr.shield=true; if(p.lastCwd)pr.lastCwd=p.lastCwd;}});
   else addProject("default",null,true);
   activeProject=projects.has(data.activeProject)?data.activeProject:projectOrder[0];
   projects.forEach((p)=>p.tab.classList.toggle("active",p.id===activeProject));
@@ -42,10 +42,10 @@ function applyState(data){
 }
 
 /* ── Settings export / import: one JSON file with the preferences kept in this browser — theme, terminal font,
-   scrollback, snippets, SSH hosts, AI CLI presets, pets, and the tree / overview toggles. Not the window layout (that is
+   scrollback, snippets, SSH hosts, AI CLI presets, pets, Matrix rain / privacy shield, and the tree / overview toggles. Not the window layout (that is
    Save layout as…) and nothing per-tab (lock, caches, usage, the tour). Import merges key by key, then reloads; the
    terminals reconnect. ── */
-const settingsKeys=()=>[THEME_STORE,FONT_STORE,SCROLLBACK_STORE,SNIP_STORE,SSH_STORE,AICLI_STORE,PETS_STORE,TREE_HIDDEN_STORE,TREE_FOLLOW_STORE,OV_FILTER_STORE];
+const settingsKeys=()=>[THEME_STORE,FONT_STORE,SCROLLBACK_STORE,SNIP_STORE,SSH_STORE,AICLI_STORE,PETS_STORE,MX_STORE,TREE_HIDDEN_STORE,TREE_FOLLOW_STORE,OV_FILTER_STORE];
 function exportSettings(){
   const settings={};
   for(const k of settingsKeys()){let v=null; try{v=localStorage.getItem(k);}catch{} if(v!==null) settings[k]=v;}

@@ -5,7 +5,13 @@
 /* ════════════════════════════════════════════════
    GLOBAL KEYBOARD HANDLER
    ════════════════════════════════════════════════ */
+// Every ⌘⌥ / Ctrl+Alt shortcut below, by e.code. A focused terminal hands these to the page (sessions.js): on Windows
+// and Linux xterm would otherwise take Ctrl+Alt+key as terminal input and stop the event.
+const APP_ALT_KEYS=/^(Key[TLBGPSORDWMAX]|Digit[1-9])$/;
 document.addEventListener("keydown",(e)=>{
+  // AltGr (Windows/Linux European layouts) arrives as Ctrl+Alt: AltGr+7 is "{" on German, AltGr+X is "ź" on Polish.
+  // It is typing, never one of our ⌘⌥/Ctrl+Alt combos.
+  if(e.getModifierState?.("AltGraph")) return;
   const mod=e.metaKey||e.ctrlKey;
   // don't steal from xterm — except our ⌘⌥/Ctrl+Alt app combos, which must work while a terminal is focused
   if(e.target.closest(".xterm-helper-textarea, .xterm textarea")&&!(mod&&e.altKey))return;
@@ -29,6 +35,7 @@ document.addEventListener("keydown",(e)=>{
   if(mod&&!e.altKey&&e.key==="b"){e.preventDefault(); toggleSidebar(); return;}
   if(mod&&e.altKey&&e.shiftKey&&e.code==="KeyT"){e.preventDefault(); tileAll(); return;}                            // tile all (⌘⇧T = browser reopen-tab)
   if(mod&&e.altKey&&e.code==="KeyG"){e.preventDefault(); gameOv.classList.contains("open")?closeGame():openGame(); return;}  // play game (⌘G = browser find-next)
+  if(mod&&e.altKey&&!e.shiftKey&&e.code==="KeyX"){e.preventDefault(); toggleShield(); return;}                     // privacy shield (⌘X = cut)
   if(mod&&e.altKey&&e.code==="KeyP"){e.preventDefault(); togglePets(); return;}                                       // toggle pixel pets (⌘⇧P = theme picker)
   if(mod&&e.altKey&&e.code==="KeyS"){e.preventDefault(); addSnippet(); return;}                                     // save snippet (⌘S = browser save-page)
   if(mod&&e.altKey&&e.code==="KeyO"){e.preventDefault(); openFilePrompt(); return;}                                 // open file (⌘O = browser open-file)
@@ -78,7 +85,7 @@ document.addEventListener("keydown",(e)=>{
    ════════════════════════════════════════════════ */
 function updateConn(){
   syncTileBtn(); syncCastBtn();
-  if(!LIVE){connEl.className="status demo";connText.textContent="demo mode \u2014 run server for live shells";return;}
+  if(!LIVE){connEl.className="status demo";connText.textContent="demo mode \u2014 run server for live shells";connEl.title=connText.textContent;return;}
   const arr=[...sessions.values()];
   const live=arr.filter((s)=>s.status==="live").length;
   const recon=arr.filter((s)=>s.status==="reconnecting").length;

@@ -10,7 +10,20 @@
  * Keeps the contract: git tag  ==  v<package.json version>  ==  version shown in the app modal.
  */
 const { execSync } = require('child_process');
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
+
+// The body of `## <version>` in CHANGELOG.md, up to the next `## ` heading; null when there is no such section.
+function changelogSection(md, version) {
+  const lines = md.split(/\r?\n/);
+  const i = lines.findIndex((l) => l.trim() === `## ${version}`);
+  if (i < 0) return null;
+  const j = lines.findIndex((l, k) => k > i && l.startsWith('## '));
+  return lines.slice(i + 1, j < 0 ? undefined : j).join('\n').trim() || null;
+}
+module.exports = { changelogSection };
+if (require.main !== module) return;   // required by release.test.js: don't release
 
 const run = (cmd) => execSync(cmd, { stdio: 'inherit' });
 const out = (cmd) => execSync(cmd, { encoding: 'utf8' }).trim();
@@ -46,5 +59,15 @@ if (first) {
 }
 
 run('git push --follow-tags');
-run(`gh release create v${version} --generate-notes --title "v${version}"`);
+// Release notes = this version's CHANGELOG section (the landing page's "What's new" reads them), not raw PR titles.
+const notes = changelogSection(fs.readFileSync(path.join(__dirname, '..', 'CHANGELOG.md'), 'utf8'), version);
+if (notes) {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'td-release-')), 'notes.md');
+  fs.writeFileSync(file, notes + '\n');
+  run(`gh release create v${version} --notes-file ${JSON.stringify(file)} --title "v${version}"`);
+  fs.rmSync(path.dirname(file), { recursive: true, force: true });
+} else {
+  console.warn(`! CHANGELOG.md has no "## ${version}" section — using GitHub's generated notes (PR titles).`);
+  run(`gh release create v${version} --generate-notes --title "v${version}"`);
+}
 console.log(`\n✓ Released v${version} → https://github.com/kiril6/termdeck/releases/tag/v${version}`);

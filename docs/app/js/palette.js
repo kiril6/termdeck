@@ -40,18 +40,18 @@ function renderOverview(){
     const h=el("div","ov-proj"); h.textContent=projects.get(pid)?.name||pid||"project";
     const grid=el("div","ov-grid");
     items.forEach(({s,tab,st})=>{
-      const tile=el("div","ov-tile "+st); tile.tabIndex=0;
-      const hd=el("div","ov-tile-h"), dot=el("span","ov-dot"), nm=el("span","ov-name"), sl=el("span","ov-state");
+      // The header is the button, named by its own text: a whole-tile button with an aria-label fails WCAG 2.5.3
+      // (label in name), since the output preview shows text the label can't carry. A click anywhere still jumps.
+      const tile=el("div","ov-tile "+st);
+      const hd=el("button","ov-tile-h"), dot=el("span","ov-dot"), nm=el("span","ov-name"), sl=el("span","ov-state");
       nm.textContent=(s.name||"session")+" \u00b7 "+(tab.name||"tab");
       sl.textContent=st==="approval"?"needs approval":st==="run"?"running":st;
       const go=el("span","ov-go"); go.textContent="Open \u21b5"; go.setAttribute("aria-hidden","true");
-      hd.append(dot,nm,go,sl);
-      const pre=el("pre","ov-out"); pre.textContent=tabTail(tab,9);   // textContent only \u2014 output is untrusted
+      hd.type="button"; hd.append(dot,nm,go,sl);
+      const pre=el("pre","ov-out"); if(tabShielded(s,tab)){pre.classList.add("mx-hid"); pre.textContent="Hidden by the privacy shield";} else pre.textContent=tabTail(tab,9);   // textContent only \u2014 output is untrusted; a shielded tab's tile stays empty
       tile.append(hd,pre);
-      tile.setAttribute("role","button"); tile.setAttribute("aria-label",nm.textContent+", "+sl.textContent+" \u2014 open");
       const jump=()=>{closeOverview(); revealWindow(s); switchTab(s,tab.id);};
       tile.addEventListener("click",jump);
-      tile.addEventListener("keydown",(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();jump();}});
       grid.append(tile);
     });
     ovBody.append(h,grid);
@@ -79,6 +79,7 @@ const PAL_CMDS=[
   {icon:ICON.log,label:"New log panel",sub:"Read-only output monitor",kbd:"\u2318\u2325L",run:()=>createSession({cwd:curCwd()},true)},
   {layout:1,icon:ICON.grid,label:"Tile windows",sub:"Auto-arrange into the best-fit grid",kbd:"\u2318\u2325\u21e7T",run:tileAll},
   ...LAYOUT_PRESETS.map(([c,r])=>({layout:1,icon:ICON.grid,label:"Layout "+c+"\u00d7"+r,sub:c+" column"+(c>1?"s":"")+" \u00d7 "+r+" row"+(r>1?"s":"")+" \u2014 extra windows are minimized",run:()=>tileGrid(c,r,"Layout "+c+"\u00d7"+r)})),
+  {icon:ICON.x,label:"Kill orphaned tmux sessions\u2026",sub:"List termdeck shells still running in tmux that no open window uses, and end them",run:()=>{closePalette();sweepOrphans();}},
   {icon:ICON.monitor,label:"Live overview",sub:"Read-only tiles of every session's latest output",run:()=>{closePalette();openOverview();}},
   {icon:ICON.sidebar,label:"Toggle directory tree",sub:"Show/hide sidebar",kbd:"\u2318B",run:toggleSidebar},
   {icon:ICON.move,label:"Move or resize window",sub:"With the keyboard \u2014 arrows move, Shift+arrows resize, Enter done, Esc cancel",run:()=>{const s=focusedId&&sessions.get(focusedId); closePalette(); if(s) keyboardMoveWindow(s); else toast(ICON.warn,"No window focused","Click a window or press \u2325+1\u20139 first",2800);}},
@@ -99,6 +100,10 @@ const PAL_CMDS=[
   {icon:ICON.check,label:"Finish agent task\u2026",sub:"Merge or open a PR for this worktree, then optionally remove it \u2014 never auto-commits, never forces",run:()=>{closePalette();finishAgentTask();}},
   {icon:ICON.eye,label:"Review agent changes\u2026",sub:"Read-only diff of this project's worktree against the commit it was cut from",kbd:"\u2318\u2325D",run:()=>{closePalette();openAgentDiff();}},
   {icon:ICON.terminal,label:"Add AI CLI preset\u2026",sub:"Save an agent command \u2014 launch it in one click; pings you when it needs input",run:()=>{closePalette();addAiCli();}},
+  {icon:ICON.bellOff,label:"Snooze notifications 30 min",sub:"No toasts, native notifications or webhook posts — the agent queue and dots keep working",run:()=>{closePalette();snoozeFor(30);}},
+  {icon:ICON.bellOff,label:"Snooze notifications 1 h",sub:"No toasts, native notifications or webhook posts — the agent queue and dots keep working",run:()=>{closePalette();snoozeFor(60);}},
+  {icon:ICON.bellOff,label:"Snooze notifications until I turn them on",sub:"Stays off until you resume — also after a reload",run:()=>{closePalette();snoozeFor(0);}},
+  {icon:ICON.bell,label:"Resume notifications",sub:"End the snooze and see what happened meanwhile",run:()=>{closePalette();snoozeResume();}},
   {icon:ICON.terminal,label:"Reset usage",sub:"Clear the token totals shown in the agent queue and project tabs",run:()=>{closePalette();resetUsage();}},
   {icon:ICON.terminal,label:"Reset agent order",sub:"Forget which agents you use most — back to the default order",run:()=>{closePalette();resetAiOrder();}},
  {icon:ICON.log,label:"Terminal font\u2026",sub:"Font family and size for every terminal \u2014 use a Nerd Font for prompt glyphs",run:()=>{closePalette();setFont();}},
@@ -113,7 +118,7 @@ const PAL_CAT_OF={"New terminal":"Terminals","New log panel":"Terminals","Add SS
   "Open file\u2026":"Terminals","Open directory\u2026":"Terminals","New project":"Terminals",
   "New agent task\u2026":"Agents","Finish agent task\u2026":"Agents","Review agent changes\u2026":"Agents","Add AI CLI preset\u2026":"Agents",
   "Reset usage":"Agents","Reset agent order":"Agents",
-  "Live overview":"Sessions","Search sessions":"Sessions",
+  "Live overview":"Sessions","Kill orphaned tmux sessions\u2026":"Sessions","Search sessions":"Sessions",
   "Toggle directory tree":"Layout","Move or resize window":"Layout","Save layout as\u2026":"Layout","Restore layout\u2026":"Layout",
   "Keyboard shortcuts":"Help","Take the tour":"Help",
   "Play game":"Fun","Toggle pixel pets":"Fun"};
@@ -149,7 +154,7 @@ function buildPalette(q){
     cmdGroups.push(["Recent",rec],["Start",PAL_START.map(byLabel).filter((c)=>c&&!rec.includes(c))]);
   }else{
     const xq=q.replace(/\u00d7/g,"x"), hit=(t)=>t.toLowerCase().replace(/\u00d7/g,"x").includes(xq);   // "2x2" finds "Layout 2×2"
-    const found=PAL_CMDS.filter((c)=>inCat(c.cat)&&(!q||hit(c.label)||hit(c.sub)));
+    const found=PAL_CMDS.filter((c)=>inCat(c.cat)&&(!q||hit(c.label)||hit(c.sub)||(c.keys&&hit(c.keys))));   // keys: extra words people type for it, not shown
     if(q){   // rank: a label word starting with the query, then label contains it, then description only; ties → recently run first, layout presets last, then list order
       const wordStart=new RegExp("(^|[^a-z0-9])"+xq.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")), recent=palRecent();
       const score=(c)=>{const l=c.label.toLowerCase().replace(/\u00d7/g,"x"); return [wordStart.test(l)?0:hit(c.label)?1:2, recent.includes(c.label)?recent.indexOf(c.label):99, c.layout?1:0];};
@@ -174,7 +179,7 @@ function buildPalette(q){
     });
   }
   // snippets
-  const snips=snippets.filter((sn)=>inCat("Terminals")&&(!q||sn.label.toLowerCase().includes(q)||sn.cmd.toLowerCase().includes(q)));
+  const snips=snippets.filter((sn)=>inCat("Terminals")&&(!q||sn.label.toLowerCase().includes(q)||(!mx.shield&&sn.cmd.toLowerCase().includes(q))));   // shielded: labels only
   if(snips.length){
     const g=el("div","pal-group");g.textContent="Snippets";palList.append(g);
     snips.forEach((sn)=>{
@@ -182,7 +187,7 @@ function buildPalette(q){
       const ic=el("div","pi-icon");ic.innerHTML=ICON.snippet;
       const body=el("div","pi-body");
       const lb=el("div","pi-label");lb.innerHTML=hlMatch(sn.label,q);
-      const sb=el("div","pi-sub");sb.textContent=sn.cmd;
+      const sb=el("div","pi-sub");sb.textContent=mx.shield?"Command hidden by the privacy shield":sn.cmd;
       body.append(lb,sb);
       const edit=el("button","pi-del pi-edit");edit.innerHTML=ICON_EDIT;edit.title="Edit snippet";
       edit.addEventListener("click",async(e)=>{e.stopPropagation();await editSnippet(sn);palMatches=buildPalette(palInput.value);palInput.focus();});
@@ -194,7 +199,7 @@ function buildPalette(q){
     });
   }
   // ssh hosts
-  const hosts=sshHosts.filter((h)=>inCat("Terminals")&&(!q||h.label.toLowerCase().includes(q)||h.target.toLowerCase().includes(q)));
+  const hosts=sshHosts.filter((h)=>inCat("Terminals")&&(!q||h.label.toLowerCase().includes(q)||(!mx.shield&&h.target.toLowerCase().includes(q))));
   if(hosts.length){
     const g=el("div","pal-group");g.textContent="SSH";palList.append(g);
     hosts.forEach((h)=>{
@@ -202,7 +207,7 @@ function buildPalette(q){
       const ic=el("div","pi-icon");ic.innerHTML=ICON.terminal;
       const body=el("div","pi-body");
       const lb=el("div","pi-label");lb.innerHTML=hlMatch(h.label,q);
-      const sb=el("div","pi-sub");sb.textContent="ssh "+h.target;
+      const sb=el("div","pi-sub");sb.textContent=mx.shield?"Host hidden by the privacy shield":"ssh "+h.target;
       body.append(lb,sb);
       const edit=el("button","pi-del pi-edit");edit.innerHTML=ICON_EDIT;edit.title="Edit host";
       edit.addEventListener("click",async(e)=>{e.stopPropagation();await editSshHost(h);palMatches=buildPalette(palInput.value);palInput.focus();});

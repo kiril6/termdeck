@@ -265,7 +265,7 @@ function refreshTree(){
   if(!sidebarOpen)return;
   sbUpBtn.disabled=!treeParent();
   const root=treeRootPath();
-  if(root!==treeLastRoot){treeOpen.clear();treeLastRoot=root;treeEl.innerHTML="";} // new root → forget prior expansions and show the loader
+  if(root!==treeLastRoot){treeOpen.clear();treeLastRoot=root;treeEl.innerHTML="";findClear();} // new root → forget prior expansions and show the loader
   if(followTerm&&LIVE) revealPrep();   // every render (open, project switch, ↻) re-applies the highlight
   renderCrumbs(root);
   if(LIVE) mountTree(treeEl,root);
@@ -461,4 +461,68 @@ sbMoreBtn.addEventListener("click",()=>{
     {icon:blank,label:"Back to project root",run:()=>{treeRoot=null;refreshTree();}},
     {icon:blank,label:"Pin as project root",run:()=>setProjectRoot(treeRoot)});
   showCtxMenu(Math.min(r.left,innerWidth-230),r.bottom+4,it);
+});
+
+// ── find by name (#167): a filter box over the whole root, not just the expanded rows ──
+// While a query is active a flat result list (relative path, name emphasised) replaces the tree; clearing restores it.
+const tfInput=document.getElementById("tf-input"), treeResEl=document.getElementById("tree-results");
+document.getElementById("tf-icon").innerHTML=ICON.search;
+const DEMO_FIND=[["src",1],["src/index.ts"],["src/server.ts"],["src/utils",1],["src/utils/helpers.ts"],["src/utils/logger.ts"],["public",1],["public/index.html"],["package.json"],[".env"],["README.md"]];
+let findSeq=0, findTimer=0, findCtl=null;
+function findClear(blur){
+  clearTimeout(findTimer); if(findCtl)findCtl.abort(); findSeq++;
+  tfInput.value=""; treeResEl.hidden=true; treeResEl.innerHTML=""; treeEl.hidden=false;
+  if(blur)tfInput.blur();
+}
+function findRow(r,base){
+  const i=r.path.lastIndexOf("/"), name=r.path.slice(i+1), parent=i<0?"":r.path.slice(0,i);
+  const row=el("div","tn"+(r.dir?" dir-node":"")); row.style.paddingLeft="8px"; row.title=r.path;
+  const ic=el("span","tn-icon"); ic.textContent=r.dir?"📁":fIcon(name);
+  const nm=el("span","tn-name"); nm.textContent=name; row.append(ic,nm);
+  if(parent){const pe=el("span","tn-sub"); pe.textContent=parent; row.append(pe);}
+  const full=base&&base!=="~"?joinPath(base,r.path):r.path;
+  row.addEventListener("click",()=>{
+    if(r.dir&&LIVE){findClear(); treeRoot=full; refreshTree();}   // a folder re-roots the tree there, like a breadcrumb click
+    else if(!r.dir) LIVE?openFileViewer(full,name):(/\.md$/i.test(name)?openFileViewer("~/termdeck/"+name,name,DEMO_MD):toast(ICON.file,name,"Click to open in your editor",2000));
+  });
+  return row;
+}
+function findShow(results,truncated,base){
+  treeEl.hidden=true; treeResEl.hidden=false; treeResEl.innerHTML="";
+  if(!results.length){treeResEl.append(treeEmpty(ICON.search,"No matches","Names are matched case-insensitively; node_modules and .git are skipped.")); return;}
+  results.forEach((r)=>treeResEl.append(findRow(r,base)));
+  if(truncated) treeResEl.append(treeMsg(0,"Showing the first "+results.length+" matches — type more to narrow."));
+}
+async function findRun(q){
+  const seq=++findSeq; if(findCtl)findCtl.abort();
+  if(!LIVE){
+    const lq=q.toLowerCase(); findShow(DEMO_FIND.filter(([p])=>(!p.startsWith(".")||showHidden)&&p.slice(p.lastIndexOf("/")+1).toLowerCase().includes(lq)).map(([path,d])=>({path,dir:!!d})),false,""); return;
+  }
+  findCtl=new AbortController();
+  try{
+    const r=await fetch("/api/find?dir="+encodeURIComponent(treeRootPath())+"&q="+encodeURIComponent(q)+(showHidden?"&all=1":""),{signal:findCtl.signal});
+    const j=await r.json().catch(()=>({}));
+    if(seq!==findSeq)return;
+    if(!r.ok) throw new Error(j.error||("HTTP "+r.status));
+    findShow(j.results,j.truncated,j.dir);
+  }catch(e){
+    if(e.name==="AbortError"||seq!==findSeq)return;
+    treeEl.hidden=true; treeResEl.hidden=false; treeResEl.innerHTML=""; treeResEl.append(treeEmpty(ICON.warn,"Search failed",e.message));
+  }
+}
+tfInput.addEventListener("input",()=>{
+  clearTimeout(findTimer); const q=tfInput.value.trim();
+  if(!q){findClear(); return;}
+  findTimer=setTimeout(()=>findRun(q),200);
+});
+tfInput.addEventListener("keydown",(e)=>{
+  if(e.key==="Escape"){e.preventDefault(); e.stopPropagation(); findClear(true);}
+  else if(e.key==="Enter"){const first=treeResEl.querySelector(".tn"); if(first){e.preventDefault(); first.click();}}
+});
+// "/" jumps to the box unless focus is in a terminal or any text field
+document.addEventListener("keydown",(e)=>{
+  if(e.key!=="/"||e.metaKey||e.ctrlKey||e.altKey||!sidebarOpen) return;
+  const a=document.activeElement;
+  if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)||a&&a.isContentEditable) return;   // typing somewhere (a terminal is a textarea)
+  e.preventDefault(); tfInput.focus(); tfInput.select();
 });

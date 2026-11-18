@@ -8,6 +8,7 @@ const os = require('os');
 const path = require('path');
 const { execFile } = require('child_process');
 const access = require('./access');
+const { redact } = require('./redact');
 const rules = require('./approval-rules');
 const { createStore } = require('./json-store');
 const { tokenEq } = require('./http-security');
@@ -19,6 +20,36 @@ const isWindows = process.platform === 'win32';
 // ignored. They only ever flow to that terminal's own browser socket — nothing here writes to a PTY.
 const AGENT_EVT_TYPES = new Set(['prompt_submit', 'tool_start', 'tool_end', 'permission_request', 'stop', 'error']);
 const cap = (v, n) => typeof v === 'string' && v ? v.slice(0, n) : undefined;
+// #280: what the queue shows for a question or a plan, rebuilt field by field from the hook's payload. A question's text and
+// option labels are the answer keys/values Claude Code matches on, so an over-long one rejects the whole ask (the row then
+// stays a plain Approve / Deny) instead of being cut. Free text is capped; it never goes into the audit log.
+const fit = (v, n) => (typeof v === 'string' && v && v.length <= n ? v : undefined);
+function cleanAsk(a, tool) {
+  if (!a || typeof a !== 'object') return undefined;
+  if (tool === 'ExitPlanMode') return typeof a.plan === 'string' && a.plan ? { kind: 'plan', plan: a.plan.slice(0, 15000) } : undefined;
+  if (tool !== 'AskUserQuestion' || !Array.isArray(a.questions) || !a.questions.length || a.questions.length > 4) return undefined;
+  const questions = a.questions.map((q) => ({
+    question: fit(q?.question, 500), header: cap(q?.header, 40) || '', multiSelect: q?.multiSelect === true,
+    options: Array.isArray(q?.options) && q.options.length <= 8 ? q.options.map((o) => ({ label: fit(o?.label, 200), description: cap(o?.description, 300) || '' })) : [],
+  }));
+  return questions.every((q) => q.question && q.options.length && q.options.every((o) => o.label)) ? { kind: 'question', questions } : undefined;
+}
+// picks: one { i: [option index], text? } per question, from the browser. Returns the { question: answer } map the CLI
+// takes in updatedInput.answers (several picks joined with ", "), plus what the audit log records — never the free text.
+function answersFrom(ask, picks) {
+  if (ask?.kind !== 'question' || !Array.isArray(picks) || picks.length !== ask.questions.length) return null;
+  const answers = {}, chosen = [];
+  for (let n = 0; n < picks.length; n++) {
+    const q = ask.questions[n], idx = Array.isArray(picks[n]?.i) ? picks[n].i : [];
+    const text = typeof picks[n]?.text === 'string' ? picks[n].text.trim().slice(0, 500) : '';
+    if (!idx.every((i) => Number.isInteger(i) && i >= 0 && i < q.options.length) || new Set(idx).size !== idx.length) return null;
+    if (idx.length + (text ? 1 : 0) === 0 || (!q.multiSelect && idx.length + (text ? 1 : 0) > 1)) return null;
+    const labels = idx.map((i) => q.options[i].label);
+    answers[q.question] = (text ? [...labels, text] : labels).join(', ');
+    chosen.push((text ? [...labels, '(typed answer)'] : labels).join(', '));
+  }
+  return { answers, chosen };
+}
 const execP = (cmd, args) => new Promise((resolve) => execFile(cmd, args, { timeout: 3000 }, (_e, out) => resolve(out || '')));
 // Approve / Deny from the queue (#44).
 // The hook helper's request stays open; a click arrives over that terminal's own WebSocket (same
@@ -33,7 +64,7 @@ const AUDIT_MAX_BYTES = 10 * 1024 * 1024;
 // an audit entry (source 'rule') and a toast. Same trust as terminal input: a local process that can already
 // drive termdeck could also create a rule — keep the loopback bind / token.
 const RULES_FILE = path.join(os.homedir(), '.termdeck', 'approval-rules.json');
-const RECENT_REQ_MS = 10 * 60 * 1000, MAX_RULES = 100;
+const RECENT_REQ_MS = 10 * 60 * 1000, MAX_RULES = 100, MAX_HELD = 5;   // MAX_HELD: requests held per terminal (#286); more fall back to the CLI's own prompt
 const validRule = (r) => r && typeof r.id === 'string' && r.tool === 'Bash' && typeof r.agent === 'string' && (r.mode === 'exact' || r.mode === 'prefix')
   && typeof r.pattern === 'string' && r.pattern && typeof r.dir === 'string' && path.isAbsolute(r.dir);
 
@@ -43,9 +74,11 @@ module.exports = function agentApi({ apiGuard, hasAuthCookie, secret, live, logD
     try { return n.createNotifier(n.configFrom(process.env)); }
     catch (e) { console.error(`  TD_NOTIFY_URL ignored: ${e.message}`); return () => {}; }
   })();
-  const pendingApprovals = new Map();   // terminal id -> { reqId, res, ev, timer }
+  let snoozeUntil = 0;   // #284: the browser's notification snooze, so the webhook pauses too; lost on restart = notifies as before
+  const pendingApprovals = new Map();   // terminal id -> Map(reqId -> { reqId, res, ev, timer }): several per terminal, e.g. parallel sub-agents (#286)
   const approvalAudit = [];             // newest last, capped; also appended to TD_LOG_DIR/approvals.jsonl when set
   function recordApproval(entry) {
+    if (typeof entry.detail === 'string') entry = { ...entry, detail: redact(entry.detail) };
     approvalAudit.push(entry); if (approvalAudit.length > 200) approvalAudit.shift();
     if (logDir) try {
       fs.mkdirSync(logDir, { recursive: true, mode: 0o700 });
@@ -54,13 +87,23 @@ module.exports = function agentApi({ apiGuard, hasAuthCookie, secret, live, logD
       fs.appendFileSync(f, JSON.stringify(entry) + '\n', { mode: 0o600 });
     } catch {}
   }
-  function settleApproval(id, decision, source) {   // decision: 'allow' | 'deny' | null (= no decision, CLI asks as usual)
-    const p = pendingApprovals.get(id); if (!p) return false;
-    pendingApprovals.delete(id); clearTimeout(p.timer);
-    recordApproval({ ts: Date.now(), id, agent: p.ev.agent, tool: p.ev.tool, detail: p.ev.detail, files: p.ev.files, cwd: p.ev.cwd, decision, source });
-    if (!p.res.writableEnded) { if (decision) p.res.json({ decision }); else p.res.status(204).end(); }
+  function settleOne(id, p, decision, source, answered) {
+    const m = pendingApprovals.get(id); m?.delete(p.reqId); if (m && !m.size) pendingApprovals.delete(id);
+    clearTimeout(p.timer);
+    recordApproval({ ts: Date.now(), id, agent: p.ev.agent, tool: p.ev.tool, detail: p.ev.detail, files: p.ev.files, cwd: p.ev.cwd, decision, source, ...(answered ? { answer: answered.chosen } : {}) });
+    if (!p.res.writableEnded) { if (decision) p.res.json({ decision, ...(answered ? { answers: answered.answers } : {}) }); else p.res.status(204).end(); }
     const s = live.get(id); if (s?.ws) send(s.ws, { type: 'approval', reqId: p.reqId, done: true, decision, source });
-    return true;
+  }
+  // decision: 'allow' | 'deny' | null (= no decision, CLI asks as usual); answered: { answers, chosen } for a question (#280).
+  // only: a reqId, or a predicate over the held request; omitted = every request held for this terminal (#286).
+  function settleApproval(id, decision, source, answered, only) {
+    const m = pendingApprovals.get(id); if (!m) return false;
+    let any = false;
+    for (const p of [...m.values()]) {
+      if (only !== undefined && (typeof only === 'string' ? p.reqId !== only : !only(p))) continue;
+      settleOne(id, p, decision, source, answered); any = true;
+    }
+    return any;
   }
   const recentReqs = new Map();         // reqId -> { agent, tool, command, cwd, ts }
   const rulesFile = createStore(RULES_FILE, {   // shared safely by several servers; an unreadable file is kept aside, never overwritten
@@ -118,17 +161,21 @@ module.exports = function agentApi({ apiGuard, hasAuthCookie, secret, live, logD
     if (Number.isFinite(b.tokens)) ev.tokens = b.tokens;
     if (Number.isFinite(b.cost))   ev.cost = b.cost;
     if (Number.isFinite(b.cacheTokens)) ev.cache = b.cacheTokens;   // cache reads, shown beside tokens (#85)
-    // Any event other than the request itself means the agent moved on (you answered in the terminal).
-    if (trusted && b.type !== 'permission_request') settleApproval(b.id, null, 'terminal');
+    // Any event other than the request itself means the agent moved on (you answered in the terminal) — that agent only:
+    // a sub-agent's event must not release the main agent's request, or the other way round (#286).
+    ev.sub = cap(b.sub, 64);
+    if (trusted && b.type !== 'permission_request') settleApproval(b.id, null, 'terminal', undefined, (p) => (p.ev.sub || '') === (ev.sub || ''));
     // #44 phase 2: an opt-in allow-rule answers on its own — visibly (audit entry + toast), never for a deny-list command.
-    const cmd = trusted && b.type === 'permission_request' && b.wait === true && typeof b.command === 'string' ? b.command.slice(0, 4000) : null;
+    // #280: a question or plan is only ever answered by a click — it never takes the rule path below.
+    const ask = trusted && b.type === 'permission_request' && b.wait === true ? cleanAsk(b.ask, ev.tool) : undefined;
+    if (ask) { ev.ask = ask; ev.detail = (ask.kind === 'question' ? ask.questions[0].question : ask.plan.replace(/^[#\s]+/, '').split('\n')[0]).slice(0, 200); }
+    const cmd = trusted && !ask && b.type === 'permission_request' && b.wait === true && typeof b.command === 'string' ? b.command.slice(0, 4000) : null;
     if (cmd !== null) {
       const full = { agent: ev.agent, tool: ev.tool, command: cmd, cwd: cap(b.cwd, 500) };
       const risk = rules.riskReason(cmd);
       const ruleSet = rulesFile.load();                              // re-read if another server changed it
       const hit = !risk && ruleSet.enabled && ruleSet.rules.find((r) => rules.matches(r, full));
       if (hit) {
-        settleApproval(b.id, null, 'superseded');
         recordApproval({ ts: now, id: b.id, agent: ev.agent, tool: ev.tool, detail: ev.detail, cwd: full.cwd, decision: 'allow', source: 'rule', ruleId: hit.id });
         if (s.ws) send(s.ws, { type: 'autoallow', tool: ev.tool, detail: ev.detail, rule: hit.pattern });
         return res.json({ decision: 'allow' });
@@ -138,23 +185,28 @@ module.exports = function agentApi({ apiGuard, hasAuthCookie, secret, live, logD
     }
     // #44: a permission request from a hook that can take a decision back (b.wait) is held open until the
     // browser answers. Only with a browser attached — otherwise nobody could click, so fall through at once.
-    const held = trusted && b.wait === true && b.type === 'permission_request' && !!s.ws;
+    const held = trusted && b.wait === true && b.type === 'permission_request' && !!s.ws && (pendingApprovals.get(b.id)?.size || 0) < MAX_HELD;
     if (held) {
-      settleApproval(b.id, null, 'superseded');
       ev.reqId = crypto.randomUUID();
       if (cmd !== null) {   // what a later "Always allow" is derived from: only a command you were actually shown
         for (const [k, r] of recentReqs) if (now - r.ts > RECENT_REQ_MS) recentReqs.delete(k);
         if (recentReqs.size >= 50) recentReqs.delete(recentReqs.keys().next().value);
         recentReqs.set(ev.reqId, { agent: ev.agent, tool: ev.tool, command: cmd, cwd: ev.cwd, ts: now });
       }
-      const p = { reqId: ev.reqId, res, ev, timer: setTimeout(() => settleApproval(b.id, null, 'timeout'), APPROVAL_HOLD_MS) };
-      pendingApprovals.set(b.id, p);
-      res.on('close', () => { if (pendingApprovals.get(b.id) === p) settleApproval(b.id, null, 'terminal'); });   // helper gone: the CLI was answered or died
+      const p = { reqId: ev.reqId, res, ev, timer: setTimeout(() => settleApproval(b.id, null, 'timeout', undefined, ev.reqId), APPROVAL_HOLD_MS) };
+      if (!pendingApprovals.has(b.id)) pendingApprovals.set(b.id, new Map());
+      pendingApprovals.get(b.id).set(ev.reqId, p);
+      res.on('close', () => { if (pendingApprovals.get(b.id)?.get(ev.reqId) === p) settleApproval(b.id, null, 'terminal', undefined, ev.reqId); });   // helper gone: the CLI was answered or died
     }
     s.agentEvt = ev;                                                // replayed to a reattaching browser
-    notify(b.id, ev, { project: path.basename(s.cwd || '') || 'termdeck', link: `${req.get('x-forwarded-proto') || req.protocol}://${req.get('host')}/#t=${encodeURIComponent(b.id)}` });
+    if (Date.now() >= snoozeUntil) notify(b.id, ev, { project: path.basename(s.cwd || '') || 'termdeck', link: `${req.get('x-forwarded-proto') || req.protocol}://${req.get('host')}/#t=${encodeURIComponent(b.id)}` });
     if (s.ws) send(s.ws, { type: 'agent', event: ev });
     if (!held) res.status(204).end();
+  });
+  api.post('/api/snooze', apiGuard, (req, res) => {
+    const u = req.body?.until;
+    if (!Number.isFinite(u) || u < 0) return res.status(400).json({ error: 'until must be a time in ms' });
+    snoozeUntil = u; res.status(204).end();
   });
   api.get('/api/approvals', apiGuard, (req, res) => res.json(approvalAudit.slice(-50).reverse()));
 
@@ -193,5 +245,8 @@ module.exports = function agentApi({ apiGuard, hasAuthCookie, secret, live, logD
     updateRules((store) => { store.enabled = req.body?.enabled === true; return true; });
     res.json(rulesFile.load());
   });
-  return { router: api, approvals: { pending: pendingApprovals, settle: settleApproval } };
+  return { router: api, approvals: { pending: pendingApprovals, settle: settleApproval, answer(id, picks, reqId) {   // a click on a question card
+    const p = pendingApprovals.get(id)?.get(reqId), a = p && answersFrom(p.ev.ask, picks);
+    return !!a && settleApproval(id, 'allow', 'click', a, reqId);
+  } } };
 };

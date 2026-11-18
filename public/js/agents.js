@@ -27,6 +27,59 @@ function getAgentQueue(){
   return list;
 }
 
+// #280: a question from the agent, answered from the queue. The half-made answer lives on tab.ask.ui so a re-render keeps it.
+// Every string is the agent's own text: textContent only. One question at a time (Back / Next); keys 1-9 pick an option.
+function questionCard(tab){
+  const a=tab.ask, qs=a.ask.questions, ui=a.ui||(a.ui={n:0,sel:qs.map(()=>new Set()),text:qs.map(()=>"")});
+  const q=qs[ui.n], sel=ui.sel[ui.n], box=el("div","agent-q"); box.tabIndex=0;
+  const hd=el("div","agent-q-head"); hd.textContent=(qs.length>1?(ui.n+1)+" / "+qs.length+" \u00b7 ":"")+(q.header?q.header+" \u00b7 ":"")+(q.multiSelect?"pick any":"pick one");
+  const qt=el("div","agent-q-text"); qt.textContent=q.question;
+  const opts=el("div","agent-q-opts"), btns=[];
+  const answered=()=>sel.size+(ui.text[ui.n].trim()?1:0)>0;
+  const next=el("button","agent-btn allow"); next.type="button"; next.textContent=ui.n<qs.length-1?"Next":"Send answer";
+  const other=el("input","agent-q-other"); other.type="text"; other.maxLength=500; other.placeholder="Other\u2026"; other.value=ui.text[ui.n]; other.setAttribute("aria-label","Other answer");
+  const sync=()=>{btns.forEach((b,i)=>b.setAttribute("aria-pressed",sel.has(i))); next.disabled=!answered();};
+  const toggle=(i)=>{
+    if(sel.has(i)) sel.delete(i);
+    else{ if(!q.multiSelect){sel.clear(); ui.text[ui.n]=other.value="";} sel.add(i); }   // single choice: an option and a typed answer exclude each other
+    sync();
+  };
+  q.options.forEach((o,i)=>{
+    const b=el("button","agent-btn agent-opt"); b.type="button"; b.title=o.description||"";
+    const k=el("kbd"); k.textContent=String(i+1); const l=el("span"); l.textContent=o.label; b.append(k,l);
+    b.addEventListener("click",(e)=>{e.stopPropagation(); toggle(i);});
+    btns.push(b); opts.append(b);
+  });
+  other.addEventListener("input",()=>{ui.text[ui.n]=other.value; if(!q.multiSelect&&other.value.trim()) sel.clear(); sync();});
+  other.addEventListener("click",(e)=>e.stopPropagation());
+  const go=()=>{
+    if(!answered()) return;
+    if(ui.n<qs.length-1){ui.n++; updateAgentOverview(); return;}
+    const picks=qs.map((_,n)=>({i:[...ui.sel[n]].sort((x,y)=>x-y),text:ui.text[n].trim()}));
+    if(tab.conn?.answer) tab.conn.answer(a.reqId,picks);
+  };
+  next.addEventListener("click",(e)=>{e.stopPropagation(); go();});
+  const row=el("div","agent-row-btns");
+  if(ui.n>0){const back=el("button","agent-btn"); back.type="button"; back.textContent="Back"; back.addEventListener("click",(e)=>{e.stopPropagation(); ui.n--; updateAgentOverview();}); row.append(back);}
+  const deny=el("button","agent-btn deny"); deny.type="button"; deny.textContent="Skip"; deny.title="Decline to answer here (the agent is told no)";
+  deny.addEventListener("click",(e)=>{e.stopPropagation(); if(tab.conn?.approve) tab.conn.approve(a.reqId,"deny");});
+  row.append(next,deny);
+  box.addEventListener("keydown",(e)=>{
+    if(e.target===other){ if(e.key==="Enter"){e.preventDefault(); go();} return; }
+    if(/^[1-9]$/.test(e.key)&&+e.key<=q.options.length){e.preventDefault(); toggle(+e.key-1);}
+    else if(e.key==="Enter"&&answered()){e.preventDefault(); go();}
+  });
+  box.append(hd,qt,opts,other,row); sync();
+  return box;
+}
+// #280: the plan the agent wants approved, read-only in the file viewer (mdToHtml escapes everything first).
+function showPlan(text){
+  closeModals("file");
+  fvName.textContent="Plan"; fvPath.textContent=""; fvText=null; fvTable=false; fvRendered=false; fvTog.hidden=true;
+  fvBody.className="fv-body md"; fvBody.innerHTML=mdToHtml(text);
+  fileOverlay.classList.add("open"); fileOverlay.focus();
+}
+
 function renderAgentList(queue){
   if(!agentList) return;
   if(!queue) queue=getAgentQueue();
@@ -62,21 +115,36 @@ function renderAgentList(queue){
     if(ue){const x=el("span","agent-row-evt"); x.textContent=" \u00b7 "+fmtTok(ue.t)+" tok"; x.title=usageTip({tokens:ue.t,cache:ue.c}); st.append(x);}
     info.append(path,st);
     if(state==="approval"&&tab.ask){   // exact request + one-click answer; textContent only — the command is untrusted
+      if(tab.asks.length>1){   // #286: several requests wait for this terminal: step through them, each answered on its own
+        const nav=el("div","agent-ask-nav"), n=tab.asks.length;
+        const step=(d)=>(e)=>{e.stopPropagation(); tab.askIdx=(tab.askIdx+d+n)%n; syncAsk(tab); updateAgentOverview();};
+        const pv=el("button","agent-btn"), nx=el("button","agent-btn"), lb=el("span");
+        pv.type=nx.type="button"; pv.textContent="\u2039"; nx.textContent="\u203a"; pv.title="Previous request"; nx.title="Next request";
+        lb.textContent=(tab.askIdx+1)+" of "+n+" waiting";
+        pv.addEventListener("click",step(-1)); nx.addEventListener("click",step(1));
+        nav.append(pv,lb,nx); info.append(nav);
+      }
       const q=el("div","agent-row-ask"); q.textContent=tab.ask.text; q.title=tab.ask.text;
-      const bt=el("div","agent-row-btns");
-      for(const [d,label] of [["allow","Approve"],["deny","Deny"]]){
-        const b=el("button","agent-btn "+d); b.textContent=label; b.type="button";
-        b.addEventListener("click",(e)=>{e.stopPropagation(); const a=tab.ask; if(!a||!tab.conn?.approve)return; tab.conn.approve(a.reqId,d);});
-        bt.append(b);
+      const kind=tab.ask.ask?.kind, bt=el("div","agent-row-btns");
+      const decide=(d)=>{const a=tab.ask; if(!a||!tab.conn?.approve)return; tab.conn.approve(a.reqId,d);};
+      if(kind==="question"){   // #280: the agent asked something: answer it here (a plain Approve would give it no answer)
+        info.append(questionCard(tab));   // the card shows the question itself
+      }else{
+        const btns=kind==="plan"?[["","Review plan"],["allow","Approve"],["deny","Keep planning"]]:[["allow","Approve"],["deny","Deny"]];
+        for(const [d,label] of btns){
+          const b=el("button","agent-btn "+d); b.textContent=label; b.type="button";
+          b.addEventListener("click",(e)=>{e.stopPropagation(); if(d) decide(d); else showPlan(tab.ask.ask.plan);});
+          bt.append(b);
+        }
       }
       if(tab.ask.canRule){
         const al=el("button","agent-btn"); al.textContent="Always allow\u2026"; al.type="button"; al.title="Create an opt-in rule for this command in this repo";
         al.addEventListener("click",(e)=>{e.stopPropagation(); alwaysAllow(tab);});
         bt.append(al);
       }
-      info.append(q);
+      if(kind!=="question") info.append(q);
       if(tab.ask.risk){const rk=el("div","agent-risk"); rk.textContent="\u26a0 "+tab.ask.risk+" \u2014 always needs your click"; info.append(rk);}
-      info.append(bt);
+      if(kind!=="question") info.append(bt);
     }
     const ov=overlapByProject.get(s.project);
     if(ov){const w=el("div","agent-row-warn"); w.textContent="\u26a0 "+overlapText(ov); w.title=w.textContent; info.append(w);}   // textContent: file names are untrusted
@@ -102,6 +170,7 @@ function updateAgentOverview(){
     sess.tabs.forEach((t)=>t.wt.classList.toggle("working",isWorking(t)));
     sess.chip.classList.toggle("working",sess.tabs.some(isWorking));
   });
+  matrixSync(queue);   // focus veils + background rain speed
 
   agentBadge.className="agent-badge"+(hasAppr?" approval":(hasWait?" waiting":(queue.length?" working":"")));
 
@@ -185,7 +254,9 @@ function openTabWS(s,tab){
   if(tab.shell) p.set("shell",tab.shell);   // server honours it only if it is in its shell allowlist
   if(tab.cmd) p.set("cmd",tab.cmd);   // startup command; backend runs it only on a fresh shell
   if(s.isLog)  p.set("log","1");
-  const ws=new WebSocket(proto+"://"+location.host+"/?"+p.toString());
+  // One socket per tab: silence + close the previous one first, or the server's "taken" for it would mark the live tab dead (#300).
+  const old=tab.ws; if(old){old.onopen=old.onmessage=old.onclose=old.onerror=null; try{old.close();}catch{}}
+  const ws=tab.ws=new WebSocket(proto+"://"+location.host+"/?"+p.toString());
   tab.exited=false;
   setTabStatus(s,tab,tab.reconnecting?"reconnecting":"pending");
 
@@ -193,7 +264,8 @@ function openTabWS(s,tab){
   ws.onmessage=(ev)=>{
     let m; try{m=JSON.parse(ev.data);}catch{return;}
     if(m.type==="attach"){
-      if(m.resumed){tab.term.reset(); tab.replay=true;}   // next output chunk is the replayed ring buffer, not live output
+      tab.asks=[]; syncAsk(tab);   // the server replays the requests still held (#286); ones that ended while we were away must not linger
+      if(m.resumed){tab.term.reset(); tab.replay=true; tab.replayAt=Date.now();}   // replayAt: the OSC shield ignores re-sent sequences   // next output chunk is the replayed ring buffer, not live output
       if(m.cwd){tab.cwd=m.cwd; if(s.activeTabId===tab.id) setCwdBadge(s,m.cwd);}
       if(m.shell){tab.shellName=m.shell; if(s.activeTabId===tab.id) s.badgeShell.textContent=m.shell;}
     }else if(m.type==="agent"){
@@ -202,9 +274,11 @@ function openTabWS(s,tab){
       toast(ICON.bot,"Auto-allowed by rule","\""+s.name+"\": "+[m.tool,m.detail].filter(Boolean).join(" ").slice(0,80)+" (rule: "+m.rule+")",6000,()=>{revealWindow(s);switchTab(s,tab.id);});
       loadAudit();
     }else if(m.type==="approval"){   // the held request ended (clicked, answered in the terminal, timed out)
-      if(tab.ask?.reqId===m.reqId){tab.ask=null; updateAgentOverview(); loadAudit();}
+      const i=tab.asks?tab.asks.findIndex((x)=>x.reqId===m.reqId):-1;
+      if(i>=0){tab.asks.splice(i,1); syncAsk(tab); updateAgentOverview(); loadAudit();}
     }else if(m.type==="output"){
-      tab.term.write(m.data);
+      if(tab.replay){tab.muteReplies=true; tab.term.write(m.data,()=>{tab.muteReplies=false;});}   // see TERM_REPLY_RE
+      else tab.term.write(m.data);
       // On reattach the server replays the whole ring buffer in one chunk. Scanning all of it
       // would re-match an approval prompt you ALREADY answered and fire a false red. The tail is
       // the current screen, so that's the only part that reflects live state.
@@ -232,7 +306,7 @@ function openTabWS(s,tab){
           markAttn(s,tab);
           // Only announce completion of a command we actually saw start (Enter \u2192 markRunning).
           // A bare prompt redraw \u2014 e.g. every shell reflowing when you tile \u2014 is not a "done".
-          if(dur!=null) toast(ICON.check,"Done","\""+s.name+"\" finished in "+fmtDur(dur),3000,()=>revealWindow(s));
+          if(dur!=null) notifyToast("done",ICON.check,"Done","\""+s.name+"\" finished in "+fmtDur(dur),3000,()=>revealWindow(s));
         }
       }else if(!watching){
         markAttn(s,tab);
@@ -263,8 +337,9 @@ function openTabWS(s,tab){
   tab.conn={
     send:(d)=>ws.readyState===1&&ws.send(JSON.stringify({type:"input",data:d})),
     resize:(c,r)=>ws.readyState===1&&ws.send(JSON.stringify({type:"resize",cols:c,rows:r})),
-    kill:()=>ws.readyState===1&&ws.send(JSON.stringify({type:"kill"})),
+    kill:()=>ws.readyState===1&&(ws.send(JSON.stringify({type:"kill"})),true),   // true = sent
     approve:(reqId,decision)=>ws.readyState===1&&ws.send(JSON.stringify({type:"approve",reqId,decision})),
+    answer:(reqId,picks)=>ws.readyState===1&&ws.send(JSON.stringify({type:"approve",reqId,decision:"answer",picks})),
     close:()=>ws.close(),
   };
 }
@@ -305,7 +380,7 @@ function scheduleTabRecon(s,tab){
 document.addEventListener("visibilitychange",()=>{
   if(document.hidden||!LIVE)return;
   sessions.forEach((s)=>s.tabs.forEach((tab)=>{
-    if(tab.reconnecting&&!tab.closedByUser&&!tab.exited){
+    if(tab.reconnecting&&!tab.closedByUser&&!tab.exited&&tab.ws?.readyState!==0){   // not while a socket is still connecting (#300)
       clearTimeout(tab.reconnectTimer); tab.retries=0; openTabWS(s,tab);
     }
   }));
@@ -324,6 +399,7 @@ function setTabStatus(s,tab,status){
 function restartSession(s){
   if(!LIVE)return;
   s.tabs.forEach((tab)=>{
+    if(!tab.exited)return;   // ⟳ shows when ANY tab is dead — leave the live ones alone (#300)
     clearTimeout(tab.reconnectTimer); tab.exited=false; tab.retries=0; tab.reconnecting=false;
     tab.term.reset(); openTabWS(s,tab);
   });
@@ -331,12 +407,40 @@ function restartSession(s){
   if(s.tabs.some((t)=>t.agent)) updateAgentOverview();
 }
 
+// End a tab's shell: over its socket when it is open, else over HTTP — the window was closed while reconnecting, so no
+// `kill` could go out and the tmux session (and any agent in it) would live on invisibly (#302). Not for a tab that
+// exited or was taken by another device: that shell is gone, or belongs to the other screen now.
+function killTabShell(s,tab){
+  if(!tab.conn)return;
+  if(tab.conn.kill?.()!==true&&LIVE&&!tab.exited)
+    fetch("/api/session-kill",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:s.id+"-"+tab.id}),keepalive:true}).catch(()=>{});   // server down: "Kill orphaned tmux sessions" in the palette sweeps it later
+  if(tab.conn.close)tab.conn.close();
+}
+// tmux names a terminal td_<id without punctuation>; same rule as scripts/sessions.js tmuxSessionName.
+const tmuxNameOf=(id)=>"td_"+String(id).replace(/[^A-Za-z0-9_]/g,"").slice(0,60);
+// Palette: list the server's td_* tmux sessions that no window here owns and nothing is attached to, then kill them on confirm.
+async function sweepOrphans(){
+  if(!LIVE){toast(ICON.warn,"Needs the real server","tmux sessions only exist when termdeck runs with its backend.",3500);return;}
+  let names;
+  try{const r=await fetch("/api/orphans",{cache:"no-store"}); if(!r.ok)throw 0; names=(await r.json()).names;}
+  catch{toast(ICON.warn,"Couldn't list tmux sessions","The server did not answer.",4000);return;}
+  const mine=new Set([...sessions.values()].flatMap((x)=>x.tabs.map((t)=>tmuxNameOf(x.id+"-"+t.id))));
+  const orphans=names.filter((n)=>!mine.has(n));
+  if(!orphans.length){toast(ICON.check,"No orphaned sessions","Every termdeck tmux session belongs to an open window.",3500);return;}
+  if(!(await confirmModal(orphans.length+" tmux session"+(orphans.length>1?"s":"")+" no window here uses ("+orphans.slice(0,5).join(", ")+(orphans.length>5?", …":"")+"). Kill "+(orphans.length>1?"them":"it")+"? Any shell, agent or dev server inside stops. A window open on another browser or device would lose its shell too.","Kill",true)))return;
+  try{
+    const r=await fetch("/api/orphans/kill",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:orphans})});
+    const k=(await r.json()).killed||[];
+    toast(ICON.check,"Killed "+k.length+" tmux session"+(k.length===1?"":"s"),"",3500);
+  }catch{toast(ICON.warn,"Couldn't kill them","The server did not answer.",4000);}
+}
+
 function closeSession(s,skipCount){
   s.closedByUser=true;
   s.tabs.forEach((tab)=>{
     if(findTarget===tab) closeFind();
     tab.closedByUser=true; clearTimeout(tab.reconnectTimer); stopAgentIdle(s,tab);
-    if(tab.conn){if(tab.conn.kill)tab.conn.kill(); if(tab.conn.close)tab.conn.close();}
+    killTabShell(s,tab);
     glDetach(tab); try{tab.term.dispose();}catch{}
   });
   s.win.remove(); s.chip.remove(); syncWebgl();
