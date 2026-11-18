@@ -8,6 +8,7 @@ const os = require('os');
 const path = require('path');
 const { execFile } = require('child_process');
 const access = require('./access');
+const { redact } = require('./redact');
 const rules = require('./approval-rules');
 const { createStore } = require('./json-store');
 const { tokenEq } = require('./http-security');
@@ -77,6 +78,7 @@ module.exports = function agentApi({ apiGuard, hasAuthCookie, secret, live, logD
   const pendingApprovals = new Map();   // terminal id -> { reqId, res, ev, timer }
   const approvalAudit = [];             // newest last, capped; also appended to TD_LOG_DIR/approvals.jsonl when set
   function recordApproval(entry) {
+    if (typeof entry.detail === 'string') entry = { ...entry, detail: redact(entry.detail) };
     approvalAudit.push(entry); if (approvalAudit.length > 200) approvalAudit.shift();
     if (logDir) try {
       fs.mkdirSync(logDir, { recursive: true, mode: 0o700 });

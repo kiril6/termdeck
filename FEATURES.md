@@ -60,7 +60,8 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
 - 🖥️ **Clickable links** — URLs in output open in a new tab (xterm web-links addon). **OSC 8 hyperlinks**
   (`ls --hyperlink`, `gcc`, `rg`, `delta`…) work too: the real URL shows on hover, only `http(s)` and `mailto` open (other schemes are ignored).
 - 🖥️ **Save output** — right-click → *Save output…* downloads the scrollback as a `.log`
-  (xterm serialize addon).
+  (xterm serialize addon). Known secret shapes are replaced with `[REDACTED]` (#226, `public/js/redact.js`: API keys, GitHub/AWS/Slack/npm tokens,
+  JWTs, private keys, `Authorization:` headers, `user:pass@` URLs, `NAME_TOKEN=value` assignments) and the toast says so; *Save output (unredacted)…* keeps the raw text.
 - 🖥️ **GPU rendering** — WebGL renderer for every terminal on screen (up to 12 at once; browsers allow ~16 per page). Hidden terminals (other projects, minimized windows, background tabs) give theirs up when a shown one needs it, the one shown longest ago first. If the GPU drops a context (sleep/wake, driver reset), that terminal draws with the DOM renderer and gets WebGL back when shown again or a few seconds later.
 - 🔌 **Live working directory** — each window's cwd badge follows the shell as it `cd`s. The backend
   polls each shell's real working dir from the OS (~1.5s) and pushes it on change — no shell config
@@ -797,7 +798,7 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
 - 📄 **Remote access docs** — `docs/remote-access.md`: Tailscale Serve (recommended), SSH tunnel, LAN bind.
 - 🔌 **Session log on exit** — with `TD_LOG_DIR` set, a shell's buffered output (ANSI stripped, last `TD_BUFFER` bytes)
   is written to `<dir>/<timestamp>_<id>.log` (dir `0700`, file `0600`) when the shell actually ends (kill / process exit).
-  Browser disconnects don't write a log — reattach/replay is unchanged. Off by default (output can contain secrets).
+  Browser disconnects don't write a log — reattach/replay is unchanged. Off by default (output can contain secrets). The same redaction as *Save output* runs on the log, the approvals audit log's `detail` and the webhook's `detail` (#226); `TD_REDACT=0` turns it off on the server. Pattern-based best effort, pinned by `scripts/redact.test.js`.
 - 🖥️ **Clickable file paths** — `path/file.ext`, `./x`, `~/x`, `/abs/x`, optional `:line[:col]` in terminal output become links
   when `/api/stat` confirms a regular file (relative paths resolve against the tab's live cwd). Click opens the file viewer
   scrolled to and highlighting that line (markdown opens as raw source for a `:line` link). Live mode only; no-op in demo.

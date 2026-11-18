@@ -204,6 +204,7 @@ Set via environment variable; `--port`, `--host` and `--no-open` also exist as f
 | `TD_EDITOR` | `code` | Executable for the file tree's *Open in editor*. |
 | `TD_CHECK_TIMEOUT` | `600` | Seconds a check may run: in *Finish agent task* (landing is blocked after that) and in *Run check…* in the review view. |
 | `TD_LOG_DIR` | *(none)* | Write session logs (and the approval audit log) here. Off by default. |
+| `TD_REDACT` | on | `0` stops redacting known secret shapes in session logs, the approval audit log and webhook detail (#226). |
 | `TD_ALLOWED_HOSTS` | *(none)* | Extra exact hostnames for a reverse proxy (e.g. `tailscale serve`). Switches to a per-start access token. |
 | `TD_NOTIFY_URL` | *(none)* | Webhook POSTed when an agent needs you (ntfy-ready). Also `TD_NOTIFY_EVENTS` (default `permission_request`), `TD_NOTIFY_DETAIL=1` (include the command). See [remote access](docs/remote-access.md#phone-notifications). |
 | `XDG_CONFIG_HOME` | `~/.config` | Linux only: where `termdeck autostart install` writes its systemd user unit (`systemd/user/termdeck.service`). |

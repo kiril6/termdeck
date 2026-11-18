@@ -313,11 +313,12 @@ function closeFind(){
   if(t){ try{t.search.clearDecorations();}catch{} try{t.term.focus();}catch{} }
 }
 // Serialize a terminal's scrollback to a downloaded .log (user-initiated, local only).
-function saveTabOutput(s,tab){
+function saveTabOutput(s,tab,raw){
   let data=""; try{ data=tab.ser.serialize(); }catch{}
   const name=(s.name||"terminal").replace(/[^\w.-]+/g,"_")+"-"+tab.id+".log";
-  downloadFile(name,data,"text/plain");
-  toast(ICON.check,"Saved",name);
+  const clean=raw?data:redactSecrets(data);   // #226
+  downloadFile(name,clean,"text/plain");
+  toast(ICON.check,"Saved",clean!==data?name+" — secrets redacted":name);
 }
 function downloadFile(name,data,type){
   const a=el("a"); a.href=URL.createObjectURL(new Blob([data],{type})); a.download=name;
@@ -470,6 +471,7 @@ function addTab(s, opts){
       {label:"Clear",run:()=>term.clear()},
       {sep:true},
       {label:"Save output…",run:()=>saveTabOutput(s,tab)},
+      {label:"Save output (unredacted)…",run:()=>saveTabOutput(s,tab,true)},
       ...mxPaneMenu(s,tab));
     showCtxMenu(e.clientX,e.clientY,items);
   });
