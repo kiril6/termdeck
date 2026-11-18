@@ -278,7 +278,9 @@ Legend: 🖥️ frontend (`public/index.html` + `js/` + `app.css`) · 🔌 backe
   custom presets). If you exited the agent but left its shell open, a reboot will resume it again.
   **Verified with real Claude Code 2.1.195:** a conversation survived a killed tmux session + reload and
   remembered its context, `--resume <id>` restored an interactive session, a plain reload did not re-run it.
-  *Not verified:* Codex / Gemini / Copilot / Antigravity (`agy --continue`) resume flows. A Claude that opens its agent dashboard on bare
+  **Also verified** (marker word planted, then recalled after the preset's resume flag, run with each CLI's non-interactive `-p` / `exec`):
+  Codex 0.160.0 `resume --last`, Gemini CLI 0.68.0 `--resume latest`, Copilot CLI 1.0.114 `--continue`, Antigravity `agy` 1.5.0 `--continue`.
+  The interactive TUI itself was not driven for these. Gemini's "latest" is per project folder ("No previous sessions found for this project" elsewhere), so a resumed shell must start in the same folder. A Claude that opens its agent dashboard on bare
   `claude` can't `--resume` a running background agent (falls back to a clean start).
 - 🖥️ **Agent worktrees — one isolated checkout per task** (palette → *New agent task…*). Three agents
   loose in one repo overwrite each other, so a task gets its own `git worktree`: pick the **repository**, a
