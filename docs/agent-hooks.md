@@ -36,6 +36,7 @@ Approve / Deny:
   denied with a message so the agent stays in plan mode.
 - Same rules as Approve / Deny: nothing is typed into the terminal, no click means no decision, and an allow-rule never answers
   a question or a plan. The audit log records the chosen option, never typed text. Codex, Copilot and Gemini: not supported.
+- **Several requests at once.** Parallel sub-agents ask at the same time (the main agent's own requests come one at a time; checked on real Claude Code). termdeck holds up to 5 per terminal, shows *1 of N* in the queue row and answers each on its own click. A sub-agent's event (the hook's `agent_id`) releases only that sub-agent's request. A 6th request is not held: the CLI shows its own prompt.
 
 Verified on Claude Code 2.1.296 (single and multi-select questions, plan approve, plan deny).
 
