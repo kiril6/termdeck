@@ -162,6 +162,30 @@ const fixture = (agent, name) => fs.readFileSync(path.join(__dirname, 'fixtures'
     const tail = fs.readFileSync(path.join(logDir, 'approvals.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)).slice(-2);
     assert.deepStrictEqual(tail.map((l) => [l.tool, l.source]), [['AskUserQuestion', 'click'], ['ExitPlanMode', 'click']], 'both were decided by a click, not a rule');
 
+    // #286: a sub-agent and the main agent ask at the same time. Both are held, each answered on its own click, and an event
+    // from the sub-agent (it moved on) releases only the sub-agent's request.
+    const asked = (extra) => ({ id, type: 'permission_request', agent: 'claude', tool: 'Bash', wait: true, detail: 'echo ' + extra, ...(extra === 'sub' ? { sub: 'agent-1' } : {}) });
+    const holdReq = (extra) => { const o = { body: null }; o.done = post('/api/agent-events', asked(extra), { 'X-TD-Hook-Auth': auth }).then(async (x) => { o.body = x.status === 200 ? await x.json() : { status: x.status }; }); return o; };
+    const reqOf = async (detail) => { await until(() => browser.msgs.some((m) => m.type === 'agent' && m.event.reqId && m.event.detail === detail)); return browser.msgs.find((m) => m.type === 'agent' && m.event.reqId && m.event.detail === detail).event.reqId; };
+    const mainReq = holdReq('main'), subReq = holdReq('sub');
+    const rMain = await reqOf('echo main'); await reqOf('echo sub');
+    await sleep(300);
+    assert.ok(mainReq.body === null && subReq.body === null, 'both held: the second did not replace the first');
+    await post('/api/agent-events', { id, type: 'tool_end', agent: 'claude', tool: 'Bash', sub: 'agent-1' }, { 'X-TD-Hook-Auth': auth });
+    await subReq.done;
+    assert.deepStrictEqual(subReq.body, { status: 204 }, "the sub-agent's own event released its request");
+    assert.strictEqual(mainReq.body, null, "…and not the main agent's");
+    click(rMain, 'deny'); await mainReq.done;
+    assert.strictEqual(mainReq.body.decision, 'deny', 'the click reached the right request');
+    // More than MAX_HELD (5): the extra one is not held at all (204 at once, the CLI shows its own prompt).
+    const many = [1, 2, 3, 4, 5].map((n) => holdReq('m' + n));
+    for (let n = 1; n <= 5; n++) await reqOf('echo m' + n);
+    const extra = holdReq('m6'); await extra.done;
+    assert.deepStrictEqual(extra.body, { status: 204 }, 'a 6th request falls back to the CLI prompt');
+    for (let n = 1; n <= 5; n++) click(await reqOf('echo m' + n), 'allow');
+    await Promise.all(many.map((o) => o.done));
+    assert.ok(many.every((o) => o.body.decision === 'allow'), 'all five answered');
+
     browser.ws.send(JSON.stringify({ type: 'kill' })); browser.ws.close();
     console.log('approval.test: ok');
     done(0);

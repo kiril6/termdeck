@@ -64,7 +64,7 @@ const AUDIT_MAX_BYTES = 10 * 1024 * 1024;
 // an audit entry (source 'rule') and a toast. Same trust as terminal input: a local process that can already
 // drive termdeck could also create a rule — keep the loopback bind / token.
 const RULES_FILE = path.join(os.homedir(), '.termdeck', 'approval-rules.json');
-const RECENT_REQ_MS = 10 * 60 * 1000, MAX_RULES = 100;
+const RECENT_REQ_MS = 10 * 60 * 1000, MAX_RULES = 100, MAX_HELD = 5;   // MAX_HELD: requests held per terminal (#286); more fall back to the CLI's own prompt
 const validRule = (r) => r && typeof r.id === 'string' && r.tool === 'Bash' && typeof r.agent === 'string' && (r.mode === 'exact' || r.mode === 'prefix')
   && typeof r.pattern === 'string' && r.pattern && typeof r.dir === 'string' && path.isAbsolute(r.dir);
 
@@ -75,7 +75,7 @@ module.exports = function agentApi({ apiGuard, hasAuthCookie, secret, live, logD
     catch (e) { console.error(`  TD_NOTIFY_URL ignored: ${e.message}`); return () => {}; }
   })();
   let snoozeUntil = 0;   // #284: the browser's notification snooze, so the webhook pauses too; lost on restart = notifies as before
-  const pendingApprovals = new Map();   // terminal id -> { reqId, res, ev, timer }
+  const pendingApprovals = new Map();   // terminal id -> Map(reqId -> { reqId, res, ev, timer }): several per terminal, e.g. parallel sub-agents (#286)
   const approvalAudit = [];             // newest last, capped; also appended to TD_LOG_DIR/approvals.jsonl when set
   function recordApproval(entry) {
     if (typeof entry.detail === 'string') entry = { ...entry, detail: redact(entry.detail) };
@@ -87,13 +87,23 @@ module.exports = function agentApi({ apiGuard, hasAuthCookie, secret, live, logD
       fs.appendFileSync(f, JSON.stringify(entry) + '\n', { mode: 0o600 });
     } catch {}
   }
-  function settleApproval(id, decision, source, answered) {   // decision: 'allow' | 'deny' | null (= no decision, CLI asks as usual); answered: { answers, chosen } for a question (#280)
-    const p = pendingApprovals.get(id); if (!p) return false;
-    pendingApprovals.delete(id); clearTimeout(p.timer);
+  function settleOne(id, p, decision, source, answered) {
+    const m = pendingApprovals.get(id); m?.delete(p.reqId); if (m && !m.size) pendingApprovals.delete(id);
+    clearTimeout(p.timer);
     recordApproval({ ts: Date.now(), id, agent: p.ev.agent, tool: p.ev.tool, detail: p.ev.detail, files: p.ev.files, cwd: p.ev.cwd, decision, source, ...(answered ? { answer: answered.chosen } : {}) });
     if (!p.res.writableEnded) { if (decision) p.res.json({ decision, ...(answered ? { answers: answered.answers } : {}) }); else p.res.status(204).end(); }
     const s = live.get(id); if (s?.ws) send(s.ws, { type: 'approval', reqId: p.reqId, done: true, decision, source });
-    return true;
+  }
+  // decision: 'allow' | 'deny' | null (= no decision, CLI asks as usual); answered: { answers, chosen } for a question (#280).
+  // only: a reqId, or a predicate over the held request; omitted = every request held for this terminal (#286).
+  function settleApproval(id, decision, source, answered, only) {
+    const m = pendingApprovals.get(id); if (!m) return false;
+    let any = false;
+    for (const p of [...m.values()]) {
+      if (only !== undefined && (typeof only === 'string' ? p.reqId !== only : !only(p))) continue;
+      settleOne(id, p, decision, source, answered); any = true;
+    }
+    return any;
   }
   const recentReqs = new Map();         // reqId -> { agent, tool, command, cwd, ts }
   const rulesFile = createStore(RULES_FILE, {   // shared safely by several servers; an unreadable file is kept aside, never overwritten
@@ -151,8 +161,10 @@ module.exports = function agentApi({ apiGuard, hasAuthCookie, secret, live, logD
     if (Number.isFinite(b.tokens)) ev.tokens = b.tokens;
     if (Number.isFinite(b.cost))   ev.cost = b.cost;
     if (Number.isFinite(b.cacheTokens)) ev.cache = b.cacheTokens;   // cache reads, shown beside tokens (#85)
-    // Any event other than the request itself means the agent moved on (you answered in the terminal).
-    if (trusted && b.type !== 'permission_request') settleApproval(b.id, null, 'terminal');
+    // Any event other than the request itself means the agent moved on (you answered in the terminal) — that agent only:
+    // a sub-agent's event must not release the main agent's request, or the other way round (#286).
+    ev.sub = cap(b.sub, 64);
+    if (trusted && b.type !== 'permission_request') settleApproval(b.id, null, 'terminal', undefined, (p) => (p.ev.sub || '') === (ev.sub || ''));
     // #44 phase 2: an opt-in allow-rule answers on its own — visibly (audit entry + toast), never for a deny-list command.
     // #280: a question or plan is only ever answered by a click — it never takes the rule path below.
     const ask = trusted && b.type === 'permission_request' && b.wait === true ? cleanAsk(b.ask, ev.tool) : undefined;
@@ -164,7 +176,6 @@ module.exports = function agentApi({ apiGuard, hasAuthCookie, secret, live, logD
       const ruleSet = rulesFile.load();                              // re-read if another server changed it
       const hit = !risk && ruleSet.enabled && ruleSet.rules.find((r) => rules.matches(r, full));
       if (hit) {
-        settleApproval(b.id, null, 'superseded');
         recordApproval({ ts: now, id: b.id, agent: ev.agent, tool: ev.tool, detail: ev.detail, cwd: full.cwd, decision: 'allow', source: 'rule', ruleId: hit.id });
         if (s.ws) send(s.ws, { type: 'autoallow', tool: ev.tool, detail: ev.detail, rule: hit.pattern });
         return res.json({ decision: 'allow' });
@@ -174,18 +185,18 @@ module.exports = function agentApi({ apiGuard, hasAuthCookie, secret, live, logD
     }
     // #44: a permission request from a hook that can take a decision back (b.wait) is held open until the
     // browser answers. Only with a browser attached — otherwise nobody could click, so fall through at once.
-    const held = trusted && b.wait === true && b.type === 'permission_request' && !!s.ws;
+    const held = trusted && b.wait === true && b.type === 'permission_request' && !!s.ws && (pendingApprovals.get(b.id)?.size || 0) < MAX_HELD;
     if (held) {
-      settleApproval(b.id, null, 'superseded');
       ev.reqId = crypto.randomUUID();
       if (cmd !== null) {   // what a later "Always allow" is derived from: only a command you were actually shown
         for (const [k, r] of recentReqs) if (now - r.ts > RECENT_REQ_MS) recentReqs.delete(k);
         if (recentReqs.size >= 50) recentReqs.delete(recentReqs.keys().next().value);
         recentReqs.set(ev.reqId, { agent: ev.agent, tool: ev.tool, command: cmd, cwd: ev.cwd, ts: now });
       }
-      const p = { reqId: ev.reqId, res, ev, timer: setTimeout(() => settleApproval(b.id, null, 'timeout'), APPROVAL_HOLD_MS) };
-      pendingApprovals.set(b.id, p);
-      res.on('close', () => { if (pendingApprovals.get(b.id) === p) settleApproval(b.id, null, 'terminal'); });   // helper gone: the CLI was answered or died
+      const p = { reqId: ev.reqId, res, ev, timer: setTimeout(() => settleApproval(b.id, null, 'timeout', undefined, ev.reqId), APPROVAL_HOLD_MS) };
+      if (!pendingApprovals.has(b.id)) pendingApprovals.set(b.id, new Map());
+      pendingApprovals.get(b.id).set(ev.reqId, p);
+      res.on('close', () => { if (pendingApprovals.get(b.id)?.get(ev.reqId) === p) settleApproval(b.id, null, 'terminal', undefined, ev.reqId); });   // helper gone: the CLI was answered or died
     }
     s.agentEvt = ev;                                                // replayed to a reattaching browser
     if (Date.now() >= snoozeUntil) notify(b.id, ev, { project: path.basename(s.cwd || '') || 'termdeck', link: `${req.get('x-forwarded-proto') || req.protocol}://${req.get('host')}/#t=${encodeURIComponent(b.id)}` });
@@ -234,8 +245,8 @@ module.exports = function agentApi({ apiGuard, hasAuthCookie, secret, live, logD
     updateRules((store) => { store.enabled = req.body?.enabled === true; return true; });
     res.json(rulesFile.load());
   });
-  return { router: api, approvals: { pending: pendingApprovals, settle: settleApproval, answer(id, picks) {   // a click on a question card
-    const p = pendingApprovals.get(id), a = p && answersFrom(p.ev.ask, picks);
-    return !!a && settleApproval(id, 'allow', 'click', a);
+  return { router: api, approvals: { pending: pendingApprovals, settle: settleApproval, answer(id, picks, reqId) {   // a click on a question card
+    const p = pendingApprovals.get(id)?.get(reqId), a = p && answersFrom(p.ev.ask, picks);
+    return !!a && settleApproval(id, 'allow', 'click', a, reqId);
   } } };
 };

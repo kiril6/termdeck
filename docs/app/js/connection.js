@@ -110,12 +110,23 @@ function agentEvent(s,tab,ev){
   if(ev.type==="stop"||ev.type==="error") agentWaiting(s,tab);
   else if(ev.type==="permission_request"){
     // reqId = the hook is held open for a click (#44): the queue row offers Approve / Deny. No reqId = display-only.
-    tab.ask=ev.reqId?{reqId:ev.reqId,text:[ev.tool,ev.files?.[0]||ev.detail].filter(Boolean).join(" "),cmd:ev.detail||"",risk:ev.risk||"",cwd:ev.cwd||"",canRule:ev.tool==="Bash"&&!ev.risk&&!!ev.cwd&&!!ev.detail,ask:ev.ask||null}:null;
+    // Several requests can wait at once (parallel sub-agents, #286): tab.asks holds them all, tab.ask is the one shown.
+    if(ev.reqId){
+      const a={reqId:ev.reqId,text:(ev.sub?"sub-agent \u00b7 ":"")+[ev.tool,ev.files?.[0]||ev.detail].filter(Boolean).join(" "),cmd:ev.detail||"",risk:ev.risk||"",cwd:ev.cwd||"",canRule:ev.tool==="Bash"&&!ev.risk&&!!ev.cwd&&!!ev.detail,ask:ev.ask||null};
+      const asks=tab.asks||(tab.asks=[]), i=asks.findIndex((x)=>x.reqId===a.reqId);
+      if(i<0) asks.push(a); else{ a.ui=asks[i].ui; asks[i]=a; }   // a replay keeps the half-made answer
+    }
+    syncAsk(tab);
     agentApproval(s,tab);
   }
-  else setWaiting(s,tab,false);   // prompt/tool activity = working (also clears a red approval once you answered)
-  if(ev.type!=="permission_request") tab.ask=null;
+  else if(!tab.asks?.length) setWaiting(s,tab,false);   // prompt/tool activity = working (also clears a red approval once you answered); a request still waiting keeps it red
   updateAgentOverview();
+}
+// tab.ask = the request shown in the queue row: tab.asks[tab.askIdx] (#286).
+function syncAsk(tab){
+  const n=tab.asks?.length||0;
+  tab.askIdx=n?Math.min(tab.askIdx||0,n-1):0;
+  tab.ask=n?tab.asks[tab.askIdx]:null;
 }
 // ── Token usage (#85): what the agent itself reported, never estimated ────────────────────────────
 // The hook helper reads it from the CLI's transcript on `stop` (Claude Code, Codex): `tokens` = new input +

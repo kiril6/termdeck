@@ -890,6 +890,30 @@ test.describe('live backend', () => {
     expect(await (await plan).json()).toEqual({ decision: 'allow' });
   });
 
+  test('agent queue: two requests at once show "1 of 2" and are answered one by one (#286)', async ({ page }) => {
+    const ids = [];
+    page.on('websocket', (ws) => { const m = /[?&]id=([^&]+)/.exec(ws.url()); if (m) ids.push(decodeURIComponent(m[1])); });
+    await boot(page, '/');
+    await expect.poll(() => ids.length).toBe(1);
+    const id = ids[0];
+    const hold = (detail, sub) => page.request.post('/api/agent-events', { data: { id, type: 'permission_request', agent: 'claude', tool: 'Bash', detail, wait: true, ...(sub ? { sub } : {}) } });
+    await page.request.post('/api/agent-events', { data: { id, type: 'tool_start', agent: 'claude', tool: 'Read' } });
+    await page.locator('#agent-btn').click();
+    const first = hold('echo first'), second = hold('echo second', 'agent-1');
+    const nav = page.locator('.agent-ask-nav');
+    await expect(nav).toHaveText(/1 of 2 waiting/);
+    const shown = page.locator('.agent-row-ask');
+    await expect(shown).toHaveText('Bash echo first');
+    await nav.getByRole('button', { name: '›' }).click();
+    await expect(shown).toHaveText('sub-agent · Bash echo second');
+    await page.locator('.agent-row-btns .agent-btn.deny', { hasText: 'Deny' }).click();   // answers the one shown
+    expect(await (await second).json()).toEqual({ decision: 'deny' });
+    await expect(nav).toHaveCount(0);                                                      // one left: no counter
+    await expect(shown).toHaveText('Bash echo first');
+    await page.locator('.agent-row-btns .agent-btn.allow', { hasText: 'Approve' }).click();
+    expect(await (await first).json()).toEqual({ decision: 'allow' });
+  });
+
   test('agent queue: red → amber → working, badge follows', async ({ page, request }) => {
     const ids = [];
     page.on('websocket', (ws) => { const m = /[?&]id=([^&]+)/.exec(ws.url()); if (m) ids.push(decodeURIComponent(m[1])); });
