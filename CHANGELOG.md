@@ -2,6 +2,15 @@
 
 User-facing changes per release, newest first. Shown in the app under Help → What's new.
 
+## 1.35.0
+- **Secrets are redacted on the way out** — known secret shapes (API keys, GitHub / AWS / Slack / npm tokens, JWTs, private keys, `Authorization:` headers, `user:pass@` URLs and `NAME_TOKEN=value` lines) become `[REDACTED]` in *Save output*, session logs (`TD_LOG_DIR`), the approval audit log and the phone webhook detail. *Save output* says when it redacted something, and a separate *Save output (unredacted)…* keeps the raw text. `TD_REDACT=0` turns it off on the server. Pattern based: a best effort, not a guarantee.
+- **Several approval requests per terminal** — parallel sub-agents ask for permission at the same time. termdeck now holds up to 5 requests per terminal instead of letting the newest replace the older ones; the queue row shows *1 of N waiting* with ‹ › to step through them, and Approve / Deny / an answer applies to the one shown. A sub-agent's own events release only its own request. A 6th request is not held: the CLI shows its own prompt.
+- **Kill orphaned tmux sessions** — ⌘K → *Kill orphaned tmux sessions…* lists termdeck's tmux sessions that no window owns (and nothing is attached to) and ends the ones you confirm. Closing a window whose connection was down now also ends its tmux session instead of leaving the shell running unseen.
+- **Fixed: ⟳ Restart and waking the laptop** no longer mark a live shell dead ("opened on another device"): each tab keeps one socket, and a restart only touches tabs that actually ended.
+- **Fixed: Send to agent** now cleans the whole message, including the file path header, so a file named with a bracketed-paste escape can no longer run commands in the target shell.
+- **Fixed: opening a named pipe (FIFO) from the file tree** no longer freezes the server; only regular files are read.
+- **Gemini CLI hooks verified** — prompt, tool and stop events were captured from a real Gemini CLI 0.63.0 turn and are replayed in CI; the resume flags of Codex, Gemini, Copilot and Antigravity were checked too. Gemini's interactive notification event is still unverified.
+
 ## 1.34.0
 - **Snooze notifications** — ⌘K → *Snooze notifications* for 30 min, 1 h or until you turn them back on. While snoozed, the *Done*, *Waiting on you*, *Needs approval* and *Still working* toasts, native notifications and the phone webhook (`TD_NOTIFY_URL`) pause. The agent queue, dots and LEDs keep working, and approvals are still held. A struck bell in the header shows the time left; click it to resume. Ending the snooze shows what you missed. It survives a reload.
 
