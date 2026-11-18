@@ -48,6 +48,7 @@
     "scripts/layouts-api.js",
     "scripts/notify.js",
     "scripts/open-browser.js",
+    "scripts/redact.js",
     "scripts/sessions-api.js",
     "scripts/sessions.js",
     "scripts/td-hook.js",

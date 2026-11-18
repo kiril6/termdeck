@@ -7,6 +7,7 @@ const path = require('path');
 const url = require('url');
 const { execFile, execFileSync } = require('child_process');
 const access = require('./access');
+const { redact } = require('./redact');
 
 const isWindows = os.platform() === 'win32';
 function positiveEnvNumber(name, fallback) {
@@ -225,7 +226,7 @@ function createSessions({ pty, live, approvals, secret, home, logDir, safeDir })
       const stamp = new Date().toISOString().replace(/[:.]/g, '-');
       const file  = path.join(logDir, `${stamp}_${String(id).replace(/[^\w.-]/g, '_').slice(0, 60)}.log`);
       const head  = `# termdeck session ${id} · ${sess.shellName} · cwd ${sess.cwd} · exit ${code} · ended ${new Date().toISOString()}\n\n`;
-      fs.writeFileSync(file, head + tail(sess).replace(ANSI_RE, '').replace(/\r\n?/g, '\n'), { mode: 0o600 });
+      fs.writeFileSync(file, redact(head + tail(sess).replace(ANSI_RE, '').replace(/\r\n?/g, '\n')), { mode: 0o600 });
     } catch (e) { console.error('  [log] save failed:', e.message); }
   }
 

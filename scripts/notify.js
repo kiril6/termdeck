@@ -2,6 +2,7 @@
 // Unset TD_NOTIFY_URL = no network calls at all.
 const http = require('http');
 const https = require('https');
+const { redact } = require('./redact');
 
 const DEFAULT_EVENTS = ['permission_request'];
 const THROTTLE_MS = 60_000;
@@ -30,7 +31,7 @@ function createNotifier(cfg, { warn = console.error } = {}) {
     if (last.size > 500) for (const [k, t] of last) if (now - t > THROTTLE_MS) last.delete(k);
     const body = JSON.stringify({
       event: ev.type, project, session: ev.session, tool: ev.tool,
-      ...(cfg.detail && ev.detail ? { detail: ev.detail } : {}), url: link,
+      ...(cfg.detail && ev.detail ? { detail: redact(ev.detail) } : {}), url: link,
     });
     // Title/Click are ntfy conveniences (tap opens termdeck); other receivers ignore them.
     const req = (cfg.url.protocol === 'https:' ? https : http).request(cfg.url, {
